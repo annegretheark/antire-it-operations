@@ -1,0 +1,6 @@
+https://github.com/annegretheark/antire-it-operations
+build-check/
+bin/
+obj/
+node_modules/
+*.zip

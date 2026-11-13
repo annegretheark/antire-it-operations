@@ -1,0 +1,202 @@
+
+.helpdesk {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+}
+
+.helpdesk h2 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.helpdesk h3 {
+  font-size: 18px;
+  margin: 0 0 16px;
+}
+
+.helpdesk-card {
+  background: white;
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.helpdesk-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.helpdesk-form label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.helpdesk-form select,
+.helpdesk-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.helpdesk-form textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.helpdesk-form button {
+  align-self: flex-start;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.helpdesk-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.helpdesk-ticket {
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.helpdesk-ticket:last-child {
+  border-bottom: none;
+}
+
+.helpdesk-ticket h4 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.helpdesk-ticket p {
+  font-size: 14px;
+  margin: 4px 0;
+}
+/* Venstrejuster innholdet i Helpdesk */
+.helpdesk {
+  text-align: left;
+}
+
+/* Skjema */
+.helpdesk-form {
+  text-align: left;
+}
+
+/* Registrerte saker */
+.helpdesk-ticket {
+  text-align: left;
+}
+
+.helpdesk-ticket p {
+  font-size: 14px;
+  font-weight: normal;
+  line-height: 1.5;
+}
+
+/* Overskrifter */
+.helpdesk h2,
+.helpdesk h3,
+.helpdesk h4 {
+  text-align: left;
+}
+/* Kompakt saksliste */
+.helpdesk-ticket {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.helpdesk-ticket h4 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.helpdesk-ticket p {
+  font-size: 14px;
+  font-weight: normal;
+  margin: 4px 0;
+  line-height: 1.5;
+}
+
+.helpdesk-ticket:last-child {
+  border-bottom: none;
+}
+/* Farger på prioritet */
+.ticket-priority select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.ticket-priority select.priority-lav {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ticket-priority select.priority-normal {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.ticket-priority select.priority-hoy {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.ticket-priority select.priority-kritisk {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+/* Dashboard */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.dashboard-stat {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+
+.dashboard-stat h4 {
+  font-size: 13px;
+  color: #475569;
+  margin: 0 0 12px;
+}
+
+.dashboard-stat strong {
+  font-size: 32px;
+  color: #172b4d;
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
