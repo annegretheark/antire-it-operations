@@ -1,27 +1,49 @@
-# Fra helpdesk til MSP-plattform: analyse og utvidelsesplan
+# Utvidelsesplan: fra helpdesk til IT-driftsplattform
 
 | | |
 |---|---|
-| Status | Utkast v0.1 (2026-11-16) |
-| Utgangspunkt | `main` @ `a33d4ac` (helpdesk + fase 0-rettinger) |
-| Prinsipp | Helpdesken er fundamentet. Vi bygger videre på eksisterende modeller, kontrollere, tjenester og skjermbilder. Ingen ny arkitektur fra bunnen av. |
-| Forhold til andre dokumenter | `TARGET_ARCHITECTURE.md` og de andre arkitekturdokumentene beskriver et langsiktig mål. **Dette dokumentet styrer rekkefølgen og måten vi bygger på.** Der de er uenige, gjelder dette dokumentet: vi beholder én .NET-backend, én `AppDbContext`, `int`-nøkler og dagens kontrollerstil. |
+| Status | v0.2 (2026-11-16): skrevet om fra MSP-modell til én organisasjon med egne tenanter |
+| Utgangspunkt | `main` @ `2208729` |
+| Prinsipp | Helpdesken er fundamentet. Vi bygger videre på eksisterende modeller, kontrollere, tjenester og skjermbilder, uten ny arkitektur fra bunnen av. |
+| Forhold til andre dokumenter | Dette dokumentet er **hovedplanen**. `TARGET_ARCHITECTURE.md`, `DATABASE_DESIGN.md`, `GRAPH_API_INTEGRATIONS.md`, `AZURE_INTEGRATIONS.md` og `DEVELOPMENT_ROADMAP.md` ble skrevet for en MSP-modell med mange kunder. De brukes bare som teknisk referanse for Graph-endepunkter, Azure-API-er og sikkerhetssjekker. Se merknaden øverst i hvert av dem. |
 
 ---
 
-## 1. Dagens løsning
+## 1. Produktmodell
 
-### 1.1 Teknisk oppbygging
+**Løsningen er et produkt som én organisasjon kjører selv.** Antire drifter ikke IT for andre. Andre organisasjoner kan kjøpe løsningen og kjøre den i sitt eget miljø.
+
+| Prinsipp | Betydning |
+|---|---|
+| **Én organisasjon per installasjon** | Ingen kundeorganisasjoner, ingen kundevelger, ingen Lighthouse eller GDAP |
+| **Organisasjonens egne tenanter** | Én installasjon kan brukes i flere av organisasjonens egne Entra-tenanter, f.eks. **test** og **prod** |
+| **Tenant følger innloggingen** | Du jobber i den tenanten du logger inn i (`tid`-claimet). For å bytte tenant logger du inn med kontoen i den andre tenanten. |
+| **Data adskilt per tenant** | Saker, ansatte, bestillinger og konfigurasjon i én tenant er aldri synlige fra en annen |
+| **Tillatte tenanter i oppsettet** | `Tenants:Allowed` i `appsettings.json`; andre tenanter avvises |
+
+### 1.1 Tenanter i utviklingen nå
+
+| Tenant | Bruk |
+|---|---|
+| `3af5c92b-…` (agkservicesknutsenhotmail) | **Utvikling.** Appregistreringene ligger her, og dette er den eneste tillatte tenanten nå. |
+| `94f56205-…` (Antire) | Mulig produksjon senere. **Røres ikke** før utviklingen er ferdig. |
+
+---
+
+## 2. Dagens løsning
+
+### 2.1 Teknisk oppbygging
 
 | Lag | Teknologi | Merknad |
 |---|---|---|
-| Frontend | React 19 + Vite + TypeScript, MSAL React | Én side (`App.tsx`) med meny og `activePage`-tilstand, uten ruter-bibliotek. Komponentene `Helpdesk`, `AccessRequests` og `Employees`. API-URL er hardkodet til `http://localhost:5086`. |
-| Backend | ASP.NET Core (.NET 10), kontrollere | `Program.cs` registrerer EF Core (PostgreSQL), Microsoft.Identity.Web (JWT), tilgangsregler og tjenester |
-| Database | PostgreSQL via EF Core-migreringer | 14 migreringer, tabeller i `public` med PascalCase-navn |
-| Identitet | Entra ID, én tenant (`3af5c92b-…`) | SPA-app `73962775-…` og API-app `e33710da-…` (*Antire IT Operations API - Dev*) med app-rollene `Helpdesk.Admin` og `EmployeeSync.Admin` |
-| Graph | `GraphService` (singleton, klienthemmelighet) | Leser brukere (med paging) og gruppemedlemskap |
+| Frontend | React 19 + Vite + TypeScript, MSAL React | Én side (`App.tsx`) med meny og `activePage`. Felles `apiClient.ts` (`VITE_API_URL`), `useCurrentUser` for roller og tenant. Innlogging styres av `VITE_AUTHORITY`. |
+| Backend | ASP.NET Core (.NET 10), kontrollere | EF Core (PostgreSQL), Microsoft.Identity.Web, tilgangsregler i `AuthPolicies.cs`, tenant-kontekst i `TenantContext.cs` |
+| Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
+| Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
+| Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
+| Tester | xUnit + WebApplicationFactory | 41 tester for tilgang og tenant; ingen databasetester ennå (Docker mangler) |
 
-### 1.2 Datamodell
+### 2.2 Datamodell
 
 ```mermaid
 erDiagram
@@ -33,8 +55,9 @@ erDiagram
 
     Employees {
         int Id
-        string EntraObjectId "unik"
-        string EmployeeNumber "unik, fra employee_number_seq"
+        string TenantId
+        string EntraObjectId "unik per tenant"
+        string EmployeeNumber "unik per tenant"
         string FirstName
         string LastName
         string Email
@@ -46,266 +69,218 @@ erDiagram
     }
     Tickets {
         int Id
-        string Category "Feil | Tilgangsbestilling | Bestilling av utstyr | Annet"
+        string TenantId
+        string Category
         string Description
         string Status "Ny | Under behandling | Løst"
         string Priority "Lav | Normal | Høy | Kritisk"
+        int AssignedToEmployeeId
         datetime CreatedAt
     }
     EmployeeResponsibilities {
         int Id
+        string TenantId
         int EmployeeId
         string Category
         bool CanBeAssigned
     }
     TicketCategoryGroups {
         int Id
+        string TenantId
         string Category
         string EntraGroupId
     }
     AccessRequests {
         int Id
+        string TenantId
         string EmployeeName "fritekst"
         string SystemName "fritekst"
         string Reason
         string ManagerName "fritekst"
-        string Status "Venter på godkjenning | Godkjent | Avslått | Fullført"
-        datetime CreatedAt
-        datetime ApprovedAt
+        string Status
     }
 ```
 
-### 1.3 API-oversikt
+### 2.3 API
 
 | Kontroller | Endepunkter | Tilgang |
 |---|---|---|
-| `TicketsController` | `GET /api/tickets` (admin ser alle, andre bare egne), `POST`, `PATCH {id}/status`, `{id}/priority`, `{id}/assign`, `GET me` | Innlogget; endringer krever `Helpdesk.Admin` |
-| `EmployeesController` | `GET`, `POST`, `PUT {id}`, `PATCH {id}/terminate` | Lesing for alle innloggede; endringer krever `EmployeeSync.Admin` |
-| `AccessRequestsController` | `GET`, `POST`, `PATCH {id}/approval`, `PATCH {id}/complete` | Godkjenning og fullføring krever `Helpdesk.Admin` |
+| `TicketsController` | `GET /api/tickets` (admin ser alle i tenanten, andre bare egne), `POST`, `PATCH {id}/status`, `{id}/priority`, `{id}/assign`, `GET me` (roller og tenant) | Endringer krever `Helpdesk.Admin` |
+| `EmployeesController` | `GET`, `POST`, `PUT {id}`, `PATCH {id}/terminate` | Endringer krever `EmployeeSync.Admin` |
+| `AccessRequestsController` | `GET`, `POST`, `PATCH {id}/approval`, `PATCH {id}/complete` | Godkjenning krever `Helpdesk.Admin` |
 | `GraphController` | `GET employees`, `POST sync-employees`, `GET employees/{oid}/groups` | `EmployeeSync.Admin` |
 | `TicketCategoryGroupsController` | `GET`, `POST`, `DELETE {id}` | `Helpdesk.Admin` |
-| `WeatherForecastController` | Rest fra malen | Kan fjernes |
 
-### 1.4 Arbeidsflyter
+Alle endepunkter krever innlogging fra en tillatt tenant.
 
-| Flyt | Slik fungerer den i dag |
+### 2.4 Arbeidsflyter
+
+| Flyt | Slik fungerer den |
 |---|---|
-| **Sak** | En bruker oppretter en sak med kategori og beskrivelse. `TicketAssignmentService` finner en aktiv ansatt med ansvarsområde for kategorien som også er medlem av en godkjent Entra-gruppe (`checkMemberGroups`), og tildeler saken. Admin endrer status, prioritet og ansvarlig. |
-| **Tilgangsbestilling** | En bruker fyller ut ansatt, system, begrunnelse og leder (alt fritekst). Admin godkjenner eller avslår, og IT markerer som fullført. Ingen kobling til sak, ansatt eller Entra-gruppe, og selve tildelingen av tilgang gjøres manuelt. |
-| **Ansatte** | «Synkroniser fra Entra» henter brukere med avdeling og stilling, kobler dem på `EntraObjectId` eller e-post, og tildeler ansattnummer. Sluttdato registreres manuelt. |
-| **Dashboard** | Teller nye, pågående, løste og kritiske åpne saker. |
+| **Sak** | Brukeren oppretter en sak med kategori og beskrivelse. `TicketAssignmentService` finner en aktiv ansatt med ansvarsområde for kategorien som er medlem av en godkjent Entra-gruppe, og tildeler saken. Admin endrer status, prioritet og ansvarlig (nedtrekksliste). |
+| **Tilgangsbestilling** | Fritekst (ansatt, system, begrunnelse, leder). Admin godkjenner eller avslår, og IT markerer som fullført. Ingen kobling til ansatt, gruppe eller sak. |
+| **Ansatte** | «Synkroniser fra Entra» henter brukere med avdeling og stilling fra innlogget tenant og tildeler ansattnummer. Sluttdato registreres manuelt. |
+| **Dashboard** | Teller nye, pågående, løste og kritiske åpne saker i tenanten |
 
-### 1.5 Svakheter som påvirker utvidelsen
+### 2.5 Gjenstående svakheter
 
-| Svakhet | Konsekvens for MSP |
+| Svakhet | Tas i |
 |---|---|
-| Ingen kunde-dimensjon | Alt må få et kundebegrep før noe annet |
-| Status, prioritet og kategori er norske strenger brukt som nøkler | SLA og rapportering blir skjøre. Bør ryddes når SLA innføres. |
-| Ansvarsområder (`EmployeeResponsibilities`) og kategorigrupper (`TicketCategoryGroups`) har ikke noe skjermbilde | Konfigurasjon gjøres i databasen |
-| Tilgangsbestillinger er fritekst | Kan ikke automatiseres eller knyttes til kunde eller tjeneste |
-| Ingen revisjonslogg | Kreves for MSP-drift og kundetillit |
-| Graph er knyttet til én tenant og bruker klienthemmelighet | Må kunne velge kunde-tenant |
-| Hardkodede URL-er i frontend | Hindrer utrulling i Azure |
-| Ingen tester | Høyere risiko ved hver utvidelse |
+| Status og prioritet er norske strenger brukt som nøkler | 0.6 (sammen med SLA) |
+| Ansvarsområder og kategorigrupper har ikke noe skjermbilde | 1.3 |
+| Tilgangsbestillinger er fritekst | 1.3 og 2.4 |
+| Ingen revisjonslogg | 1.2 |
+| Graph bruker klienthemmelighet | 2.1 |
+| Ingen databasetester (tenant-filteret er bare testet via tilgang) | 0.10b |
+| `WeatherForecastController`; feil linje i `.gitignore` | 0.9 |
 
 ---
 
-## 2. Utvidelsespunkter
-
-Dette er stedene i koden der MSP-funksjonaliteten kobles inn. Hver utvidelse i fase 1–3 bruker disse i stedet for å lage nye strukturer.
+## 3. Utvidelsespunkter
 
 | # | Utvidelsespunkt | Fil | Brukes til |
 |---|---|---|---|
-| U1 | `AppDbContext` | `backend/Data/AppDbContext.cs` | Nye entiteter; **globalt kundefilter** (`HasQueryFilter`) på kundeeide tabeller; revisjons-interceptor |
-| U2 | Tilgangsregler | `backend/Services/AuthPolicies.cs`, `Program.cs` | Nye roller (`Helpdesk.Agent`, `Customer.Admin` …) og kundebaserte regler |
-| U3 | Innlogget bruker | `TicketsController.GetCallerEmployeeIdAsync`, `GET /api/tickets/me` | Trekkes ut til en `CurrentUserService` som også gir hvilke kunder brukeren har tilgang til |
-| U4 | Sakstildeling | `backend/Services/TicketAssignmentService.cs` | Utvides fra kategori til kunde + tjeneste, og setter SLA-frister |
-| U5 | Graph | `backend/Services/GraphService.cs` | Blir per kunde-tenant (`ForTenant(tenantId)`); nye metoder for grupper, lisenser, Secure Score, CA og Intune |
-| U6 | Synk fra Entra | `GraphController.SyncEmployees` | Gjenbrukes per kunde: brukere i kundens tenant blir personer på kunden |
-| U7 | Ansattnummer | `backend/Services/EmployeeNumberService.cs` | Uendret; gjelder alle personer |
-| U8 | Kategorier | Hardkodet liste i `Helpdesk.tsx`, `Ticket.Category` | Erstattes av tjenestekatalogen; `Category` beholdes for bakoverkompatibilitet |
-| U9 | Meny og sider | `frontend/src/App.tsx` (`menu`, `activePage`) | Plassholderne **IT-utstyr** og **Innstillinger** tas i bruk; nye sider for Kunder, M365 og Azure |
-| U10 | Roller i frontend | `frontend/src/useCurrentUser.ts` | Utvides med kundeliste og valgt kunde (kundevelger i toppfeltet) |
-| U11 | Migreringer | `backend/Migrations` | Hver utvidelse er én migrering med datamigrering av eksisterende rader |
+| U1 | `AppDbContext` | `backend/Data/AppDbContext.cs` | Nye entiteter implementerer `ITenantOwned` og får tenant-filter og automatisk `TenantId`. Revisjons-interceptor (1.2). |
+| U2 | Tilgangsregler | `backend/Services/AuthPolicies.cs`, `Program.cs` | Nye app-roller (`Helpdesk.Agent` …) |
+| U3 | Tenant og bruker | `backend/Services/TenantContext.cs`, `GET /api/tickets/me` | En `CurrentUserService` (innlogget person + roller) i tillegg til tenant |
+| U4 | Sakstildeling | `backend/Services/TicketAssignmentService.cs` | Utvides med tjenestekatalog og SLA-frister |
+| U5 | Graph | `backend/Services/GraphService.cs` | Nye metoder for grupper, lisenser, Secure Score, CA og Intune, alltid i innlogget tenant |
+| U6 | Synk fra Entra | `GraphController.SyncEmployees` | Gjenbrukes for M365-brukeroversikt (2.2) |
+| U7 | Kategorier | Hardkodet liste i `Helpdesk.tsx` | Erstattes av tjenestekatalogen (1.3) |
+| U8 | Meny og sider | `frontend/src/App.tsx` | Plassholderne **IT-utstyr** og **Innstillinger** tas i bruk; nye sider for M365 og Azure |
+| U9 | Roller i frontend | `frontend/src/useCurrentUser.ts` | Nye roller vises og skjules her |
+| U10 | Migreringer | `backend/Migrations` | Én migrering per steg, med datamigrering av eksisterende rader |
 
 ---
 
-## 3. Fase 0-rest (forutsetninger)
+## 4. Status for fase 0
 
-Dette gjøres før eller sammen med første del av fase 1.
-
-| # | Arbeid | Hvorfor nå |
+| # | Arbeid | Status |
 |---|---|---|
-| 0.8 | API-URL fra `VITE_API_URL`, samlet i én `apiClient.ts` som også håndterer token | Alle nye skjermbilder bruker den. Fjerner duplisert `getAuthHeaders` i hver komponent. |
-| 0.10 | Testprosjekt (xUnit + Testcontainers PostgreSQL) med tester for tilgang og kundefilter | Kundeisolasjon må testes automatisk fra første dag |
-| 0.6 | Engelske koder for status og prioritet (`new`, `in_progress`, `resolved`; `low` … `critical`) med norske visningsnavn | Tas sammen med SLA (1.5), som er avhengig av stabile koder |
+| 0.1 | Rollesjekk på alle endepunkter | Ferdig |
+| 0.2 | Migrering for `employee_number_seq` | Ferdig |
+| 0.3 | Graph: paging, `checkMemberGroups`, singleton | Ferdig |
+| 0.5 | Ett felt for ansvarlig på saker | Ferdig |
+| 0.7 | Synk fra Entra med ansattnummer | Ferdig |
+| 0.8 | API-URL og CORS fra konfigurasjon | Ferdig |
+| 0.10a | Testprosjekt med tilgangstester | Ferdig (41 tester) |
+| T | Tenant-isolasjon (test og prod) | Ferdig |
+| 0.6 | Engelske koder for status og prioritet | Tas med SLA (1.4) |
+| 0.9 | Fjerne malrester og rydde `.gitignore` | Gjenstår |
+| 0.10b | Databasetester (Testcontainers) for tenant-filter | Gjenstår (krever Docker Desktop eller CI) |
+| 0.12–0.13 | Bicep og GitHub Actions | Gjenstår (kan vente til utrulling) |
 
 ---
 
-## 4. Fase 1: MSP-fundament
+## 5. Fase 1: Fundament for drift
 
-Rekkefølgen er valgt slik at hvert steg kan settes i drift alene, og slik at revisjonsloggen er på plass før de store dataendringene.
+### 1.1 Roller og rettigheter (RBAC)
 
-### 1.1 Kundeorganisasjoner og flere kunder
-
-**Modell (ny):**
-```csharp
-public class Customer
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = "";
-    public string ShortCode { get; set; } = "";      // unik, f.eks. "ANT"
-    public string? OrganizationNumber { get; set; }
-    public string Status { get; set; } = "active";   // onboarding | active | inactive
-    public string? EntraTenantId { get; set; }       // fylles i fase 2
-    public int? SlaPolicyId { get; set; }            // fylles i 1.5
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
-```
-
-**Endringer i eksisterende modeller:** `CustomerId` (int, påkrevd) legges til på `Employee`, `Ticket` og `AccessRequest`.
-
-- `Employee` blir dermed «person hos en kunde». Antires egne ansatte er personer hos kunden **Antire**. Teknikere er personer hos Antire med ansvarsområder.
-- `Ticket.CustomerId` settes fra innmelder. Admin kan velge kunde ved opprettelse.
-
-**Migrering:** opprett `Customers`, legg inn `Antire` (Id 1, `EntraTenantId = 3af5c92b-…`), legg til `CustomerId` med standardverdi 1 på eksisterende rader, og gjør feltet påkrevd med fremmednøkkel og indeks.
-
-**API:** `CustomersController` (`GET`, `POST`, `PUT`, `PATCH {id}/status`). `GET /api/tickets`, `/employees` og `/accessrequests` får valgfri `?customerId=`.
-
-**Frontend:** ny menyside **Kunder** (liste og skjema), og en kundevelger i toppfeltet som filtrerer Helpdesk, Ansatte og Tilgangsbestillinger.
-
-**Ferdig når:** eksisterende data ligger på kunden Antire, en ny kunde kan opprettes, og saker kan registreres og filtreres per kunde.
-
-### 1.2 Roller og rettigheter (RBAC)
-
-To nivåer, der begge gjenbruker det som finnes:
-
-1. **Hva** du kan gjøre: app-roller i Entra (finnes i dag).
+App-roller i Entra, tildelt i hver tenant:
 
 | App-rolle | Status | Kan |
 |---|---|---|
-| `Helpdesk.Admin` | finnes | Alt i helpdesk for kundene man har tilgang til, og konfigurasjon |
-| `EmployeeSync.Admin` | finnes | Synk og vedlikehold av personer |
-| `Helpdesk.Agent` | ny | Behandle saker (status, prioritet, ansvarlig), men ikke konfigurasjon |
-| `Platform.Admin` | ny | Opprette kunder, gi kundetilgang, se revisjonslogg for alle |
+| `Helpdesk.Admin` | finnes | Alt i helpdesk, konfigurasjon (kategorier, katalog, SLA) |
+| `EmployeeSync.Admin` | finnes | Synk og vedlikehold av ansatte |
+| `Helpdesk.Agent` | ny | Behandle saker (status, prioritet, ansvarlig) og tilgangsbestillinger, men ikke konfigurasjon |
+| `Approver` | ny | Godkjenne tilgangsbestillinger (erstatter midlertidig bruk av `Helpdesk.Admin`) |
+| *(ingen rolle)* | — | Melde inn og følge egne saker og bestillinger |
 
-2. **Hvilke kunder** du har tilgang til: ny tabell.
+**Endringer:**
+- `CurrentUserService` (U3) gir innlogget person og roller ett sted.
+- Tilgangsbestillinger begrenses for vanlige brukere til egne bestillinger, slik saker allerede er.
+- Rollene opprettes i app-registreringen med et skript, slik at test og prod får de samme rollene.
+
+**Ferdig når:** de nye rollene finnes i dev-tenanten og tilgangstestene dekker dem.
+
+### 1.2 Revisjonslogg (Audit Log)
+
 ```csharp
-public class CustomerAccess
-{
-    public int Id { get; set; }
-    public int EmployeeId { get; set; }   // Antire-tekniker
-    public int CustomerId { get; set; }
-    public bool AllCustomers { get; set; } // for f.eks. vakt og ledere
-}
-```
-
-**Håndheving:**
-- `CurrentUserService` (U3) slår opp innlogget bruker og hvilke kunder hen har tilgang til, én gang per forespørsel.
-- `AppDbContext` får et **globalt query filter** på `CustomerId` for kundeeide entiteter, slik at en glemt `Where` aldri lekker data.
-- Brukere uten admin- eller agent-rolle beholder dagens regel om at de bare ser egne saker.
-
-**Frontend:** `useCurrentUser` returnerer roller og kundeliste, og kundevelgeren viser bare tillatte kunder.
-
-**Ferdig når:** en automatisk test viser at en tekniker med tilgang til kunde A får 404 eller tom liste for data på kunde B.
-
-### 1.3 Revisjonslogg (Audit Log)
-
-**Modell:**
-```csharp
-public class AuditEvent
+public class AuditEvent : ITenantOwned
 {
     public long Id { get; set; }
+    public string TenantId { get; set; } = "";
     public DateTime OccurredAt { get; set; }
-    public int? CustomerId { get; set; }
-    public string ActorObjectId { get; set; } = "";  // Entra oid
+    public string ActorObjectId { get; set; } = "";
     public string ActorName { get; set; } = "";
-    public string EntityType { get; set; } = "";     // Ticket, Employee, Customer …
+    public string EntityType { get; set; } = "";   // Ticket, Employee, AccessRequest …
     public string EntityId { get; set; } = "";
-    public string Action { get; set; } = "";         // created | updated | deleted | approved | synced …
-    public string? Changes { get; set; }             // jsonb: { felt: [før, etter] }
+    public string Action { get; set; } = "";       // created | updated | deleted | approved | synced …
+    public string? Changes { get; set; }           // jsonb: { felt: [før, etter] }
 }
 ```
 
-**Mekanisme:** en `SaveChangesInterceptor` (U1) logger automatisk opprettelse, endring og sletting for entiteter merket med `IAudited`, med før- og etterverdier. Forretningshendelser som godkjenning og synk logges eksplisitt med `IAuditLogger.LogAsync(...)`. Applikasjonen har ingen endepunkter som endrer eller sletter rader i tabellen.
+**Mekanisme:**
+- En `SaveChangesInterceptor` logger opprettelse, endring og sletting automatisk for entiteter merket med `IAudited`.
+- Forretningshendelser som godkjenning og synk logges eksplisitt.
+- Det finnes ingen endepunkter som endrer eller sletter revisjonsrader.
 
-**API og frontend:** `GET /api/audit?customerId=&entityType=&entityId=` (Platform.Admin, eller Helpdesk.Admin for egne kunder). Historikk vises i hver sak, og det kommer en side for revisjonslogg under **Innstillinger**.
+**Skjermbilder:** historikk på hver sak, og en side for revisjonslogg under **Innstillinger** (`Helpdesk.Admin`).
 
-**Ferdig når:** endring av status, prioritet og ansvarlig på en sak synes i sakens historikk med hvem og når.
+**Ferdig når:** endring av status, prioritet og ansvarlig synes i sakens historikk med hvem og når.
 
-### 1.4 Tjenestekatalog
-
-Katalogen erstatter den hardkodede kategorilisten (U8) og gir struktur til tilgangsbestillinger.
+### 1.3 Tjenestekatalog
 
 ```csharp
-public class ServiceCatalogItem
+public class ServiceCatalogItem : ITenantOwned
 {
     public int Id { get; set; }
-    public int? CustomerId { get; set; }          // null = gjelder alle kunder
+    public string TenantId { get; set; } = "";
     public string Name { get; set; } = "";        // "Ny bruker", "Tilgang til system", "Bærbar PC" …
-    public string Category { get; set; } = "";    // kobler til dagens TicketCategoryGroups og ansvarsområder
+    public string Category { get; set; } = "";    // kobler til ansvarsområder og kategorigrupper
     public string? Description { get; set; }
     public string Type { get; set; } = "incident";// incident | request | access
     public string DefaultPriority { get; set; } = "normal";
     public bool RequiresApproval { get; set; }
-    public string? EntraGroupId { get; set; }     // for type=access: gruppen som gir tilgangen
+    public string? EntraGroupId { get; set; }     // type=access: gruppen som gir tilgangen
     public bool IsActive { get; set; } = true;
 }
 ```
 
-- `Ticket.ServiceCatalogItemId` (valgfri). `Ticket.Category` settes fra katalogen, slik at `TicketAssignmentService` virker uendret.
-- `AccessRequest.ServiceCatalogItemId` erstatter fritekst-`SystemName` for nye bestillinger. Fritekstfeltet beholdes for gamle rader.
-- Startinnhold: dagens fire kategorier blir katalogelementer.
-- Skjermbilde under **Innstillinger → Tjenestekatalog**, med de manglende skjermbildene for ansvarsområder og kategorigrupper.
+- `Ticket.ServiceCatalogItemId` er valgfri. `Ticket.Category` settes fra katalogen, så automatisk tildeling virker uendret.
+- `AccessRequest.ServiceCatalogItemId` erstatter fritekst-`SystemName` for nye bestillinger.
+- Startinnhold: dagens fire kategorier.
+- Under **Innstillinger** kommer skjermbilder for tjenestekatalog, ansvarsområder og kategorigrupper. De to siste mangler i dag.
 
-**Ferdig når:** Helpdesk viser katalogen for valgt kunde, og automatisk tildeling virker som før.
+**Ferdig når:** Helpdesk viser katalogen, og automatisk tildeling virker som før.
 
-### 1.5 SLA-håndtering
+### 1.4 SLA-håndtering (+ 0.6 engelske koder)
 
 ```csharp
-public class SlaPolicy
+public class SlaTarget : ITenantOwned
 {
     public int Id { get; set; }
-    public string Name { get; set; } = "";               // "Standard", "Premium"
-    public string BusinessHoursJson { get; set; } = "";  // f.eks. man–fre 08–16, Europe/Oslo
-    public List<SlaTarget> Targets { get; set; } = new();
-}
-public class SlaTarget
-{
-    public int Id { get; set; }
-    public int SlaPolicyId { get; set; }
+    public string TenantId { get; set; } = "";
     public string Priority { get; set; } = "";       // low | normal | high | critical
     public int ResponseMinutes { get; set; }
     public int ResolutionMinutes { get; set; }
-    public bool TwentyFourSeven { get; set; }        // kritisk kan gå døgnet rundt
+    public bool TwentyFourSeven { get; set; }        // f.eks. kritisk døgnet rundt
 }
 ```
 
 **Nye felter på `Ticket`:** `ResponseDueAt`, `ResolutionDueAt`, `FirstRespondedAt`, `ResolvedAt`.
 
 **Regler:**
-- Fristene beregnes ved opprettelse og ved endring av prioritet, fra kundens SLA-policy med arbeidstid og helligdager. Beregningen ligger i en ny `SlaCalculator`-tjeneste med enhetstester.
-- `FirstRespondedAt` settes første gang en tekniker endrer status eller ansvarlig.
-- `ResolvedAt` settes når status blir løst, og nullstilles hvis saken gjenåpnes.
-- En `BackgroundService` sjekker hvert 5. minutt og logger brudd og fare for brudd. Varsling på e-post eller Teams kommer senere.
+- Fristene beregnes ved opprettelse og ved endring av prioritet. `SlaCalculator` tar hensyn til arbeidstid og norske helligdager og har enhetstester.
+- `FirstRespondedAt` settes første gang en agent endrer status eller ansvarlig. `ResolvedAt` settes ved løst og nullstilles ved gjenåpning.
+- En bakgrunnsjobb markerer brudd og fare for brudd.
+- Status og prioritet går over til engelske koder (`new`, `in_progress`, `resolved`; `low` … `critical`) med norske visningsnavn.
 
-**Frontend:** frist og SLA-status (grønn, gul, rød) per sak, filter for «SLA i fare», og dashboard-kortene «Brudd» og «I fare» per kunde.
+**Skjermbilder:** frist og SLA-status per sak, filteret «SLA i fare», og dashboardkortene «Brudd» og «I fare».
 
-**Avhengighet:** 0.6 (engelske koder) gjøres i samme leveranse.
+**Ferdig når:** en kritisk sak får riktig frist, og brudd vises i dashboard.
 
-**Ferdig når:** en kritisk sak hos en kunde med Premium-SLA får riktig frist, og brudd vises i dashboard.
+### 1.5 IT-utstyr
 
-### 1.6 IT-utstyr og ressursoversikt
-
-Tar i bruk menyplassholderen **IT-utstyr** (U9).
+Tar i bruk menyplassholderen **IT-utstyr**.
 
 ```csharp
-public class Asset
+public class Asset : ITenantOwned
 {
     public int Id { get; set; }
-    public int CustomerId { get; set; }
-    public string AssetTag { get; set; } = "";       // unik per kunde
-    public string Type { get; set; } = "";           // laptop | desktop | mobile | monitor | license | other
+    public string TenantId { get; set; } = "";
+    public string AssetTag { get; set; } = "";       // unik per tenant
+    public string Type { get; set; } = "";           // laptop | desktop | mobile | monitor | other
     public string? Manufacturer { get; set; }
     public string? Model { get; set; }
     public string? SerialNumber { get; set; }
@@ -319,74 +294,68 @@ public class Asset
 }
 ```
 
-- `Ticket.AssetId` (valgfri): en sak kan gjelde et utstyr.
-- Katalogelementet «Bestilling av utstyr» kan fullføres ved å tildele et `Asset` på lager.
-- Ved offboarding (sluttdato) vises utstyret personen har, som en sjekkliste.
-- Skjermbilde med liste, filter per kunde, status og person, detaljside med sakshistorikk, og CSV-import for førstegangsregistrering.
+- `Ticket.AssetId` er valgfri, slik at en sak kan gjelde et utstyr.
+- Ved sluttdato vises personens utstyr som sjekkliste for innlevering.
+- Skjermbilder: liste med filter, detaljside med sakshistorikk, og CSV-import.
 
-**Ferdig når:** utstyr kan registreres og tildeles personer hos en kunde, og vises på personens side og i saken.
+**Ferdig når:** utstyr kan registreres og tildeles ansatte, og vises på ansatt og sak.
 
 ---
 
-## 5. Fase 2: Microsoft 365
-
-Fase 2 utvider `GraphService` (U5) og synken (U6) fra én tenant til kundens tenant.
+## 6. Fase 2: Microsoft 365 (innlogget tenant)
 
 | # | Leveranse | Bygger på | Innhold |
 |---|---|---|---|
-| 2.1 | **Innlogging med Entra ID** | Finnes (MSAL + JWT) | API-appen gjøres multi-tenant for Graph-tilgang. Antire-teknikere logger fortsatt inn i Antire-tenanten. `Customer.EntraTenantId` settes når kunden har gitt admin-samtykke. |
-| 2.2 | **Graph-integrasjon per kunde** | `GraphService` | `GraphService.ForTenant(tenantId)` med bufrede klienter per tenant. Onboardingsiden på kunden lager lenke for admin-samtykke og viser tilkoblingsstatus. Klienthemmeligheten erstattes etter hvert av sertifikat eller managed identity med federert legitimasjon. |
-| 2.3 | **Brukeroversikt** | `SyncEmployees` | Synk per kunde, med filter på avdeling og stilling som valg per kunde. Viser i tillegg kontostatus, siste pålogging, MFA-registrering og lisenser per person. |
-| 2.4 | **Gruppeoversikt** | `GetUserGroupIdsAsync`, `TicketCategoryGroups` | Grupper med medlemmer per kunde. Tilgangsbestillinger av typen `access` (1.4) kan legge brukeren til i gruppen etter godkjenning, med revisjonslogg (1.3). |
-| 2.5 | **Lisensoversikt** | — | `subscribedSkus` (kjøpt og brukt) og lisenser per bruker. Markerer ubrukte lisenser på deaktiverte eller inaktive brukere. |
-| 2.6 | **Secure Score** | — | Daglig øyeblikksbilde lagret per kunde for trend, med de viktigste anbefalingene. |
-| 2.7 | **Conditional Access-oversikt** | — | Liste over CA-policyer med tilstand. Enkle sjekker: MFA for alle, blokkering av eldre autentisering, unntak for nødtilgangskontoer. |
-| 2.8 | **Intune-status** | `Asset` (1.6) | Administrerte enheter synkes inn i `Assets` med `Source = intune`, med etterlevelse, OS-versjon, siste synk og kryptering. Ikke-etterlevende enheter kan gi automatisk sak. |
+| 2.1 | **Innlogging og tilkobling** | Finnes | Klienthemmeligheten byttes til sertifikat (eller managed identity i Azure). Når en ny tenant (prod) tas i bruk, settes app-registreringene til flere organisasjoner, det gis admin-samtykke der, og tenanten legges i `Tenants:Allowed`. |
+| 2.2 | **Brukeroversikt** | `SyncEmployees` | Alle brukere, også uten avdeling og stilling: kontostatus, siste pålogging, MFA-registrering og lisenser |
+| 2.3 | **Gruppeoversikt** | `GetUserGroupIdsAsync` | Grupper og medlemmer |
+| 2.4 | **Tilgang via gruppe** | 1.3 og 1.2 | Godkjent tilgangsbestilling av typen `access` legger brukeren i Entra-gruppen automatisk, med revisjonslogg |
+| 2.5 | **Lisensoversikt** | — | Kjøpte og brukte lisenser (`subscribedSkus`) og lisenser per bruker; markerer ubrukte lisenser på deaktiverte eller inaktive brukere |
+| 2.6 | **Secure Score** | — | Daglig øyeblikksbilde for trend, og de viktigste anbefalingene |
+| 2.7 | **Conditional Access** | — | Policyer med tilstand og enkle sjekker: MFA for alle, eldre autentisering blokkert, nødtilgangskontoer unntatt |
+| 2.8 | **Intune-status** | `Asset` (1.5) | Enheter synkes inn i IT-utstyr (`Source = intune`) med etterlevelse, OS, siste synk og kryptering. Ikke-etterlevende enheter kan gi automatisk sak. |
 
-**Nye Graph-rettigheter (applikasjon, per kunde):** `User.Read.All`, `GroupMember.Read.All`, `AuditLog.Read.All` (siste pålogging), `Reports.Read.All` (MFA), `Organization.Read.All` (lisenser), `SecurityEvents.Read.All` (Secure Score), `Policy.Read.All` (CA), `DeviceManagementManagedDevices.Read.All` (Intune). Skrivetilgang (`GroupMember.ReadWrite.All`) legges til først når 2.4 skal kunne tildele tilgang.
+**Graph-rettigheter (applikasjon), gitt med admin-samtykke i hver tenant:** `User.Read.All`, `GroupMember.Read.All`, `AuditLog.Read.All`, `Reports.Read.All`, `Organization.Read.All`, `SecurityEvents.Read.All`, `Policy.Read.All`, `DeviceManagementManagedDevices.Read.All`. Skrivetilgangen `GroupMember.ReadWrite.All` legges til først ved 2.4.
 
-**Nye tabeller:** `CustomerTenants` hvis en kunde har flere tenanter (ellers holder `Customer.EntraTenantId`), `SecureScoreSnapshots`, og `M365License`/`M365LicenseAssignment` for 2.5. Grupper og CA hentes direkte fra Graph med kort cache. De lagres ikke før det er behov for historikk.
+**Lagring:** grupper og CA hentes direkte fra Graph med kort cache. Bare det som trenger historikk lagres: Secure Score-trend, lisensforbruk og Intune-enheter i IT-utstyr. Nye tabeller implementerer `ITenantOwned`.
 
-Detaljer om endepunkter, struping (throttling) og paging finnes i `GRAPH_API_INTEGRATIONS.md`.
+Detaljer om endepunkter, paging og struping (throttling) finnes i `GRAPH_API_INTEGRATIONS.md` (kapittel 3–6).
 
 ---
 
-## 6. Fase 3: Azure
+## 7. Fase 3: Azure (innlogget tenant)
 
 | # | Leveranse | Innhold |
 |---|---|---|
-| 3.1 | **Azure tenant-onboarding** | Fra kundesiden: Azure Lighthouse-mal (ARM/Bicep) som kunden ruller ut, eller Reader-rolle til plattformens app i kundens abonnement. Status lagres på kunden. |
-| 3.2 | **Abonnementsoversikt** | Ny tabell `AzureSubscriptions` (CustomerId, SubscriptionId, navn, tilstand, sist sett), synket med ARM. Skjermbilde per kunde. |
-| 3.3 | **Ressursoversikt** | Resource Graph-spørring på tvers av kundens abonnementer: type, navn, region, ressursgruppe og tagger, med filter og søk. Lagres ikke i første versjon. |
+| 3.1 | **Tilkobling** | Appens tjenestekonto (service principal) i tenanten får rollen **Reader** på abonnementene som skal vises, med en enkel veiledning eller et skript. Ingen Lighthouse. |
+| 3.2 | **Abonnementsoversikt** | Ny tabell `AzureSubscriptions` (`ITenantOwned`) synket med ARM: navn, tilstand og sist sett |
+| 3.3 | **Ressursoversikt** | Resource Graph-spørring på tvers av abonnementene: type, navn, region, ressursgruppe og tagger, med filter og søk. Lagres ikke i første versjon. |
 
-Kostnader, Defender for Cloud og overvåking er ikke med i briefen og er derfor utsatt. De er beskrevet i `AZURE_INTEGRATIONS.md`.
+Kostnader, Defender for Cloud og overvåking kan komme senere. Detaljene er beskrevet i `AZURE_INTEGRATIONS.md` (del A, kapittel 2), men der må «Lighthouse» leses som «Reader-rolle til appen i egen tenant».
 
 ---
 
-## 7. Gjennomføring
+## 8. Gjennomføring
 
 | Steg | Innhold | Estimat (1–2 utviklere) |
 |---|---|---|
-| A | 0.8 API-klient og konfig + 0.10 testprosjekt | 1 uke |
-| B | 1.1 Kunder | 1–1,5 uker |
-| C | 1.3 Revisjonslogg | 1 uke |
-| D | 1.2 RBAC med kundetilgang og query filter | 1,5 uker |
-| E | 1.4 Tjenestekatalog + skjermbilder for ansvarsområder og kategorigrupper | 1,5 uker |
-| F | 0.6 Engelske koder + 1.5 SLA | 2 uker |
-| G | 1.6 IT-utstyr | 1,5 uker |
-| H | Fase 2 (2.1–2.8) | 6–8 uker |
-| I | Fase 3 (3.1–3.3) | 3–4 uker |
+| A | Felles API-klient, CORS og testprosjekt | Ferdig |
+| T | Tenant-isolasjon | Ferdig |
+| B | 0.9 opprydding + 1.1 RBAC | 1 uke |
+| C | 1.2 Revisjonslogg | 1 uke |
+| D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | 1,5 uker |
+| E | 0.6 Engelske koder + 1.4 SLA | 2 uker |
+| F | 1.5 IT-utstyr | 1,5 uker |
+| G | Fase 2 (2.1–2.8) | 5–7 uker |
+| H | Fase 3 (3.1–3.3) | 2–3 uker |
 
-Revisjonsloggen (C) kommer før RBAC (D) slik at endringer i kundetilganger blir logget fra start.
-
-**Arbeidsmåte per steg:** én migrering, backend med tester, frontend, en demo for driftsteamet, og deretter commit til `main`.
+**Arbeidsmåte per steg:** én migrering, backend med tester, frontend, test i dev-tenanten (`3af5c92b`), og deretter commit til `main`. Produksjonstenanten tas først i bruk når du sier fra.
 
 ---
 
-## 8. Avklaringer
+## 9. Avklaringer
 
-1. **Skal kundenes sluttbrukere logge inn selv** og melde saker (kundeportal), eller registrerer Antire saker på vegne av dem i fase 1? Planen forutsetter det siste. Selvbetjening kan komme etter fase 2.
-2. **SLA-nivåer:** hvilke nivåer (for eksempel Standard og Premium) og hvilke responstider og løsningstider per prioritet?
-3. **Arbeidstid og helligdager:** norske helligdager og 08–16, eller per kunde?
-4. **Briefen slutter ved fase 3 «Ressursoversikt».** Kommer det flere faser, for eksempel kostnader eller sikkerhet i Azure?
-5. **Tenant for produksjon:** appregistreringene ligger i dag i en personlig tenant (`3af5c92b-…`). Hvor skal de ligge før første kunde kobles på?
+1. **SLA:** hvilke responstider og løsningstider per prioritet? Skal noe gå døgnet rundt?
+2. **Arbeidstid:** 08–16 mandag–fredag med norske helligdager?
+3. **Godkjenning av tilgang:** skal leder godkjenne (rollen `Approver`), eller holder det med IT?
+4. **Test-tenant:** skal en egen test-tenant tas i bruk i tillegg til dev-tenanten før prod?

@@ -1,5 +1,10 @@
 # Target Architecture: Antire IT Operations Platform
 
+> **⚠ Product model changed (2026-11-16).** This document describes an **MSP platform** serving many customer tenants. That model has been **dropped**. The product is run by **one organization** in its **own** Entra tenants (e.g. test and prod). The tenant follows the login, and data is kept separate per tenant (`TenantId` + EF query filters, `Tenants:Allowed`). **[UTVIDELSESPLAN.md](UTVIDELSESPLAN.md) is the governing plan.**
+>
+> **No longer applies:** customers and customer assignments, GDAP, Azure Lighthouse, partner/CSP billing, customer portal, multi-tenant MSP onboarding (§3.1, parts of §5–6).
+> **Still useful as reference:** gap list G1–G10 (mostly fixed), Action Pipeline (§6.3), AI agent design (§6.5), observability and platform security (§6.6–6.7), ADRs on hosting and messaging.
+
 > AI-driven MSP platform for automated operations, monitoring, security management and cost optimization across customer Azure and Microsoft 365 tenants.
 
 | | |

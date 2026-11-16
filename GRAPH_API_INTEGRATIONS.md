@@ -1,5 +1,10 @@
 # Microsoft Graph & Microsoft 365 Integrations
 
+> **⚠ Product model changed (2026-11-16).** This document assumes an MSP accessing customer tenants through GDAP and separate Reader and Operator apps. That model has been **dropped**. The product calls Graph **in the tenant the user is signed in to** (one of the organization's own tenants, e.g. test and prod), using the API app with admin consent in each tenant (`GraphService` keeps one client per tenant). **[UTVIDELSESPLAN.md](UTVIDELSESPLAN.md) is the governing plan.**
+>
+> **No longer applies:** §2.1 GDAP layers, §2.3 GDAP automation, and the split into Reader and Operator apps (may be revisited for least privilege).
+> **Still useful as reference:** §1 baseline fixes (done), §3 permission catalog, §4 endpoint catalog by domain, §5 change notifications, §6 throttling, §7 write actions.
+
 | | |
 |---|---|
 | Status | Draft v0.1 (2026-11-13) |

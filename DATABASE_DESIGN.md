@@ -1,5 +1,9 @@
 # Database Design
 
+> **⚠ Product model changed (2026-11-16).** This design assumes an MSP with `customer_id`, `tenancy` schema and RLS per customer. That model has been **dropped**. The implemented model is simpler: the existing EF Core tables (PascalCase, `int` keys) get a **`TenantId`** (the Entra tenant of the signed-in user) via `ITenantOwned`, with **EF global query filters** and automatic stamping in `AppDbContext`. **[UTVIDELSESPLAN.md](UTVIDELSESPLAN.md) is the governing plan.** New tables follow that pattern, not the schemas below.
+>
+> **Still useful as reference:** table ideas for inventory, security findings, cost, automation actions and audit (read `customer_id` as `TenantId`), partitioning and retention (§6).
+
 | | |
 |---|---|
 | Status | Draft v0.1 (2026-11-13) |

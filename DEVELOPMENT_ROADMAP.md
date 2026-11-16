@@ -1,6 +1,6 @@
 # Development Roadmap
 
-> **Note (2026-11-16):** Sequencing and scope for the next phases are now governed by [MSP_UTVIDELSESPLAN.md](MSP_UTVIDELSESPLAN.md), which extends the existing helpdesk step by step (customers → RBAC → audit → service catalog → SLA → assets, then M365, then Azure). This roadmap remains the long-term reference.
+> **⚠ Superseded (2026-11-16).** This roadmap was written for an MSP platform serving many customer tenants. That model has been **dropped**: the product is run by **one organization** in its **own** Entra tenants (e.g. test and prod), and data is kept separate per login tenant. Sequencing and scope are now governed by [UTVIDELSESPLAN.md](UTVIDELSESPLAN.md). Customer onboarding, GDAP, Lighthouse, customer portal and partner/CSP items below no longer apply.
 
 | | |
 |---|---|

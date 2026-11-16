@@ -1,5 +1,10 @@
 # Azure Integrations
 
+> **⚠ Product model changed (2026-11-16).** This document assumes an MSP reaching customer subscriptions through **Azure Lighthouse**. That model has been **dropped**. The product reads Azure in the organization's **own** tenant: the app's service principal gets **Reader** (and later narrowly scoped roles) on the subscriptions it should show. Wherever this document says "Lighthouse delegation", read "role assignment to the app in the same tenant". **[UTVIDELSESPLAN.md](UTVIDELSESPLAN.md) is the governing plan.**
+>
+> **Tenants:** development uses the user's own tenant `3af5c92b-…`. The Antire tenant `94f56205-…` is a possible future production and must not be changed until development is finished. The table in §3 that names `8d320841-…` as dev/test is outdated.
+> **Still useful as reference:** §2 integration catalog (Resource Graph, Cost Management, Monitor, Defender, write actions) and Part B hosting (Container Apps, PostgreSQL, Key Vault, networking, Bicep, CI/CD).
+
 | | |
 |---|---|
 | Status | Draft v0.1 (2026-11-16) |
