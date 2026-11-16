@@ -5,23 +5,42 @@ using backend.Services;
 
 namespace backend.Tests;
 
-// Sikrer tilgangsreglene fra fase 0 (G1). Disse testene stopper i tilgangskontrollen,
-// før kontrollerne og databasen tas i bruk, så de trenger ingen database.
+// Sikrer rollematrisen (RBAC). Testene stopper i tilgangskontrollen eller i
+// validering før databasen tas i bruk, så de trenger ingen database.
+//
+// | Endepunkter               | Admin | Agent | Approver | EmployeeSync | Ingen rolle |
+// |---------------------------|-------|-------|----------|--------------|-------------|
+// | Konfigurasjon             |  ja   |  nei  |   nei    |     nei      |     nei     |
+// | Behandle saker/fullføre   |  ja   |  ja   |   nei    |     nei      |     nei     |
+// | Godkjenne tilgang         |  ja   |  nei  |   ja     |     nei      |     nei     |
+// | Ansatte og synk           |  nei  |  nei  |   nei    |     ja       |     nei     |
 public class AuthorizationTests(TestWebApplicationFactory factory)
     : IClassFixture<TestWebApplicationFactory>
 {
-    public static TheoryData<string, string> HelpdeskAdminEndpoints => new()
+    // Bare Helpdesk.Admin
+    public static TheoryData<string, string> ConfigurationEndpoints => new()
     {
-        { "PATCH", "/api/tickets/1/status" },
-        { "PATCH", "/api/tickets/1/priority" },
-        { "PATCH", "/api/tickets/1/assign" },
-        { "PATCH", "/api/accessrequests/1/approval" },
-        { "PATCH", "/api/accessrequests/1/complete" },
         { "GET", "/api/ticketcategorygroups" },
         { "POST", "/api/ticketcategorygroups" },
         { "DELETE", "/api/ticketcategorygroups/1" },
     };
 
+    // Helpdesk.Agent eller Helpdesk.Admin
+    public static TheoryData<string, string> AgentEndpoints => new()
+    {
+        { "PATCH", "/api/tickets/1/status" },
+        { "PATCH", "/api/tickets/1/priority" },
+        { "PATCH", "/api/tickets/1/assign" },
+        { "PATCH", "/api/accessrequests/1/complete" },
+    };
+
+    // Approver eller Helpdesk.Admin
+    public static TheoryData<string, string> ApproverEndpoints => new()
+    {
+        { "PATCH", "/api/accessrequests/1/approval" },
+    };
+
+    // Bare EmployeeSync.Admin
     public static TheoryData<string, string> EmployeeAdminEndpoints => new()
     {
         { "POST", "/api/employees" },
@@ -47,41 +66,59 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
     }
 
     [Theory]
-    [MemberData(nameof(HelpdeskAdminEndpoints))]
+    [MemberData(nameof(ConfigurationEndpoints))]
+    [MemberData(nameof(AgentEndpoints))]
+    [MemberData(nameof(ApproverEndpoints))]
     [MemberData(nameof(EmployeeAdminEndpoints))]
-    public async Task User_without_roles_is_forbidden(string method, string path)
-    {
-        var client = factory.CreateClientWithRoles();
-
-        var response = await client.SendAsync(Request(method, path));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
+    public Task User_without_roles_is_forbidden(string method, string path) =>
+        AssertForbidden(method, path);
 
     [Theory]
-    [MemberData(nameof(HelpdeskAdminEndpoints))]
-    public async Task EmployeeSync_admin_cannot_use_helpdesk_admin_endpoints(string method, string path)
-    {
-        var client = factory.CreateClientWithRoles(AppRoles.EmployeeSyncAdmin);
+    [MemberData(nameof(ConfigurationEndpoints))]
+    [MemberData(nameof(ApproverEndpoints))]
+    [MemberData(nameof(EmployeeAdminEndpoints))]
+    public Task Agent_is_forbidden_outside_ticket_handling(string method, string path) =>
+        AssertForbidden(method, path, AppRoles.HelpdeskAgent);
 
-        var response = await client.SendAsync(Request(method, path));
+    [Theory]
+    [MemberData(nameof(ConfigurationEndpoints))]
+    [MemberData(nameof(AgentEndpoints))]
+    [MemberData(nameof(EmployeeAdminEndpoints))]
+    public Task Approver_is_forbidden_outside_approval(string method, string path) =>
+        AssertForbidden(method, path, AppRoles.Approver);
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
+    [Theory]
+    [MemberData(nameof(ConfigurationEndpoints))]
+    [MemberData(nameof(AgentEndpoints))]
+    [MemberData(nameof(ApproverEndpoints))]
+    public Task EmployeeSync_admin_is_forbidden_in_helpdesk(string method, string path) =>
+        AssertForbidden(method, path, AppRoles.EmployeeSyncAdmin);
 
     [Theory]
     [MemberData(nameof(EmployeeAdminEndpoints))]
-    public async Task Helpdesk_admin_cannot_use_employee_admin_endpoints(string method, string path)
+    public Task Helpdesk_admin_is_forbidden_for_employee_admin(string method, string path) =>
+        AssertForbidden(method, path, AppRoles.HelpdeskAdmin);
+
+    // Positive tester: rollen slipper gjennom tilgangskontrollen og stopper i
+    // validering (400) fordi forespørselen er tom. Ingen databasekall.
+    [Theory]
+    [InlineData(AppRoles.HelpdeskAgent, "/api/tickets/1/status")]
+    [InlineData(AppRoles.HelpdeskAgent, "/api/tickets/1/priority")]
+    [InlineData(AppRoles.HelpdeskAdmin, "/api/tickets/1/status")]
+    [InlineData(AppRoles.HelpdeskAdmin, "/api/tickets/1/priority")]
+    [InlineData(AppRoles.Approver, "/api/accessrequests/1/approval")]
+    [InlineData(AppRoles.HelpdeskAdmin, "/api/accessrequests/1/approval")]
+    public async Task Allowed_role_passes_authorization(string role, string path)
     {
-        var client = factory.CreateClientWithRoles(AppRoles.HelpdeskAdmin);
+        var client = factory.CreateClientWithRoles(role);
 
-        var response = await client.SendAsync(Request(method, path));
+        var response = await client.SendAsync(Request("PATCH", path));
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
-    public async Task Me_reports_no_admin_roles_for_plain_user()
+    public async Task Me_reports_no_roles_for_plain_user()
     {
         var client = factory.CreateClientWithRoles();
 
@@ -90,11 +127,26 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         Assert.NotNull(me);
         Assert.Equal(TestAuthHandler.TestObjectId, me.ObjectId);
         Assert.False(me.IsHelpdeskAdmin);
+        Assert.False(me.IsHelpdeskAgent);
+        Assert.False(me.IsApprover);
         Assert.False(me.IsEmployeeAdmin);
     }
 
     [Fact]
-    public async Task Me_reports_admin_roles_from_token()
+    public async Task Me_reports_agent_without_admin_rights()
+    {
+        var client = factory.CreateClientWithRoles(AppRoles.HelpdeskAgent);
+
+        var me = await client.GetFromJsonAsync<MeResponse>("/api/tickets/me");
+
+        Assert.NotNull(me);
+        Assert.True(me.IsHelpdeskAgent);
+        Assert.False(me.IsHelpdeskAdmin);
+        Assert.False(me.IsApprover);
+    }
+
+    [Fact]
+    public async Task Me_reports_admin_as_agent_and_approver()
     {
         var client = factory.CreateClientWithRoles(
             AppRoles.HelpdeskAdmin, AppRoles.EmployeeSyncAdmin);
@@ -103,7 +155,18 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
 
         Assert.NotNull(me);
         Assert.True(me.IsHelpdeskAdmin);
+        Assert.True(me.IsHelpdeskAgent);
+        Assert.True(me.IsApprover);
         Assert.True(me.IsEmployeeAdmin);
+    }
+
+    private async Task AssertForbidden(string method, string path, params string[] roles)
+    {
+        var client = factory.CreateClientWithRoles(roles);
+
+        var response = await client.SendAsync(Request(method, path));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     private static HttpRequestMessage Request(string method, string path) =>
@@ -115,9 +178,9 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         };
 
     private sealed record MeResponse(
-        bool? IsAuthenticated,
         string? ObjectId,
-        string? Name,
         bool IsHelpdeskAdmin,
+        bool IsHelpdeskAgent,
+        bool IsApprover,
         bool IsEmployeeAdmin);
 }

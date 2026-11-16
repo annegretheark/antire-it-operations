@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 41 tester for tilgang og tenant; ingen databasetester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 71 tester for tilgang og tenant; ingen databasetester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -132,7 +132,6 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 | Ingen revisjonslogg | 1.2 |
 | Graph bruker klienthemmelighet | 2.1 |
 | Ingen databasetester (tenant-filteret er bare testet via tilgang) | 0.10b |
-| `WeatherForecastController`; feil linje i `.gitignore` | 0.9 |
 
 ---
 
@@ -163,10 +162,10 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 | 0.5 | Ett felt for ansvarlig på saker | Ferdig |
 | 0.7 | Synk fra Entra med ansattnummer | Ferdig |
 | 0.8 | API-URL og CORS fra konfigurasjon | Ferdig |
-| 0.10a | Testprosjekt med tilgangstester | Ferdig (41 tester) |
+| 0.10a | Testprosjekt med tilgangstester | Ferdig (71 tester) |
 | T | Tenant-isolasjon (test og prod) | Ferdig |
 | 0.6 | Engelske koder for status og prioritet | Tas med SLA (1.4) |
-| 0.9 | Fjerne malrester og rydde `.gitignore` | Gjenstår |
+| 0.9 | Fjerne malrester og rydde `.gitignore` | Ferdig |
 | 0.10b | Databasetester (Testcontainers) for tenant-filter | Gjenstår (krever Docker Desktop eller CI) |
 | 0.12–0.13 | Bicep og GitHub Actions | Gjenstår (kan vente til utrulling) |
 
@@ -182,8 +181,8 @@ App-roller i Entra, tildelt i hver tenant:
 |---|---|---|
 | `Helpdesk.Admin` | finnes | Alt i helpdesk, konfigurasjon (kategorier, katalog, SLA) |
 | `EmployeeSync.Admin` | finnes | Synk og vedlikehold av ansatte |
-| `Helpdesk.Agent` | ny | Behandle saker (status, prioritet, ansvarlig) og tilgangsbestillinger, men ikke konfigurasjon |
-| `Approver` | ny | Godkjenne tilgangsbestillinger (erstatter midlertidig bruk av `Helpdesk.Admin`) |
+| `Helpdesk.Agent` | finnes | Behandle saker (status, prioritet, ansvarlig) og fullføre tilgangsbestillinger, men ikke konfigurasjon |
+| `Approver` | finnes | Godkjenne tilgangsbestillinger (`Helpdesk.Admin` kan også) |
 | *(ingen rolle)* | — | Melde inn og følge egne saker og bestillinger |
 
 **Endringer:**
@@ -192,6 +191,8 @@ App-roller i Entra, tildelt i hver tenant:
 - Rollene opprettes i app-registreringen med et skript, slik at test og prod får de samme rollene.
 
 **Ferdig når:** de nye rollene finnes i dev-tenanten og tilgangstestene dekker dem.
+
+**Status (2026-11-16): ferdig.** Rollene finnes i dev-tenanten (`scripts/Set-AppRoles.ps1`), og tilgangsbestillinger har fått `RequestedByObjectId`, så vanlige brukere bare ser egne bestillinger. Rollesjekkene ligger foreløpig som `IsHelpdeskAgent()` og `IsAccessApprover()` i `AuthPolicies.cs`. En egen `CurrentUserService` lages når revisjonsloggen (1.2) trenger innlogget person.
 
 ### 1.2 Revisjonslogg (Audit Log)
 
@@ -341,7 +342,7 @@ Kostnader, Defender for Cloud og overvåking kan komme senere. Detaljene er besk
 |---|---|---|
 | A | Felles API-klient, CORS og testprosjekt | Ferdig |
 | T | Tenant-isolasjon | Ferdig |
-| B | 0.9 opprydding + 1.1 RBAC | 1 uke |
+| B | 0.9 opprydding + 1.1 RBAC | Ferdig |
 | C | 1.2 Revisjonslogg | 1 uke |
 | D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | 1,5 uker |
 | E | 0.6 Engelske koder + 1.4 SLA | 2 uker |

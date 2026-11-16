@@ -1,6 +1,13 @@
 @backend_HostAddress = http://localhost:5086
 
-GET {{backend_HostAddress}}/weatherforecast/
-Accept: application/json
+# Hent et token i nettleseren (DevTools → Network → Authorization-header)
+# eller med: az account get-access-token --scope api://e33710da-36b0-4e4b-9696-bb4fbdff647f/access_as_user
+@token = <lim inn access token>
 
-###
+### Innlogget bruker, roller og tenant
+GET {{backend_HostAddress}}/api/tickets/me
+Authorization: Bearer {{token}}
+
+### Saker i innlogget tenant
+GET {{backend_HostAddress}}/api/tickets
+Authorization: Bearer {{token}}

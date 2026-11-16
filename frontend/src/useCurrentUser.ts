@@ -9,6 +9,10 @@ export type CurrentUser = {
   tenantId: string | null
   tenantName: string | null
   isHelpdeskAdmin: boolean
+  // Kan behandle saker (Helpdesk.Agent eller Helpdesk.Admin)
+  isHelpdeskAgent: boolean
+  // Kan godkjenne tilgangsbestillinger (Approver eller Helpdesk.Admin)
+  isApprover: boolean
   isEmployeeAdmin: boolean
 }
 
@@ -18,6 +22,8 @@ const NO_ROLES: CurrentUser = {
   tenantId: null,
   tenantName: null,
   isHelpdeskAdmin: false,
+  isHelpdeskAgent: false,
+  isApprover: false,
   isEmployeeAdmin: false,
 }
 

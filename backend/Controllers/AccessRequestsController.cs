@@ -5,6 +5,7 @@ using backend.Data;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Identity.Web;
 
 namespace backend.Controllers;
 
@@ -19,11 +20,24 @@ public class AccessRequestsController : ControllerBase
         _context = context;
     }
 
-    // Hent alle tilgangsbestillinger
+    // Agent, admin og godkjennere ser alle bestillinger i tenanten,
+    // andre ser bare bestillinger de selv har opprettet
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AccessRequest>>> GetAll()
     {
-        return await _context.AccessRequests
+        var query = _context.AccessRequests.AsNoTracking();
+
+        if (!User.IsHelpdeskAgent() && !User.IsAccessApprover())
+        {
+            var objectId = User.GetObjectId();
+
+            if (string.IsNullOrWhiteSpace(objectId))
+                return Ok(Array.Empty<AccessRequest>());
+
+            query = query.Where(r => r.RequestedByObjectId == objectId);
+        }
+
+        return await query
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
     }
@@ -42,6 +56,7 @@ public class AccessRequestsController : ControllerBase
         }
 
         request.Id = 0;
+        request.RequestedByObjectId = User.GetObjectId();
         request.Status = "Venter på godkjenning";
         request.CreatedAt = DateTime.UtcNow;
         request.ApprovedAt = null;
@@ -85,7 +100,7 @@ public class AccessRequestsController : ControllerBase
 
     // IT markerer godkjent tilgang som fullført
     [HttpPatch("{id:int}/complete")]
-    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
     public async Task<ActionResult<AccessRequest>> Complete(int id)
     {
         var request = await _context.AccessRequests.FindAsync(id);

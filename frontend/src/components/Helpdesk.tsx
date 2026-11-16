@@ -23,7 +23,7 @@ const API_URL = apiUrl('/api/tickets')
 
 export default function Helpdesk() {
   const getAuthHeaders = useAuthHeaders()
-  const { isHelpdeskAdmin } = useCurrentUser()
+  const { isHelpdeskAgent } = useCurrentUser()
 
   const [category, setCategory] = useState('Feil')
   const [description, setDescription] = useState('')
@@ -241,7 +241,7 @@ setEmployees(employeeData)
                 <select
                   id={`status-${ticket.id}`}
                   value={ticket.status}
-                  disabled={!isHelpdeskAdmin || updatingId !== null}
+                  disabled={!isHelpdeskAgent || updatingId !== null}
                   onChange={(e) => {
                     void updateTicket(
                       ticket.id,
@@ -271,7 +271,7 @@ setEmployees(employeeData)
                       : (ticket.priority ?? 'Normal').toLowerCase()
                   }`}
                   value={ticket.priority ?? 'Normal'}
-                  disabled={!isHelpdeskAdmin || updatingId !== null}
+                  disabled={!isHelpdeskAgent || updatingId !== null}
                   onChange={(e) => {
                     void updateTicket(
                       ticket.id,
@@ -295,7 +295,7 @@ setEmployees(employeeData)
                 <select
                   id={`assigned-${ticket.id}`}
                   value={ticket.assignedToEmployeeId ?? ''}
-                  disabled={!isHelpdeskAdmin || updatingId !== null}
+                  disabled={!isHelpdeskAgent || updatingId !== null}
                   onChange={(e) => {
                     const value = e.target.value
 

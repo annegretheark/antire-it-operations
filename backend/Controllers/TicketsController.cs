@@ -42,13 +42,13 @@ public TicketsController(
     _db = db;
     _assignmentService = assignmentService;
 }
-    // Helpdesk-admin ser alle saker, andre ser bare saker de selv har meldt inn
+    // Agent og admin ser alle saker i tenanten, andre ser bare saker de selv har meldt inn
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Ticket>>> GetTickets()
     {
         var query = _db.Tickets.AsNoTracking();
 
-        if (!User.IsInRole(AppRoles.HelpdeskAdmin))
+        if (!User.IsHelpdeskAgent())
         {
             var callerEmployeeId = await GetCallerEmployeeIdAsync();
 
@@ -93,8 +93,8 @@ public TicketsController(
             );
         }
 
-        // Bare Helpdesk-admin kan melde inn på vegne av andre
-        var reportedByEmployeeId = User.IsInRole(AppRoles.HelpdeskAdmin)
+        // Bare agent og admin kan melde inn på vegne av andre
+        var reportedByEmployeeId = User.IsHelpdeskAgent()
             ? request.ReportedByEmployeeId
             : await GetCallerEmployeeIdAsync();
 
@@ -120,7 +120,7 @@ ticket.AssignedToEmployeeId =
 
     // Endre status
     [HttpPatch("{id:int}/status")]
-    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
     public async Task<IActionResult> UpdateStatus(
         int id,
         [FromBody] UpdateTicketStatusRequest request)
@@ -153,7 +153,7 @@ ticket.AssignedToEmployeeId =
 
     // Tildel ansvarlig konsulent
     [HttpPatch("{id:int}/assign")]
-    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
     public async Task<IActionResult> AssignTicket(
         int id,
         [FromBody] AssignTicketRequest request)
@@ -186,7 +186,7 @@ ticket.AssignedToEmployeeId =
 
     // Endre prioritet
     [HttpPatch("{id:int}/priority")]
-    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
     public async Task<IActionResult> UpdatePriority(
         int id,
         [FromBody] UpdateTicketPriorityRequest request)
@@ -231,6 +231,8 @@ public IActionResult GetCurrentUser(
         TenantId = tenantId,
         TenantName = tenants.Value.NameOf(tenantId) ?? tenantId,
         IsHelpdeskAdmin = User.IsInRole(AppRoles.HelpdeskAdmin),
+        IsHelpdeskAgent = User.IsHelpdeskAgent(),
+        IsApprover = User.IsAccessApprover(),
         IsEmployeeAdmin = User.IsInRole(AppRoles.EmployeeSyncAdmin)
     });
 }

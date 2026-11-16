@@ -60,12 +60,14 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy(AuthPolicies.HelpdeskAdmin,
         policy => policy.RequireRole(AppRoles.HelpdeskAdmin));
 
+    options.AddPolicy(AuthPolicies.HelpdeskAgent,
+        policy => policy.RequireRole(AppRoles.HelpdeskAgent, AppRoles.HelpdeskAdmin));
+
+    options.AddPolicy(AuthPolicies.AccessApprover,
+        policy => policy.RequireRole(AppRoles.Approver, AppRoles.HelpdeskAdmin));
+
     options.AddPolicy(AuthPolicies.EmployeeAdmin,
         policy => policy.RequireRole(AppRoles.EmployeeSyncAdmin));
-
-    // TODO: Egen lederrolle når den er opprettet i app-registreringen
-    options.AddPolicy(AuthPolicies.AccessApprover,
-        policy => policy.RequireRole(AppRoles.HelpdeskAdmin));
 });
 
 // OpenAPI

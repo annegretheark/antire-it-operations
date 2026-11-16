@@ -18,7 +18,7 @@ const API_URL = apiUrl('/api/accessrequests')
 
 export default function AccessRequests() {
   const getAuthHeaders = useAuthHeaders()
-  const { isHelpdeskAdmin } = useCurrentUser()
+  const { isHelpdeskAgent, isApprover } = useCurrentUser()
 
   const [employeeName, setEmployeeName] = useState('')
   const [systemName, setSystemName] = useState('Microsoft 365')
@@ -253,7 +253,7 @@ export default function AccessRequests() {
               <p><strong>Leder:</strong> {request.managerName}</p>
               <p><strong>Status:</strong> {request.status}</p>
 
-              {isHelpdeskAdmin && request.status === 'Venter på godkjenning' && (
+              {isApprover && request.status === 'Venter på godkjenning' && (
                 <div className="approval-actions">
                   <button
                     type="button"
@@ -277,7 +277,7 @@ export default function AccessRequests() {
                 </div>
               )}
 
-              {isHelpdeskAdmin && request.status === 'Godkjent' && (
+              {isHelpdeskAgent && request.status === 'Godkjent' && (
                 <div className="approval-actions">
                   <button
                     type="button"

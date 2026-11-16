@@ -7,6 +7,9 @@ public class AccessRequest : ITenantOwned
     // Entra-tenanten raden hører til (settes automatisk)
     public string TenantId { get; set; } = string.Empty;
 
+    // Entra objekt-ID til den som opprettet bestillingen (null for eldre bestillinger)
+    public string? RequestedByObjectId { get; set; }
+
     public string EmployeeName { get; set; } = string.Empty;
 
     public string SystemName { get; set; } = string.Empty;
