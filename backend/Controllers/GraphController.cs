@@ -16,20 +16,23 @@ public class GraphController : ControllerBase
     private readonly GraphService _graphService;
     private readonly AppDbContext _context;
     private readonly EmployeeNumberService _employeeNumbers;
+    private readonly ITenantContext _tenant;
 
     public GraphController(
         GraphService graphService,
         AppDbContext context,
-        EmployeeNumberService employeeNumbers)
+        EmployeeNumberService employeeNumbers,
+        ITenantContext tenant)
     {
         _graphService = graphService;
         _context = context;
         _employeeNumbers = employeeNumbers;
+        _tenant = tenant;
     }
     [HttpGet("employees")]
     public async Task<IActionResult> GetEmployees()
     {
-        var employees = await _graphService.GetEmployeesAsync();
+        var employees = await _graphService.GetEmployeesAsync(_tenant.TenantId!);
 
         return Ok(employees.Select(user => new
         {
@@ -46,7 +49,7 @@ public class GraphController : ControllerBase
 [HttpPost("sync-employees")]
 public async Task<IActionResult> SyncEmployees()
 {
-    var users = await _graphService.GetEmployeesAsync();
+    var users = await _graphService.GetEmployeesAsync(_tenant.TenantId!);
     var created = 0;
     var updated = 0;
 
@@ -114,7 +117,7 @@ public async Task<IActionResult> SyncEmployees()
 [HttpGet("employees/{entraObjectId}/groups")]
 public async Task<IActionResult> GetEmployeeGroups(string entraObjectId)
 {
-    var groupIds = await _graphService.GetUserGroupIdsAsync(entraObjectId);
+    var groupIds = await _graphService.GetUserGroupIdsAsync(_tenant.TenantId!, entraObjectId);
 
     return Ok(new
     {

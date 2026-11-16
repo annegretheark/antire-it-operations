@@ -1,9 +1,12 @@
 
 namespace backend.Models;
 
-public class Ticket
+public class Ticket : ITenantOwned
 {
     public int Id { get; set; }
+
+    // Entra-tenanten raden hører til (settes automatisk)
+    public string TenantId { get; set; } = string.Empty;
 
     public int? ReportedByEmployeeId { get; set; }
     public Employee? ReportedByEmployee { get; set; }    

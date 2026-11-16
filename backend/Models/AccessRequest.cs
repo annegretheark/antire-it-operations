@@ -1,8 +1,11 @@
 namespace backend.Models;
 
-public class AccessRequest
+public class AccessRequest : ITenantOwned
 {
     public int Id { get; set; }
+
+    // Entra-tenanten raden hører til (settes automatisk)
+    public string TenantId { get; set; } = string.Empty;
 
     public string EmployeeName { get; set; } = string.Empty;
 

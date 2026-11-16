@@ -72,6 +72,21 @@ body {
   color: #64748b;
 }
 
+.auth-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.main header .tenant-badge {
+  background: #e2e8f0;
+  color: #1e293b;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

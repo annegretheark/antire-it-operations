@@ -218,13 +218,18 @@ ticket.AssignedToEmployeeId =
         return Ok(ticket);
     }
     [HttpGet("me")]
-public IActionResult GetCurrentUser()
+public IActionResult GetCurrentUser(
+    [FromServices] Microsoft.Extensions.Options.IOptions<TenantOptions> tenants)
 {
+    var tenantId = User.GetTenantId();
+
     return Ok(new
     {
         IsAuthenticated = User.Identity?.IsAuthenticated,
         ObjectId = User.GetObjectId(),
         Name = User.Identity?.Name,
+        TenantId = tenantId,
+        TenantName = tenants.Value.NameOf(tenantId) ?? tenantId,
         IsHelpdeskAdmin = User.IsInRole(AppRoles.HelpdeskAdmin),
         IsEmployeeAdmin = User.IsInRole(AppRoles.EmployeeSyncAdmin)
     });

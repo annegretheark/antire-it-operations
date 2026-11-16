@@ -56,7 +56,14 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("AccessRequests");
                 });
@@ -105,13 +112,18 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeNumber")
+                    b.HasIndex("TenantId", "EmployeeNumber")
                         .IsUnique()
                         .HasFilter("\"EmployeeNumber\" IS NOT NULL");
 
-                    b.HasIndex("EntraObjectId")
+                    b.HasIndex("TenantId", "EntraObjectId")
                         .IsUnique()
                         .HasFilter("\"EntraObjectId\" IS NOT NULL");
 
@@ -135,6 +147,11 @@ namespace backend.Migrations
 
                     b.Property<int>("EmployeeId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
 
                     b.HasKey("Id");
 
@@ -177,11 +194,18 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedToEmployeeId");
 
                     b.HasIndex("ReportedByEmployeeId");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("Tickets");
                 });
@@ -202,9 +226,14 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Category", "EntraGroupId")
+                    b.HasIndex("TenantId", "Category", "EntraGroupId")
                         .IsUnique();
 
                     b.ToTable("TicketCategoryGroups");

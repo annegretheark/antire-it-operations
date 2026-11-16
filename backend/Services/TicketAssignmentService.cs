@@ -8,21 +8,25 @@ public class TicketAssignmentService
 {
     private readonly AppDbContext _db;
     private readonly GraphService _graphService;
+    private readonly ITenantContext _tenant;
     private readonly ILogger<TicketAssignmentService> _logger;
 
     public TicketAssignmentService(
         AppDbContext db,
         GraphService graphService,
+        ITenantContext tenant,
         ILogger<TicketAssignmentService> logger)
     {
         _db = db;
         _graphService = graphService;
+        _tenant = tenant;
         _logger = logger;
     }
 
     public async Task<int?> FindAssigneeAsync(string category)
     {
-        if (string.IsNullOrWhiteSpace(category))
+        if (string.IsNullOrWhiteSpace(category) ||
+            string.IsNullOrWhiteSpace(_tenant.TenantId))
             return null;
 
         category = category.Trim();
@@ -68,6 +72,7 @@ public class TicketAssignmentService
                 // Kontroller faktisk gruppemedlemskap i Entra ID
                 var isMember =
                     await _graphService.IsMemberOfAnyGroupAsync(
+                        _tenant.TenantId,
                         candidate.EntraObjectId,
                         allowedGroups);
 

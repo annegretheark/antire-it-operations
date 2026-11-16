@@ -1,8 +1,11 @@
 namespace backend.Models;
 
-public class TicketCategoryGroup
+public class TicketCategoryGroup : ITenantOwned
 {
     public int Id { get; set; }
+
+    // Entra-tenanten raden hører til (settes automatisk)
+    public string TenantId { get; set; } = string.Empty;
 
     public string Category { get; set; } = string.Empty;
 

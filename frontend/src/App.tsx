@@ -12,6 +12,7 @@ import {
 
 import { loginRequest } from './msalConfig'
 import { apiUrl, useAuthHeaders } from './apiClient'
+import { useCurrentUser } from './useCurrentUser'
 
 
 type Ticket = {
@@ -26,10 +27,15 @@ function App() {
     const { instance, accounts } = useMsal()
   const isAuthenticated = useIsAuthenticated()
   const getAuthHeaders = useAuthHeaders()
+  const { tenantName } = useCurrentUser()
 
   const login = async () => {
   try {
-    const result = await instance.loginPopup(loginRequest)
+    // select_account: velg konto, og dermed tenant (f.eks. test eller prod)
+    const result = await instance.loginPopup({
+      ...loginRequest,
+      prompt: 'select_account',
+    })
     instance.setActiveAccount(result.account)
   } catch (error) {
     console.error('Microsoft-innlogging feilet:', error)
@@ -138,7 +144,10 @@ await instance.logoutPopup({
   <h1>{activePage}</h1>
 
   <div className="auth-controls">
-    <span>Utviklingsmiljø</span>
+    {/* Tenanten du er logget inn i (navn fra Tenants:Allowed i backend) */}
+    <span className="tenant-badge">
+      {isAuthenticated && tenantName ? `Tenant: ${tenantName}` : 'Ikke innlogget'}
+    </span>
 
     {isAuthenticated ? (
       <>

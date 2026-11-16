@@ -5,6 +5,9 @@ import { apiUrl, useAuthHeaders } from './apiClient'
 export type CurrentUser = {
   objectId: string | null
   name: string | null
+  // Tenanten brukeren er logget inn i; data vises bare for denne tenanten
+  tenantId: string | null
+  tenantName: string | null
   isHelpdeskAdmin: boolean
   isEmployeeAdmin: boolean
 }
@@ -12,6 +15,8 @@ export type CurrentUser = {
 const NO_ROLES: CurrentUser = {
   objectId: null,
   name: null,
+  tenantId: null,
+  tenantName: null,
   isHelpdeskAdmin: false,
   isEmployeeAdmin: false,
 }

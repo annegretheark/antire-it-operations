@@ -1,9 +1,12 @@
 
 namespace backend.Models;
 
-public class Employee
+public class Employee : ITenantOwned
 {
     public int Id { get; set; }
+
+    // Entra-tenanten raden hører til (settes automatisk)
+    public string TenantId { get; set; } = string.Empty;
 
     // Kobling til Microsoft Entra ID
     public string? EntraObjectId { get; set; }
