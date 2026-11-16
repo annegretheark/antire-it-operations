@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { loginRequest } from '../msalConfig'
+import { useCurrentUser } from '../useCurrentUser'
 
 type Employee = {
   id: number
@@ -17,6 +18,13 @@ type Employee = {
 }
 
 const API_URL = 'http://localhost:5086/api/employees'
+const SYNC_URL = 'http://localhost:5086/api/graph/sync-employees'
+
+type SyncResult = {
+  created: number
+  updated: number
+  totalFromEntra: number
+}
 
 const sortEmployees = (items: Employee[]) =>
   [...items].sort(
@@ -30,6 +38,7 @@ const toDate = (date: string) =>
 
 export default function Employees() {
   const { instance, accounts } = useMsal()
+  const { isEmployeeAdmin } = useCurrentUser()
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const account = instance.getActiveAccount() ?? accounts[0]
@@ -68,6 +77,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -108,6 +118,49 @@ async function getAuthHeaders(): Promise<HeadersInit> {
       cancelled = true
     }
   }, [])
+
+  // Hent ansatte fra Microsoft Entra ID og oppdater listen
+  async function syncFromEntra() {
+    if (syncing) return
+
+    setSyncing(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const response = await fetch(SYNC_URL, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const result: SyncResult = await response.json()
+
+      const listResponse = await fetch(API_URL, {
+        headers: await getAuthHeaders(),
+      })
+
+      if (listResponse.ok) {
+        const data: Employee[] = await listResponse.json()
+        setEmployees(sortEmployees(data))
+      }
+
+      setMessage(
+        `Synkronisert fra Entra: ${result.created} nye, ${result.updated} oppdatert (${result.totalFromEntra} brukere med avdeling og stilling).`
+      )
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `Kunne ikke synkronisere fra Entra: ${err.message}`
+          : 'Kunne ikke synkronisere fra Entra.'
+      )
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   function clearForm() {
     setFirstName('')
@@ -268,18 +321,11 @@ if (!response.ok) {
       <div className="helpdesk-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <h3>Ansatte ({employees.length})</h3>
-          <button type="button" onClick={() => {
-            if (showForm) {
-              clearForm()
-            } else {
-              clearForm()
-              setShowForm(true)
-              setError('')
-              setMessage('')
-            }
-          }}>
-            {showForm ? 'Lukk skjema' : '+ Ny ansatt'}
+          {isEmployeeAdmin && (
+          <button type="button" disabled={syncing} onClick={() => void syncFromEntra()}>
+            {syncing ? 'Synkroniserer...' : 'Synkroniser fra Entra'}
           </button>
+          )}
         </div>
 
         <label htmlFor="employee-search">Søk etter ansatt</label>
@@ -337,6 +383,7 @@ if (!response.ok) {
                           <p><strong>Startdato:</strong> {employee.startDate.slice(0, 10)}</p>
                           <p><strong>Status:</strong> {employee.status}</p>
                           {employee.endDate && <p><strong>Sluttdato:</strong> {employee.endDate.slice(0, 10)}</p>}
+                          {isEmployeeAdmin && (
                           <div className="approval-actions">
                             <button type="button" disabled={saving} onClick={() => editEmployee(employee)}>Rediger</button>
                             {employee.status === 'Aktiv' && (
@@ -348,6 +395,7 @@ if (!response.ok) {
                               }}>Registrer slutt</button>
                             )}
                           </div>
+                          )}
                           {terminatingId === employee.id && (
                             <div className="helpdesk-form">
                               <label htmlFor={`enddate-${employee.id}`}>Sluttdato</label>
@@ -373,7 +421,7 @@ if (!response.ok) {
         )}
       </div>
 
-      {showForm && (
+      {isEmployeeAdmin && showForm && (
         <div className="helpdesk-card">
           <h3>{editingId === null ? 'Registrer ansatt' : 'Rediger ansatt'}</h3>
           <form className="helpdesk-form" onSubmit={(e) => {

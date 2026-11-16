@@ -13,16 +13,19 @@ namespace backend.Controllers;
 public class GraphController : ControllerBase
 {
    
-   private readonly GraphService _graphService;
-private readonly AppDbContext _context;
+    private readonly GraphService _graphService;
+    private readonly AppDbContext _context;
+    private readonly EmployeeNumberService _employeeNumbers;
 
-public GraphController(
-    GraphService graphService,
-    AppDbContext context)
-{
-    _graphService = graphService;
-    _context = context;
-}
+    public GraphController(
+        GraphService graphService,
+        AppDbContext context,
+        EmployeeNumberService employeeNumbers)
+    {
+        _graphService = graphService;
+        _context = context;
+        _employeeNumbers = employeeNumbers;
+    }
     [HttpGet("employees")]
     public async Task<IActionResult> GetEmployees()
     {
@@ -91,6 +94,12 @@ public async Task<IActionResult> SyncEmployees()
         employee.Email = email;
         employee.Department = user.Department ?? "";
         employee.JobTitle = user.JobTitle ?? "";
+
+        // Ansatte uten nummer (nye, eller synket tidligere) får neste nummer
+        if (string.IsNullOrWhiteSpace(employee.EmployeeNumber))
+        {
+            employee.EmployeeNumber = await _employeeNumbers.NextAsync();
+        }
     }
 
     await _context.SaveChangesAsync();

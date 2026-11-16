@@ -2,7 +2,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
-using backend.Models;using backend.Services;
+using backend.Models;
+using backend.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Identity.Web;
 
 
 namespace backend.Controllers;
@@ -39,16 +42,42 @@ public TicketsController(
     _db = db;
     _assignmentService = assignmentService;
 }
-    // Hent alle saker
+    // Helpdesk-admin ser alle saker, andre ser bare saker de selv har meldt inn
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Ticket>>> GetTickets()
     {
-        var tickets = await _db.Tickets
-            .AsNoTracking()
+        var query = _db.Tickets.AsNoTracking();
+
+        if (!User.IsInRole(AppRoles.HelpdeskAdmin))
+        {
+            var callerEmployeeId = await GetCallerEmployeeIdAsync();
+
+            if (callerEmployeeId == null)
+                return Ok(Array.Empty<Ticket>());
+
+            query = query.Where(t => t.ReportedByEmployeeId == callerEmployeeId);
+        }
+
+        var tickets = await query
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         return Ok(tickets);
+    }
+
+    // Finn ansatt koblet til innlogget bruker via Entra objekt-ID
+    private async Task<int?> GetCallerEmployeeIdAsync()
+    {
+        var objectId = User.GetObjectId();
+
+        if (string.IsNullOrWhiteSpace(objectId))
+            return null;
+
+        return await _db.Employees
+            .AsNoTracking()
+            .Where(e => e.EntraObjectId == objectId)
+            .Select(e => (int?)e.Id)
+            .FirstOrDefaultAsync();
     }
 
     // Opprett ny sak
@@ -64,11 +93,16 @@ public TicketsController(
             );
         }
 
+        // Bare Helpdesk-admin kan melde inn på vegne av andre
+        var reportedByEmployeeId = User.IsInRole(AppRoles.HelpdeskAdmin)
+            ? request.ReportedByEmployeeId
+            : await GetCallerEmployeeIdAsync();
+
         var ticket = new Ticket
         {
             Category = request.Category,
             Description = request.Description,
-            ReportedByEmployeeId = request.ReportedByEmployeeId,
+            ReportedByEmployeeId = reportedByEmployeeId,
             Status = "Ny",
             Priority = "Normal",
             CreatedAt = DateTime.UtcNow
@@ -86,6 +120,7 @@ ticket.AssignedToEmployeeId =
 
     // Endre status
     [HttpPatch("{id:int}/status")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
     public async Task<IActionResult> UpdateStatus(
         int id,
         [FromBody] UpdateTicketStatusRequest request)
@@ -118,6 +153,7 @@ ticket.AssignedToEmployeeId =
 
     // Tildel ansvarlig konsulent
     [HttpPatch("{id:int}/assign")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
     public async Task<IActionResult> AssignTicket(
         int id,
         [FromBody] AssignTicketRequest request)
@@ -141,6 +177,7 @@ ticket.AssignedToEmployeeId =
 
     // Endre prioritet
     [HttpPatch("{id:int}/priority")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
     public async Task<IActionResult> UpdatePriority(
         int id,
         [FromBody] UpdateTicketPriorityRequest request)
@@ -172,15 +209,15 @@ ticket.AssignedToEmployeeId =
         return Ok(ticket);
     }
     [HttpGet("me")]
-[Microsoft.AspNetCore.Authorization.Authorize]
 public IActionResult GetCurrentUser()
 {
     return Ok(new
     {
         IsAuthenticated = User.Identity?.IsAuthenticated,
-        ObjectId = User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
-            ?? User.FindFirst("oid")?.Value,
-        Name = User.Identity?.Name
+        ObjectId = User.GetObjectId(),
+        Name = User.Identity?.Name,
+        IsHelpdeskAdmin = User.IsInRole(AppRoles.HelpdeskAdmin),
+        IsEmployeeAdmin = User.IsInRole(AppRoles.EmployeeSyncAdmin)
     });
 }
 }

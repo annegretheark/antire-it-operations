@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { loginRequest } from '../msalConfig'
+import { useCurrentUser } from '../useCurrentUser'
 
 type AccessRequest = {
   id: number
@@ -18,6 +19,7 @@ const API_URL = 'http://localhost:5086/api/accessrequests'
 
 export default function AccessRequests() {
     const { instance, accounts } = useMsal()
+  const { isHelpdeskAdmin } = useCurrentUser()
 
   async function getAuthHeaders(): Promise<HeadersInit> {
     const account = instance.getActiveAccount() ?? accounts[0]
@@ -269,7 +271,7 @@ export default function AccessRequests() {
               <p><strong>Leder:</strong> {request.managerName}</p>
               <p><strong>Status:</strong> {request.status}</p>
 
-              {request.status === 'Venter på godkjenning' && (
+              {isHelpdeskAdmin && request.status === 'Venter på godkjenning' && (
                 <div className="approval-actions">
                   <button
                     type="button"
@@ -293,7 +295,7 @@ export default function AccessRequests() {
                 </div>
               )}
 
-              {request.status === 'Godkjent' && (
+              {isHelpdeskAdmin && request.status === 'Godkjent' && (
                 <div className="approval-actions">
                   <button
                     type="button"

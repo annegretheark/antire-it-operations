@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import './Helpdesk.css'
 import { useMsal } from '@azure/msal-react'
 import { loginRequest } from '../msalConfig'
+import { useCurrentUser } from '../useCurrentUser'
 
 type Ticket = {
   id: number
@@ -23,6 +24,7 @@ const API_URL = 'http://localhost:5086/api/tickets'
 
 export default function Helpdesk() {
     const { instance, accounts } = useMsal()
+  const { isHelpdeskAdmin } = useCurrentUser()
 
   async function getAuthHeaders(): Promise<HeadersInit> {
     const account = instance.getActiveAccount() ?? accounts[0]
@@ -257,7 +259,7 @@ setEmployees(employeeData)
                 <select
                   id={`status-${ticket.id}`}
                   value={ticket.status}
-                  disabled={updatingId !== null}
+                  disabled={!isHelpdeskAdmin || updatingId !== null}
                   onChange={(e) => {
                     void updateTicket(
                       ticket.id,
@@ -287,7 +289,7 @@ setEmployees(employeeData)
                       : (ticket.priority ?? 'Normal').toLowerCase()
                   }`}
                   value={ticket.priority ?? 'Normal'}
-                  disabled={updatingId !== null}
+                  disabled={!isHelpdeskAdmin || updatingId !== null}
                   onChange={(e) => {
                     void updateTicket(
                       ticket.id,
@@ -328,7 +330,7 @@ setEmployees(employeeData)
                   type="text"
                   defaultValue={ticket.assignedTo ?? ''}
                   placeholder="Ikke tildelt"
-                  disabled={updatingId !== null}
+                  disabled={!isHelpdeskAdmin || updatingId !== null}
                   onBlur={(e) => {
                     const name = e.target.value.trim()
 

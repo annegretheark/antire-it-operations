@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
+using backend.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers;
 
@@ -51,8 +53,8 @@ public class AccessRequestsController : ControllerBase
     }
 
     // Godkjenn eller avslå
-    // TODO: Krev autentisert leder før produksjon
     [HttpPatch("{id:int}/approval")]
+    [Authorize(Policy = AuthPolicies.AccessApprover)]
     public async Task<ActionResult<AccessRequest>> SetApproval(
         int id,
         [FromBody] ApprovalUpdate update)
@@ -82,8 +84,8 @@ public class AccessRequestsController : ControllerBase
     }
 
     // IT markerer godkjent tilgang som fullført
-    // TODO: Krev autentisert IT-rolle før produksjon
     [HttpPatch("{id:int}/complete")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
     public async Task<ActionResult<AccessRequest>> Complete(int id)
     {
         var request = await _context.AccessRequests.FindAsync(id);

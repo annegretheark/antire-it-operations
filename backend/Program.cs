@@ -4,7 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddScoped<backend.Services.GraphService>();
+// Singleton: gjenbruker credential og token-cache på tvers av forespørsler
+builder.Services.AddSingleton<backend.Services.GraphService>();
 builder.Services.AddDbContext<backend.Data.AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -23,6 +24,7 @@ builder.Services.AddCors(options =>
 // API Controllers
 builder.Services.AddControllers();
 builder.Services.AddScoped<TicketAssignmentService>();
+builder.Services.AddScoped<EmployeeNumberService>();
 // Microsoft Entra ID - autentisering av API
 builder.Services
     .AddAuthentication("Bearer")
@@ -30,7 +32,19 @@ builder.Services
         builder.Configuration.GetSection("AzureAd"),
         jwtBearerScheme: "Bearer");
 
-builder.Services.AddAuthorization();
+// Tilgangsregler basert på app-roller i Entra ID
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthPolicies.HelpdeskAdmin,
+        policy => policy.RequireRole(AppRoles.HelpdeskAdmin));
+
+    options.AddPolicy(AuthPolicies.EmployeeAdmin,
+        policy => policy.RequireRole(AppRoles.EmployeeSyncAdmin));
+
+    // TODO: Egen lederrolle når den er opprettet i app-registreringen
+    options.AddPolicy(AuthPolicies.AccessApprover,
+        policy => policy.RequireRole(AppRoles.HelpdeskAdmin));
+});
 
 // OpenAPI
 builder.Services.AddOpenApi();

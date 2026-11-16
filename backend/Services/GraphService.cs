@@ -1,12 +1,16 @@
-
 using Azure.Identity;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
+using Microsoft.Graph.Users.Item.CheckMemberGroups;
 
 namespace backend.Services;
 
+// Registrert som singleton: én klient og token-cache for hele applikasjonen
 public class GraphService
 {
+    // checkMemberGroups godtar maks 20 gruppe-ID-er per kall
+    private const int CheckMemberGroupsBatchSize = 20;
+
     private readonly GraphServiceClient _graphClient;
 
     public GraphService(IConfiguration configuration)
@@ -32,11 +36,13 @@ public class GraphService
         );
     }
 
-    public async Task<List<User>> GetEmployeesAsync()
+    // Henter alle brukere med avdeling og stilling (følger alle sider)
+    public async Task<List<User>> GetEmployeesAsync(
+        CancellationToken cancellationToken = default)
     {
         var users = new List<User>();
 
-        var response = await _graphClient.Users.GetAsync(request =>
+        var firstPage = await _graphClient.Users.GetAsync(request =>
         {
             request.QueryParameters.Select = new[]
             {
@@ -51,54 +57,90 @@ public class GraphService
                 "employeeId"
             };
 
-            request.QueryParameters.Top = 100;
-        });
+            request.QueryParameters.Top = 999;
+        }, cancellationToken);
 
-        if (response?.Value != null)
-{
-    users.AddRange(
-        response.Value.Where(user =>
-            !string.IsNullOrWhiteSpace(user.Department) &&
-            !string.IsNullOrWhiteSpace(user.JobTitle)
-        )
-    );
-}
+        if (firstPage == null)
+            return users;
+
+        var pageIterator = PageIterator<User, UserCollectionResponse>
+            .CreatePageIterator(
+                _graphClient,
+                firstPage,
+                user =>
+                {
+                    if (!string.IsNullOrWhiteSpace(user.Department) &&
+                        !string.IsNullOrWhiteSpace(user.JobTitle))
+                    {
+                        users.Add(user);
+                    }
+
+                    return true;
+                });
+
+        await pageIterator.IterateAsync(cancellationToken);
+
         return users;
     }
 
-  public async Task<List<string>> GetUserGroupIdsAsync(string entraObjectId)
-{
-    var groupIds = new HashSet<string>(
-        StringComparer.OrdinalIgnoreCase
-    );
-
-    var response = await _graphClient.Users[entraObjectId]
-        .TransitiveMemberOf
-        .GetAsync();
-
-    while (response != null)
+    // Alle grupper brukeren er medlem av, direkte eller indirekte
+    public async Task<List<string>> GetUserGroupIdsAsync(
+        string entraObjectId,
+        CancellationToken cancellationToken = default)
     {
-        if (response.Value != null)
-        {
-            foreach (var group in response.Value.OfType<Group>())
-            {
-                if (!string.IsNullOrWhiteSpace(group.Id))
-                {
-                    groupIds.Add(group.Id);
-                }
-            }
-        }
+        var groupIds = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase
+        );
 
-        if (string.IsNullOrEmpty(response.OdataNextLink))
-            break;
-
-        response = await _graphClient.Users[entraObjectId]
+        var firstPage = await _graphClient.Users[entraObjectId]
             .TransitiveMemberOf
-            .WithUrl(response.OdataNextLink)
-            .GetAsync();
+            .GetAsync(cancellationToken: cancellationToken);
+
+        if (firstPage == null)
+            return groupIds.ToList();
+
+        var pageIterator = PageIterator<DirectoryObject, DirectoryObjectCollectionResponse>
+            .CreatePageIterator(
+                _graphClient,
+                firstPage,
+                directoryObject =>
+                {
+                    if (directoryObject is Group group &&
+                        !string.IsNullOrWhiteSpace(group.Id))
+                    {
+                        groupIds.Add(group.Id);
+                    }
+
+                    return true;
+                });
+
+        await pageIterator.IterateAsync(cancellationToken);
+
+        return groupIds.ToList();
     }
 
-    return groupIds.ToList();
-}
+    // Sjekker om brukeren er medlem (også indirekte) av minst én av gruppene.
+    // Ett kall per 20 grupper i stedet for å liste alle brukerens grupper.
+    public async Task<bool> IsMemberOfAnyGroupAsync(
+        string entraObjectId,
+        IReadOnlyCollection<string> groupIds,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var batch in groupIds.Chunk(CheckMemberGroupsBatchSize))
+        {
+            var response = await _graphClient.Users[entraObjectId]
+                .CheckMemberGroups
+                .PostAsCheckMemberGroupsPostResponseAsync(
+                    new CheckMemberGroupsPostRequestBody
+                    {
+                        GroupIds = batch.ToList()
+                    },
+                    cancellationToken: cancellationToken);
 
+            if (response?.Value is { Count: > 0 })
+                return true;
+        }
+
+        return false;
+    }
 }

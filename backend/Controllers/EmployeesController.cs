@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
+using backend.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers;
 
@@ -11,10 +13,14 @@ namespace backend.Controllers;
 public class EmployeesController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly EmployeeNumberService _employeeNumbers;
 
-    public EmployeesController(AppDbContext context)
+    public EmployeesController(
+        AppDbContext context,
+        EmployeeNumberService employeeNumbers)
     {
         _context = context;
+        _employeeNumbers = employeeNumbers;
     }
 
     // Hent alle ansatte
@@ -29,6 +35,7 @@ public class EmployeesController : ControllerBase
 
     // Registrer ansatt
     [HttpPost]
+    [Authorize(Policy = AuthPolicies.EmployeeAdmin)]
     public async Task<ActionResult<Employee>> Create(
         [FromBody] Employee employee)
     {
@@ -44,28 +51,9 @@ public class EmployeesController : ControllerBase
         employee.Status = "Aktiv";
         employee.EndDate = null;
         // Generer unikt ansattnummer fra PostgreSQL
-await _context.Database.OpenConnectionAsync();
-
-try
-{
-    await using var command = _context.Database
-        .GetDbConnection()
-        .CreateCommand();
-
-    command.CommandText =
-        "SELECT nextval('employee_number_seq')";
-
-    var result = await command.ExecuteScalarAsync();
-
-    employee.EmployeeNumber = result?.ToString();
-}
-finally
-{
-    await _context.Database.CloseConnectionAsync();
-}
+        employee.EmployeeNumber = await _employeeNumbers.NextAsync();
 
         _context.Employees.Add(employee);
-   
         await _context.SaveChangesAsync();
 
         return Ok(employee);
@@ -73,6 +61,7 @@ finally
 
     // Oppdater ansattinformasjon
     [HttpPut("{id:int}")]
+    [Authorize(Policy = AuthPolicies.EmployeeAdmin)]
     public async Task<ActionResult<Employee>> Update(
         int id,
         [FromBody] Employee updated)
@@ -121,6 +110,7 @@ if (employee.EmployeeNumber != null)
 
     // Registrer at en ansatt har sluttet
     [HttpPatch("{id:int}/terminate")]
+    [Authorize(Policy = AuthPolicies.EmployeeAdmin)]
     public async Task<ActionResult<Employee>> Terminate(
         int id,
         [FromBody] TerminateEmployeeRequest update)

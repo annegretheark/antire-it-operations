@@ -66,11 +66,12 @@ public class TicketAssignmentService
             try
             {
                 // Kontroller faktisk gruppemedlemskap i Entra ID
-                var userGroupIds =
-                    await _graphService.GetUserGroupIdsAsync(
-                        candidate.EntraObjectId);
+                var isMember =
+                    await _graphService.IsMemberOfAnyGroupAsync(
+                        candidate.EntraObjectId,
+                        allowedGroups);
 
-                if (userGroupIds.Any(allowedGroups.Contains))
+                if (isMember)
                 {
                     return candidate.EmployeeId;
                 }
