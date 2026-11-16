@@ -11,7 +11,6 @@ type Ticket = {
   description: string
   status: string
   priority: string
-  assignedTo: string | null
   assignedToEmployeeId: number | null
 }
 
@@ -19,6 +18,7 @@ type Employee = {
   id: number
   firstName: string
   lastName: string
+  status: string
 }
 const API_URL = 'http://localhost:5086/api/tickets'
 
@@ -306,48 +306,38 @@ setEmployees(employeeData)
               </div>
 
               <div className="ticket-assigned">
-                {ticket.assignedToEmployeeId !== null && (
-  <p>
-    <strong>Automatisk tildelt: </strong>
-    {(() => {
-      const employee = employees.find(
-        (e) => e.id === ticket.assignedToEmployeeId
-      )
-
-      return employee
-        ? `${employee.firstName} ${employee.lastName}`
-        : 'Ukjent ansatt'
-    })()}
-  </p>
-)}
                 <label htmlFor={`assigned-${ticket.id}`}>
-                  <strong>Ansvarlig konsulent: </strong>
+                  <strong>Ansvarlig: </strong>
                 </label>
 
-                <input
+                <select
                   id={`assigned-${ticket.id}`}
-                  key={`${ticket.id}-${ticket.assignedTo ?? ''}`}
-                  type="text"
-                  defaultValue={ticket.assignedTo ?? ''}
-                  placeholder="Ikke tildelt"
+                  value={ticket.assignedToEmployeeId ?? ''}
                   disabled={!isHelpdeskAdmin || updatingId !== null}
-                  onBlur={(e) => {
-                    const name = e.target.value.trim()
+                  onChange={(e) => {
+                    const value = e.target.value
 
-                    if (name !== (ticket.assignedTo ?? '')) {
-                      void updateTicket(
-                        ticket.id,
-                        'assign',
-                        { assignedTo: name || null }
-                      )
-                    }
+                    void updateTicket(
+                      ticket.id,
+                      'assign',
+                      { assignedToEmployeeId: value ? Number(value) : null }
+                    )
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.currentTarget.blur()
-                    }
-                  }}
-                />
+                >
+                  <option value="">Ikke tildelt</option>
+                  {employees
+                    .filter(
+                      (employee) =>
+                        employee.status === 'Aktiv' ||
+                        employee.id === ticket.assignedToEmployeeId
+                    )
+                    .map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.firstName} {employee.lastName}
+                        {employee.status !== 'Aktiv' ? ' (sluttet)' : ''}
+                      </option>
+                    ))}
+                </select>
               </div>
             </div>
           ))

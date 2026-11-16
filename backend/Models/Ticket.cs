@@ -18,7 +18,7 @@ public class Ticket
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-   public string? AssignedTo { get; set; }
-   public int? AssignedToEmployeeId { get; set; }
-   public Employee? AssignedToEmployee { get; set; }
+    // Ansvarlig ansatt (eneste ansvarlig-felt, se migrering MergeTicketAssignee)
+    public int? AssignedToEmployeeId { get; set; }
+    public Employee? AssignedToEmployee { get; set; }
 }

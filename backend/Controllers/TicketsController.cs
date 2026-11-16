@@ -21,7 +21,7 @@ public record UpdateTicketStatusRequest(
 );
 
 public record AssignTicketRequest(
-    string? AssignedTo
+    int? AssignedToEmployeeId
 );
 
 public record UpdateTicketPriorityRequest(
@@ -165,10 +165,19 @@ ticket.AssignedToEmployeeId =
             return NotFound();
         }
 
-        ticket.AssignedTo =
-            string.IsNullOrWhiteSpace(request.AssignedTo)
-                ? null
-                : request.AssignedTo.Trim();
+        // null fjerner ansvarlig; ellers må det være en aktiv ansatt
+        if (request.AssignedToEmployeeId is int employeeId)
+        {
+            var isActiveEmployee = await _db.Employees.AnyAsync(e =>
+                e.Id == employeeId && e.Status == "Aktiv");
+
+            if (!isActiveEmployee)
+            {
+                return BadRequest("Ansvarlig må være en aktiv ansatt.");
+            }
+        }
+
+        ticket.AssignedToEmployeeId = request.AssignedToEmployeeId;
 
         await _db.SaveChangesAsync();
 

@@ -152,9 +152,6 @@ namespace backend.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AssignedTo")
-                        .HasColumnType("text");
-
                     b.Property<int?>("AssignedToEmployeeId")
                         .HasColumnType("integer");
 
