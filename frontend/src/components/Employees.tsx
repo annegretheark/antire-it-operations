@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from 'react'
-import { useMsal } from '@azure/msal-react'
-import { loginRequest } from '../msalConfig'
+import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 
 type Employee = {
@@ -17,8 +16,8 @@ type Employee = {
   status: string
 }
 
-const API_URL = 'http://localhost:5086/api/employees'
-const SYNC_URL = 'http://localhost:5086/api/graph/sync-employees'
+const API_URL = apiUrl('/api/employees')
+const SYNC_URL = apiUrl('/api/graph/sync-employees')
 
 type SyncResult = {
   created: number
@@ -37,26 +36,8 @@ const toDate = (date: string) =>
   new Date(date + 'T12:00:00').toISOString()
 
 export default function Employees() {
-  const { instance, accounts } = useMsal()
+  const getAuthHeaders = useAuthHeaders()
   const { isEmployeeAdmin } = useCurrentUser()
-
-async function getAuthHeaders(): Promise<HeadersInit> {
-  const account = instance.getActiveAccount() ?? accounts[0]
-
-  if (!account) {
-    throw new Error('Du må logge inn med Microsoft.')
-  }
-
-  const token = await instance.acquireTokenSilent({
-    ...loginRequest,
-    account,
-  })
-
-  return {
-    Authorization: `Bearer ${token.accessToken}`,
-    'Content-Type': 'application/json',
-  }
-}
   const [employees, setEmployees] = useState<Employee[]>([])
   const [firstName, setFirstName] = useState('')
   const [employeeNumber, setEmployeeNumber] = useState('')
@@ -117,7 +98,7 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [getAuthHeaders])
 
   // Hent ansatte fra Microsoft Entra ID og oppdater listen
   async function syncFromEntra() {

@@ -5,7 +5,8 @@ export const msalConfig: Configuration = {
     clientId: '73962775-c92f-4113-872b-234035c282cf',
     authority:
       'https://login.microsoftonline.com/3af5c92b-38f9-48ce-8746-82bb4c113032',
-    redirectUri: 'http://localhost:5173/auth-popup.html',
+    // Samme opprinnelse som appen kjører på (localhost i utvikling, egen URL i Azure)
+    redirectUri: `${window.location.origin}/auth-popup.html`,
   },
   cache: {
     cacheLocation: 'sessionStorage',

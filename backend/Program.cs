@@ -10,12 +10,16 @@ builder.Services.AddDbContext<backend.Data.AppDbContext>(options =>
     options.UseNpgsql(
         builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// CORS for React frontend
+// CORS for React frontend: tillatte adresser fra konfigurasjon (Cors:AllowedOrigins)
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("ReactDev", policy =>
+    options.AddPolicy("Frontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -60,10 +64,11 @@ if (app.Environment.IsDevelopment())
 // HTTP pipeline
 app.UseHttpsRedirection();
 
-app.UseCors("ReactDev");
+app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers().RequireAuthorization();
 app.Run();
+public partial class Program { }

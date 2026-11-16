@@ -1,8 +1,7 @@
 
 import { useEffect, useState } from 'react'
 import './Helpdesk.css'
-import { useMsal } from '@azure/msal-react'
-import { loginRequest } from '../msalConfig'
+import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 
 type Ticket = {
@@ -20,29 +19,12 @@ type Employee = {
   lastName: string
   status: string
 }
-const API_URL = 'http://localhost:5086/api/tickets'
+const API_URL = apiUrl('/api/tickets')
 
 export default function Helpdesk() {
-    const { instance, accounts } = useMsal()
+  const getAuthHeaders = useAuthHeaders()
   const { isHelpdeskAdmin } = useCurrentUser()
 
-  async function getAuthHeaders(): Promise<HeadersInit> {
-    const account = instance.getActiveAccount() ?? accounts[0]
-
-    if (!account) {
-      throw new Error('Du må logge inn med Microsoft.')
-    }
-
-    const tokenResponse = await instance.acquireTokenSilent({
-      ...loginRequest,
-      account,
-    })
-
-    return {
-      Authorization: `Bearer ${tokenResponse.accessToken}`,
-      'Content-Type': 'application/json',
-    }
-  }
   const [category, setCategory] = useState('Feil')
   const [description, setDescription] = useState('')
   const [tickets, setTickets] = useState<Ticket[]>([])
@@ -70,7 +52,7 @@ export default function Helpdesk() {
         const data: Ticket[] = await response.json()
         setTickets(data)
         const employeeResponse = await fetch(
-  'http://localhost:5086/api/employees',
+  apiUrl('/api/employees'),
   {
     headers: await getAuthHeaders(),
   }
@@ -91,7 +73,7 @@ setEmployees(employeeData)
     }
 
     void loadTickets()
-  }, [])
+  }, [getAuthHeaders])
 
   async function createTicket() {
     if (!description.trim() || saving) return

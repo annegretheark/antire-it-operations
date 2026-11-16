@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMsal } from '@azure/msal-react'
-import { loginRequest } from './msalConfig'
+import { apiUrl, useAuthHeaders } from './apiClient'
 
 // Roller kommer fra API-tokenet, så vi spør backend i stedet for å lese ID-tokenet
 export type CurrentUser = {
@@ -10,8 +9,6 @@ export type CurrentUser = {
   isEmployeeAdmin: boolean
 }
 
-const ME_URL = 'http://localhost:5086/api/tickets/me'
-
 const NO_ROLES: CurrentUser = {
   objectId: null,
   name: null,
@@ -20,24 +17,16 @@ const NO_ROLES: CurrentUser = {
 }
 
 export function useCurrentUser(): CurrentUser {
-  const { instance, accounts } = useMsal()
+  const getAuthHeaders = useAuthHeaders()
   const [user, setUser] = useState<CurrentUser>(NO_ROLES)
 
   useEffect(() => {
     let cancelled = false
 
     async function load() {
-      const account = instance.getActiveAccount() ?? accounts[0]
-      if (!account) return
-
       try {
-        const token = await instance.acquireTokenSilent({
-          ...loginRequest,
-          account,
-        })
-
-        const response = await fetch(ME_URL, {
-          headers: { Authorization: `Bearer ${token.accessToken}` },
+        const response = await fetch(apiUrl('/api/tickets/me'), {
+          headers: await getAuthHeaders(),
         })
 
         if (!response.ok) return
@@ -46,7 +35,7 @@ export function useCurrentUser(): CurrentUser {
 
         if (!cancelled) setUser(data)
       } catch {
-        // Uten svar fra backend vises ingen admin-funksjoner
+        // Uten innlogging eller svar fra backend vises ingen admin-funksjoner
       }
     }
 
@@ -55,7 +44,7 @@ export function useCurrentUser(): CurrentUser {
     return () => {
       cancelled = true
     }
-  }, [instance, accounts])
+  }, [getAuthHeaders])
 
   return user
 }

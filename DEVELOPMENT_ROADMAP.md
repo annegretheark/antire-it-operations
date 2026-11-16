@@ -1,5 +1,7 @@
 # Development Roadmap
 
+> **Note (2026-11-16):** Sequencing and scope for the next phases are now governed by [MSP_UTVIDELSESPLAN.md](MSP_UTVIDELSESPLAN.md), which extends the existing helpdesk step by step (customers → RBAC → audit → service catalog → SLA → assets, then M365, then Azure). This roadmap remains the long-term reference.
+
 | | |
 |---|---|
 | Status | Draft v0.1 (2026-11-16) |

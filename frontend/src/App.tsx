@@ -11,6 +11,7 @@ import {
 } from '@azure/msal-react'
 
 import { loginRequest } from './msalConfig'
+import { apiUrl, useAuthHeaders } from './apiClient'
 
 
 type Ticket = {
@@ -19,11 +20,12 @@ type Ticket = {
   priority: string
 }
 
-const API_URL = 'http://localhost:5086/api/tickets'
+const API_URL = apiUrl('/api/tickets')
 
 function App() {
     const { instance, accounts } = useMsal()
   const isAuthenticated = useIsAuthenticated()
+  const getAuthHeaders = useAuthHeaders()
 
   const login = async () => {
   try {
@@ -38,8 +40,8 @@ function App() {
   const logout = async () => {
     try {
 await instance.logoutPopup({
-  postLogoutRedirectUri: 'http://localhost:5173/auth-popup.html',
-  mainWindowRedirectUri: 'http://localhost:5173/',
+  postLogoutRedirectUri: `${window.location.origin}/auth-popup.html`,
+  mainWindowRedirectUri: `${window.location.origin}/`,
 })
     } catch (error) {
       console.error('Utlogging feilet:', error)
@@ -71,22 +73,9 @@ await instance.logoutPopup({
       setError('')
 
       try {
-        const account = instance.getActiveAccount() ?? accounts[0]
-
-if (!account) {
-  throw new Error('Du må logge inn med Microsoft.')
-}
-
-const tokenResponse = await instance.acquireTokenSilent({
-  ...loginRequest,
-  account,
-})
-
-const response = await fetch(API_URL, {
-  headers: {
-    Authorization: `Bearer ${tokenResponse.accessToken}`,
-  },
-})
+        const response = await fetch(API_URL, {
+          headers: await getAuthHeaders(),
+        })
         if (!response.ok) throw new Error()
 
         const data: Ticket[] = await response.json()
@@ -110,7 +99,7 @@ const response = await fetch(API_URL, {
     return () => {
       cancelled = true
     }
-}, [activePage, instance, accounts, isAuthenticated])
+}, [activePage, getAuthHeaders, isAuthenticated])
 
   const stats = {
     new: tickets.filter((t) => t.status === 'Ny').length,

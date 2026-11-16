@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from 'react'
-import { useMsal } from '@azure/msal-react'
-import { loginRequest } from '../msalConfig'
+import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 
 type AccessRequest = {
@@ -15,29 +14,12 @@ type AccessRequest = {
   approvedAt: string | null
 }
 
-const API_URL = 'http://localhost:5086/api/accessrequests'
+const API_URL = apiUrl('/api/accessrequests')
 
 export default function AccessRequests() {
-    const { instance, accounts } = useMsal()
+  const getAuthHeaders = useAuthHeaders()
   const { isHelpdeskAdmin } = useCurrentUser()
 
-  async function getAuthHeaders(): Promise<HeadersInit> {
-    const account = instance.getActiveAccount() ?? accounts[0]
-
-    if (!account) {
-      throw new Error('Du må logge inn med Microsoft.')
-    }
-
-    const tokenResponse = await instance.acquireTokenSilent({
-      ...loginRequest,
-      account,
-    })
-
-    return {
-      Authorization: `Bearer ${tokenResponse.accessToken}`,
-      'Content-Type': 'application/json',
-    }
-  }
   const [employeeName, setEmployeeName] = useState('')
   const [systemName, setSystemName] = useState('Microsoft 365')
   const [reason, setReason] = useState('')
@@ -76,7 +58,7 @@ export default function AccessRequests() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [getAuthHeaders])
 
   async function createRequest() {
     if (
