@@ -14,7 +14,8 @@ using backend.Services;
 namespace backend.Tests;
 
 // API-et med SQLite i minnet i stedet for PostgreSQL, for tester som trenger data.
-// Graph er byttet ut med FakeGraphService.
+// Graph, Azure og Teams er byttet ut med falske tjenester. PostgresWebApplicationFactory
+// bruker samme oppsett mot en ekte PostgreSQL-database.
 public class SqliteWebApplicationFactory : TestWebApplicationFactory
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
@@ -34,15 +35,13 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
-        _connection.Open();
 
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
-            services.AddDbContext<AppDbContext>((sp, options) => options
-                .UseSqlite(_connection)
-                .AddInterceptors(sp.GetRequiredService<AuditInterceptor>()));
+            services.AddDbContext<AppDbContext>((sp, options) =>
+                UseDatabase(options).AddInterceptors(sp.GetRequiredService<AuditInterceptor>()));
 
             services.RemoveAll<GraphService>();
             services.AddSingleton<GraphService>(sp =>
@@ -67,10 +66,22 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
         var host = base.CreateHost(builder);
 
         using var db = CreateDbContext(host.Services, TestAuthHandler.AllowedTenantId);
-        db.Database.EnsureCreated();
+        PrepareDatabase(db);
 
         return host;
     }
+
+    // Databasen API-et bruker (SQLite i minnet her)
+    protected virtual DbContextOptionsBuilder UseDatabase(DbContextOptionsBuilder options)
+    {
+        if (_connection.State != System.Data.ConnectionState.Open)
+            _connection.Open();
+
+        return options.UseSqlite(_connection);
+    }
+
+    // Lager tabellene før første forespørsel
+    protected virtual void PrepareDatabase(AppDbContext db) => db.Database.EnsureCreated();
 
     // Kontekst for oppsett av testdata i en bestemt tenant (lagres som "system")
     public AppDbContext CreateDbContext(string tenantId) =>

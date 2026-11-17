@@ -164,7 +164,7 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 | T | Tenant-isolasjon (test og prod) | Ferdig |
 | 0.6 | Engelske koder for status og prioritet | Ferdig (steg E) |
 | 0.9 | Fjerne malrester og rydde `.gitignore` | Ferdig |
-| 0.10b | Databasetester (Testcontainers) for tenant-filter | Gjenstår (krever Docker Desktop eller CI) |
+| 0.10b | Databasetester mot PostgreSQL | Bygget (PostgresTests, 8 tester mot egen testdatabase med de ekte migreringene; hoppes over uten ITOPS_TEST_POSTGRES) |
 | 0.12–0.13 | Bicep og GitHub Actions | Gjenstår (kan vente til utrulling) |
 
 ---
