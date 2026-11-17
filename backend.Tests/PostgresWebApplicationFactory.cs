@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using backend.Data;
 
@@ -6,10 +7,12 @@ namespace backend.Tests;
 
 // API-et mot en ekte PostgreSQL-database (0.10b), med de ekte migreringene.
 //
-// Testene kjøres bare når miljøvariabelen ITOPS_TEST_POSTGRES er satt til en
-// tilkobling til en egen testdatabase. Databasenavnet må slutte på «_test»: hele
-// skjemaet slettes og bygges opp på nytt før testene, så dev-databasen skal aldri
-// brukes her. Uten variabelen hoppes testene over.
+// Testene kjøres bare når miljøvariabelen ITOPS_TEST_POSTGRES er satt. Den må ha
+// «Search Path» med ett eget testskjema som slutter på «_test», f.eks.
+//   Host=127.0.0.1;Database=antire_it_operations;Username=antire_app;Password=…;Search Path=itops_test
+// Testskjemaet slettes og bygges opp på nytt før testene. Appens egne tabeller
+// (skjemaet public) røres aldri, så testene kan kjøre i samme database som dev.
+// Uten variabelen hoppes testene over.
 public class PostgresWebApplicationFactory : SqliteWebApplicationFactory
 {
     public const string EnvironmentVariable = "ITOPS_TEST_POSTGRES";
@@ -18,31 +21,48 @@ public class PostgresWebApplicationFactory : SqliteWebApplicationFactory
 
     public static string? SkipReason =>
         string.IsNullOrWhiteSpace(ConnectionString)
-            ? $"Sett {EnvironmentVariable} til en PostgreSQL-testdatabase for å kjøre databasetestene."
+            ? $"Sett {EnvironmentVariable} (med Search Path=<skjema>_test) for å kjøre databasetestene."
             : null;
+
+    private string? _schema;
 
     protected override DbContextOptionsBuilder UseDatabase(DbContextOptionsBuilder options)
     {
         var connectionString = ConnectionString
             ?? throw new InvalidOperationException($"{EnvironmentVariable} er ikke satt.");
 
-        var database = new NpgsqlConnectionStringBuilder(connectionString).Database ?? "";
+        _schema = TestSchema(connectionString);
 
-        if (!database.EndsWith("_test", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"Databasen «{database}» slutter ikke på _test. Testene sletter hele skjemaet, " +
-                "så de kjøres bare mot en egen testdatabase.");
-        }
-
-        return options.UseNpgsql(connectionString);
+        // Migreringshistorikken i testskjemaet, ikke appens i public
+        return options.UseNpgsql(connectionString, npgsql =>
+            npgsql.MigrationsHistoryTable(HistoryRepository.DefaultTableName, _schema));
     }
 
-    // Tomt skjema og de ekte migreringene, slik produksjonsdatabasen bygges
+    // Tomt testskjema og de ekte migreringene, slik produksjonsdatabasen bygges
     protected override void PrepareDatabase(AppDbContext db)
     {
-        db.Database.ExecuteSqlRaw("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
+        var schema = _schema ?? throw new InvalidOperationException("Testskjemaet er ikke satt.");
+
+        db.Database.ExecuteSqlRaw($"DROP SCHEMA IF EXISTS \"{schema}\" CASCADE; CREATE SCHEMA \"{schema}\";");
         db.Database.Migrate();
+    }
+
+    // Ett skjema som slutter på _test; aldri public
+    private static string TestSchema(string connectionString)
+    {
+        var searchPath = new NpgsqlConnectionStringBuilder(connectionString).SearchPath ?? "";
+        var schemas = searchPath.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (schemas.Length != 1 ||
+            !schemas[0].EndsWith("_test", StringComparison.Ordinal) ||
+            !schemas[0].All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_'))
+        {
+            throw new InvalidOperationException(
+                $"{EnvironmentVariable} må ha «Search Path» med nøyaktig ett skjema som slutter på _test " +
+                "(små bokstaver, tall og _). Testene sletter hele skjemaet, så appens skjema kan ikke brukes.");
+        }
+
+        return schemas[0];
     }
 }
 

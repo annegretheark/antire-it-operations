@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 308 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure, varsler fra Defender og Azure Monitor med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 319 tester: tilgang og tenant, SLA-beregning, CSV, innlogging og tidssoner, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure, varsler fra Defender og Azure Monitor med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et), og 8 mot ekte PostgreSQL i et eget testskjema (hoppes over uten `ITOPS_TEST_POSTGRES`) |
 
 ### 2.2 Datamodell
 
@@ -127,9 +127,7 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 | Svakhet | Tas i |
 |---|---|
 | Godkjent tilgang må fortsatt gis manuelt i Entra | 2.4 |
-| Revisjonslogg, katalog og SLA er ikke testet mot PostgreSQL (bare SQLite) | 0.10b |
 | Klienthemmelighetene ligger fortsatt på app-registreringen (appen bruker sertifikat) | Fjernes når sertifikatet er bekreftet i bruk |
-| Ingen databasetester (tenant-filteret er bare testet via tilgang) | 0.10b |
 
 ---
 
@@ -164,7 +162,7 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 | T | Tenant-isolasjon (test og prod) | Ferdig |
 | 0.6 | Engelske koder for status og prioritet | Ferdig (steg E) |
 | 0.9 | Fjerne malrester og rydde `.gitignore` | Ferdig |
-| 0.10b | Databasetester mot PostgreSQL | Bygget (PostgresTests, 8 tester mot egen testdatabase med de ekte migreringene; hoppes over uten ITOPS_TEST_POSTGRES) |
+| 0.10b | Databasetester mot PostgreSQL | Ferdig: `PostgresTests` (8) kjører API-et mot ekte PostgreSQL med de ekte migreringene, i et eget testskjema (`ITOPS_TEST_POSTGRES` med `Search Path=itops_test`; skjemaet må slutte på `_test`, og appens skjema `public` røres aldri). Fant og rettet to feil: ren dato i forespørsler ble ikke lagret (nå UTC for hele API-et, `UtcDateTimeConverter`), og migreringen for ansattnummer laget ikke sekvensen i et nytt skjema ved siden av et eksisterende. Hoppes over uten variabelen. |
 | 0.12–0.13 | Bicep og GitHub Actions | Gjenstår (kan vente til utrulling) |
 
 ---

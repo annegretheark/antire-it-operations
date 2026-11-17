@@ -20,7 +20,9 @@ namespace backend.Migrations
                 BEGIN
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_class
+                        -- Bare i skjemaet migreringen kjører i (ikke en sekvens i et annet skjema)
                         WHERE relkind = 'S' AND relname = 'employee_number_seq'
+                          AND relnamespace = current_schema()::regnamespace
                     ) THEN
                         CREATE SEQUENCE employee_number_seq START WITH 1000;
 

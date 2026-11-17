@@ -50,7 +50,9 @@ builder.Services.AddCors(options =>
 });
 
 // API Controllers
-builder.Services.AddControllers();
+// Tidspunkter i forespørsler lagres som UTC (se UtcDateTimeConverter)
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter()));
 builder.Services.AddScoped<TicketAssignmentService>();
 builder.Services.AddScoped<EmployeeNumberService>();
 builder.Services.AddScoped<ServiceCatalogService>();
