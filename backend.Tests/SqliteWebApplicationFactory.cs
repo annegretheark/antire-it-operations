@@ -54,6 +54,8 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
             // Krypteringsnøkler bare i minnet, så testene ikke skriver til brukerprofilen
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
 
+            ReplaceEmployeeNumbers(services);
+
             services.RemoveAll<AzureService>();
             services.AddSingleton<AzureService>(sp => new FakeAzureService(
                 sp.GetRequiredService<IHttpClientFactory>(), sp.GetRequiredService<IConfiguration>()));
@@ -78,6 +80,13 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
             _connection.Open();
 
         return options.UseSqlite(_connection);
+    }
+
+    // SQLite har ikke sekvenser (PostgreSQL-oppsettet beholder den ekte tjenesten)
+    protected virtual void ReplaceEmployeeNumbers(IServiceCollection services)
+    {
+        services.RemoveAll<EmployeeNumberService>();
+        services.AddScoped<EmployeeNumberService, CountingEmployeeNumberService>();
     }
 
     // Lager tabellene før første forespørsel
@@ -109,4 +118,13 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
         public string? TenantId => tenantId;
     }
 
+}
+
+// SQLite har ikke sekvenser; ansattnummer fra en teller (ekte sekvens testes i PostgresTests)
+public class CountingEmployeeNumberService(AppDbContext db) : EmployeeNumberService(db)
+{
+    private static int _next = 5000;
+
+    public override Task<string> NextAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(Interlocked.Increment(ref _next).ToString());
 }

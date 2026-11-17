@@ -7,6 +7,7 @@ import CategoryGroupsSettings from './settings/CategoryGroupsSettings'
 import SlaSettings from './settings/SlaSettings'
 import AlertRulesSettings from './settings/AlertRulesSettings'
 import TeamsSettings from './settings/TeamsSettings'
+import LifecycleTemplatesSettings from './settings/LifecycleTemplatesSettings'
 import {
   actionLabel,
   describeChanges,
@@ -31,6 +32,7 @@ const TABS = [
   { key: 'sla', label: 'SLA' },
   { key: 'alertrules', label: 'Varselregler' },
   { key: 'teams', label: 'Teams' },
+  { key: 'lifecycle', label: 'Onboarding-maler' },
   { key: 'audit', label: 'Revisjonslogg' },
 ] as const
 
@@ -74,6 +76,7 @@ export default function Settings() {
       {tab === 'sla' && <SlaSettings />}
       {tab === 'alertrules' && <AlertRulesSettings />}
       {tab === 'teams' && <TeamsSettings />}
+      {tab === 'lifecycle' && <LifecycleTemplatesSettings />}
       {tab === 'audit' && <AuditLog />}
     </section>
   )

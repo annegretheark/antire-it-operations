@@ -17,17 +17,20 @@ public class GraphController : ControllerBase
     private readonly AppDbContext _context;
     private readonly EmployeeNumberService _employeeNumbers;
     private readonly ITenantContext _tenant;
+    private readonly LifecycleService _lifecycle;
 
     public GraphController(
         GraphService graphService,
         AppDbContext context,
         EmployeeNumberService employeeNumbers,
-        ITenantContext tenant)
+        ITenantContext tenant,
+        LifecycleService lifecycle)
     {
         _graphService = graphService;
         _context = context;
         _employeeNumbers = employeeNumbers;
         _tenant = tenant;
+        _lifecycle = lifecycle;
     }
     [HttpGet("employees")]
     public async Task<IActionResult> GetEmployees()
@@ -52,6 +55,11 @@ public async Task<IActionResult> SyncEmployees()
     var users = await _graphService.GetEmployeesAsync(_tenant.TenantId!);
     var created = 0;
     var updated = 0;
+
+    // Nye ansatte fra synken får onboarding, men ikke ved første synk i en tenant
+    // (da er alle «nye», og de fleste har jobbet der lenge)
+    var hadEmployees = await _context.Employees.AnyAsync();
+    var newEmployees = new List<backend.Models.Employee>();
 
     foreach (var user in users)
     {
@@ -84,6 +92,7 @@ public async Task<IActionResult> SyncEmployees()
             };
 
             _context.Employees.Add(employee);
+            newEmployees.Add(employee);
             created++;
         }
         else
@@ -114,6 +123,12 @@ public async Task<IActionResult> SyncEmployees()
     });
 
     await _context.SaveChangesAsync();
+
+    if (hadEmployees)
+    {
+        foreach (var employee in newEmployees)
+            await _lifecycle.StartAsync(employee, backend.Models.LifecycleTypes.Onboarding, employee.StartDate);
+    }
 
     return Ok(new
     {

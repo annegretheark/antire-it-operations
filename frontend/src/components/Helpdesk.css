@@ -565,3 +565,60 @@
   outline-offset: 4px;
   border-radius: 6px;
 }
+
+/* Onboarding og offboarding */
+.progress {
+  width: 120px;
+  height: 6px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #16a34a;
+}
+
+.lifecycle-tasks {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.lifecycle-tasks li {
+  padding: 6px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.lifecycle-tasks li.done strong {
+  text-decoration: line-through;
+  color: #64748b;
+}
+
+.lifecycle-tasks .settings-check {
+  align-items: flex-start;
+}
+
+.lifecycle-subheading {
+  display: block;
+  margin-top: 12px;
+}
+
+/* GDPR */
+.protocol-entry {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.protocol-entry dt {
+  font-weight: 600;
+}
+
+.protocol-entry dd {
+  margin: 0;
+}

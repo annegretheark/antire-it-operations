@@ -44,6 +44,24 @@ public class FakeGraphService(IConfiguration configuration) : GraphService(confi
         return Task.FromResult(DefenderAlerts.GetValueOrDefault(tenantId)?.ToList() ?? []);
     }
 
+    // Brukere for synk av ansatte per tenant (GetEmployeesAsync)
+    public ConcurrentDictionary<string, List<Microsoft.Graph.Models.User>> EntraUsers { get; } = new();
+
+    public override Task<List<Microsoft.Graph.Models.User>> GetEmployeesAsync(
+        string tenantId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(EntraUsers.GetValueOrDefault(tenantId)?.ToList() ?? []);
+
+    // Alle vellykkede kall til RemoveGroupMemberAsync: (gruppe, bruker)
+    public ConcurrentQueue<(string GroupId, string UserId)> RemovedMembers { get; } = new();
+
+    public override Task<bool> RemoveGroupMemberAsync(
+        string tenantId, string groupId, string userObjectId, CancellationToken cancellationToken = default)
+    {
+        ThrowIfFailing();
+        RemovedMembers.Enqueue((groupId, userObjectId));
+        return Task.FromResult(true);
+    }
+
     public override Task<bool> IsMemberOfAnyGroupAsync(
         string tenantId, string entraObjectId, IReadOnlyCollection<string> groupIds,
         CancellationToken cancellationToken = default) =>

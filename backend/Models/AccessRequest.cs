@@ -40,4 +40,6 @@ public static class AccessRequestStatuses
     public const string Approved = "Godkjent";
     public const string Rejected = "Avslått";
     public const string Completed = "Fullført";
+    // Tilgangen er fjernet igjen (offboarding)
+    public const string Revoked = "Tilgang fjernet";
 }

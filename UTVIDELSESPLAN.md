@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 319 tester: tilgang og tenant, SLA-beregning, CSV, innlogging og tidssoner, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure, varsler fra Defender og Azure Monitor med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et), og 8 mot ekte PostgreSQL i et eget testskjema (hoppes over uten `ITOPS_TEST_POSTGRES`) |
+| Tester | xUnit + WebApplicationFactory | 387 tester: tilgang og tenant, SLA-beregning, CSV, innlogging og tidssoner, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure, varsler fra Defender og Azure Monitor med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et), onboarding og GDPR, og 10 mot ekte PostgreSQL i et eget testskjema (hoppes over uten `ITOPS_TEST_POSTGRES`) |
 
 ### 2.2 Datamodell
 
@@ -531,6 +531,32 @@ Budsjettvarsel settes på ressursgruppen (f.eks. 500 kr i dev). Dev kan stoppes 
 3. **Kostnad:** er ca. 375 kr i måneden for dev i orden, og hvor skal budsjettvarselet ligge?
 4. **GitHub:** skal utrullingen gå fra `annegretheark/antire-it-operations`? Det krever en federated credential i Entra for repoet.
 
+## 8c. Onboarding, offboarding og GDPR (steg L)
+
+**Status (2026-11-17): ferdig.** Migreringen `AddLifecycleAndGdpr` er kjørt i dev-databasen. Tar i bruk menyplassholderne **Onboarding / Offboarding** og **GDPR**.
+
+### L1 Onboarding og offboarding
+
+- **Maler** (`LifecycleTemplateTask`, Innstillinger → Onboarding-maler): oppgaver med frist i dager før eller etter start- eller sluttdato og ansvarlig område. Standardmaler per tenant (6 oppgaver for onboarding, 5 for offboarding) opprettes første gang de trengs. Endringer gjelder nye prosesser.
+- **Prosess per ansatt** (`LifecycleProcess` med `LifecycleTask`): avkrysning med hvem og når, og notat. Prosessen fullføres når alle oppgaver er gjort, og gjenåpnes hvis en tas av igjen. Bare én aktiv prosess av hver type per ansatt (filtrert unik indeks).
+- **Automatisk start:** onboarding når en ansatt registreres med startdato i dag eller senere, og når synk fra Entra legger til nye ansatte (men ikke ved første synk i en tenant, da alle er «nye»). Offboarding når sluttdato registreres. Kan også startes og avbrytes manuelt.
+- **Offboarding** viser utstyret den ansatte har (med «Mottatt») og tilganger fra tilgangsbestillinger. Tilganger gitt via Entra-gruppe fjernes med én knapp (`GraphService.RemoveGroupMemberAsync`, krever `GroupMember.ReadWrite.All`); bestillingen får status «Tilgang fjernet» og `access_revoked` logges.
+- **API:** `/api/lifecycle` (Helpdesk.Agent) og `/api/lifecycletemplates` (Helpdesk.Admin).
+
+### L2 GDPR (Helpdesk.Admin)
+
+- **Innsyn (art. 15):** `GET /api/gdpr/employees/{id}/export` gir alt om personen som JSON-fil: ansattopplysninger, saker, tilgangsbestillinger, utstyr, onboarding og offboarding, og revisjonslogg. Uttrekket logges (`gdpr_exported`).
+- **Anonymisering (art. 17 og lagringsbegrensning):** for ansatte som har sluttet, når utstyret er levert og ingen prosess er aktiv. Navn, e-post, ansattnummer, avdeling, stilling og Entra-ID fjernes; tilgangsbestillinger får et pseudonym. Raden, sakene og utstyret beholdes. Revisjonsloggen kan ellers ikke endres, men her vaskes innholdet i radene om personen og aktørnavnet der personen selv har endret noe (direkte i databasen, radene beholdes), og `gdpr_anonymized` logges uten navn. Fritekst i saker (beskrivelser) må vurderes for seg.
+- **Automatisk anonymisering:** frist i måneder etter sluttdato (GDPR-innstillinger, av som standard). `GdprMonitorService` kjører én gang i døgnet (aktør `system`) og hopper over ansatte som fortsatt har utstyr eller en aktiv prosess.
+- **Behandlingsprotokoll (art. 30):** `ProcessingActivity` med formål, registrerte, opplysninger, behandlingsgrunnlag (art. 6), lagringstid, mottakere, overføring utenfor EØS, sikkerhetstiltak, ansvarlig og sist gjennomgått. Behandlingen i denne appen legges inn som utgangspunkt én gang per tenant. Kan lastes ned som CSV.
+
+### Funnet underveis
+
+- Ansatte uten startdato (standardverdien) ga en feil i datoregningen når onboarding startet; fristene regnes nå fra i dag.
+- SQLite-testene bruker en teller for ansattnummer (SQLite har ikke sekvenser); den ekte sekvensen testes mot PostgreSQL.
+
+**Tester:** `LifecycleTests` (7), `FirstSyncTests` (1) og `GdprTests` (5) mot SQLite, og 2 nye i `PostgresTests` (anonymisering med jsonb og den filtrerte unike indeksen).
+
 ## 9. Gjennomføring
 
 | Steg | Innhold | Estimat (1–2 utviklere) |
@@ -546,7 +572,8 @@ Budsjettvarsel settes på ressursgruppen (f.eks. 500 kr i dev). Dev kan stoppes 
 | H | Fase 3 (3.1–3.3) | Ferdig |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | Bygget; ekte Teams og Defender venter på lisens |
 | J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | Henting ferdig; webhook venter til appen kjører i Azure |
-| K | 8b Drift i Azure (dev): kodeendringer, Bicep, GitHub Actions og webhook for Azure-varsler | Plan; ca. 1–1,5 uker. Dev koster ca. 375 kr i måneden |
+| K | 8b Drift i Azure (dev): kodeendringer, Bicep, GitHub Actions og webhook for Azure-varsler | K1–K5 (kode) ferdig; K6–K9 venter på avklaringer. Dev koster ca. 375 kr i måneden |
+| L | 8c Onboarding, offboarding og GDPR (innsyn, anonymisering, behandlingsprotokoll) | Ferdig |
 
 **Arbeidsmåte per steg:** én migrering, backend med tester, frontend, test i dev-tenanten (`3af5c92b`), og deretter commit til `main`. Produksjonstenanten tas først i bruk når du sier fra.
 

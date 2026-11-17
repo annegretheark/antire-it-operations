@@ -44,6 +44,15 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "GET", "/api/teams/settings" },
         { "PUT", "/api/teams/settings" },
         { "POST", "/api/teams/test" },
+        { "GET", "/api/lifecycletemplates" },
+        { "POST", "/api/lifecycletemplates" },
+        { "GET", "/api/gdpr/employees/1/export" },
+        { "POST", "/api/gdpr/employees/1/anonymize" },
+        { "GET", "/api/gdpr/candidates" },
+        { "GET", "/api/gdpr/settings" },
+        { "PUT", "/api/gdpr/settings" },
+        { "GET", "/api/gdpr/processing" },
+        { "POST", "/api/gdpr/processing" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin
@@ -58,6 +67,11 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "PATCH", "/api/assets/1/assign" },
         { "POST", "/api/assets/import" },
         { "POST", "/api/accessrequests/1/grant" },
+        { "GET", "/api/lifecycle" },
+        { "POST", "/api/lifecycle" },
+        { "PATCH", "/api/lifecycle/tasks/1" },
+        { "POST", "/api/lifecycle/1/cancel" },
+        { "POST", "/api/lifecycle/1/revoke/1" },
         { "GET", "/api/alerts" },
         { "GET", "/api/alerts/sources" },
     };

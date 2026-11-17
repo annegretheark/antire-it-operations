@@ -51,4 +51,10 @@ public static class AuditActions
     public const string AlertRecurred = "alert_recurred";
     public const string AlertResolved = "alert_resolved";
     public const string ReopenedByAlert = "reopened_by_alert";
+    // Onboarding og offboarding
+    public const string LifecycleStarted = "lifecycle_started";
+    public const string AccessRevoked = "access_revoked";
+    // GDPR
+    public const string GdprExported = "gdpr_exported";
+    public const string GdprAnonymized = "gdpr_anonymized";
 }

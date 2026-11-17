@@ -38,6 +38,11 @@ public class PostgresWebApplicationFactory : SqliteWebApplicationFactory
             npgsql.MigrationsHistoryTable(HistoryRepository.DefaultTableName, _schema));
     }
 
+    // Ekte sekvens i PostgreSQL
+    protected override void ReplaceEmployeeNumbers(Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    {
+    }
+
     // Tomt testskjema og de ekte migreringene, slik produksjonsdatabasen bygges
     protected override void PrepareDatabase(AppDbContext db)
     {

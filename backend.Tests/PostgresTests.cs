@@ -142,6 +142,64 @@ public class PostgresTests(PostgresWebApplicationFactory factory)
     }
 
     [PostgresFact]
+    public async Task Anonymization_redacts_jsonb_audit_rows_in_postgres()
+    {
+        var unique = Guid.NewGuid().ToString("N")[..8];
+        int employeeId;
+
+        await using (var db = factory.CreateDbContext(TenantA))
+        {
+            var employee = new Employee
+            {
+                FirstName = $"Pg{unique}", LastName = "Person", Email = $"{unique}@t.no",
+                StartDate = DateTime.UtcNow.AddYears(-2),
+            };
+            db.Employees.Add(employee);
+            await db.SaveChangesAsync();
+
+            employee.Status = "Sluttet";
+            employee.EndDate = DateTime.UtcNow.AddDays(-1);
+            await db.SaveChangesAsync();
+            employeeId = employee.Id;
+        }
+
+        var response = await Admin().PostAsync($"/api/gdpr/employees/{employeeId}/anonymize", null);
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+
+        await using var check = factory.CreateDbContext(TenantA);
+        var rows = await check.AuditEvents.AsNoTracking()
+            .Where(e => e.EntityType == nameof(Employee) && e.EntityId == employeeId.ToString())
+            .ToListAsync();
+
+        Assert.True(rows.Count >= 3);
+        Assert.DoesNotContain(rows, e => (e.Changes ?? "").Contains($"Pg{unique}"));
+    }
+
+    [PostgresFact]
+    public async Task Only_one_active_onboarding_per_employee()
+    {
+        var agent = factory.CreateClientWithRoles(AppRoles.HelpdeskAgent);
+        int employeeId;
+
+        await using (var db = factory.CreateDbContext(TenantA))
+        {
+            var employee = new Employee { FirstName = "En", LastName = "Gang", Email = $"{Guid.NewGuid():N}@t.no" };
+            db.Employees.Add(employee);
+            await db.SaveChangesAsync();
+            employeeId = employee.Id;
+        }
+
+        var first = await ReadAsync<LifecycleSummaryDto>(await agent.PostAsJsonAsync("/api/lifecycle", new { employeeId, type = "onboarding" }));
+        var again = await ReadAsync<LifecycleSummaryDto>(await agent.PostAsJsonAsync("/api/lifecycle", new { employeeId, type = "onboarding" }));
+        Assert.Equal(first.Id, again.Id);
+
+        // Etter avbrudd kan en ny startes (den unike indeksen gjelder bare aktive)
+        await agent.PostAsync($"/api/lifecycle/{first.Id}/cancel", null);
+        var next = await ReadAsync<LifecycleSummaryDto>(await agent.PostAsJsonAsync("/api/lifecycle", new { employeeId, type = "onboarding" }));
+        Assert.NotEqual(first.Id, next.Id);
+    }
+
+    [PostgresFact]
     public async Task Duplicate_catalog_name_is_rejected()
     {
         await ReadAsync<List<ServiceCatalogItem>>(await Admin().GetAsync("/api/servicecatalog"));

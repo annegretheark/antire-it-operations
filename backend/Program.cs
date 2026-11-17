@@ -59,6 +59,12 @@ builder.Services.AddScoped<ServiceCatalogService>();
 builder.Services.AddScoped<SlaService>();
 builder.Services.AddScoped<AssetService>();
 builder.Services.AddScoped<AccessGrantService>();
+// Onboarding og offboarding, og GDPR
+builder.Services.AddScoped<LifecycleService>();
+builder.Services.AddScoped<GdprService>();
+// Anonymiserer ansatte som har sluttet etter fristen (Gdpr:MonitorEnabled)
+builder.Services.AddSingleton<GdprMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<GdprMonitorService>());
 // Varsler blir saker (fase 4)
 builder.Services.AddScoped<TeamsNotificationService>();
 builder.Services.AddScoped<AlertRuleService>();

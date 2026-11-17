@@ -13,7 +13,8 @@ public class EmployeeNumberService
         _db = db;
     }
 
-    public async Task<string> NextAsync(CancellationToken cancellationToken = default)
+    // Virtual slik at SQLite-testene (uten sekvenser) kan bruke en teller
+    public virtual async Task<string> NextAsync(CancellationToken cancellationToken = default)
     {
         var next = await _db.Database
             .SqlQuery<long>($"SELECT nextval('employee_number_seq') AS \"Value\"")

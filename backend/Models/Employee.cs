@@ -23,4 +23,8 @@ public class Employee : ITenantOwned, IAudited
     public DateTime? EndDate { get; set; }
 
     public string Status { get; set; } = "Aktiv";
+
+    // Satt når personopplysningene er fjernet (GDPR). Raden beholdes, slik at saker
+    // og utstyr fortsatt peker et sted.
+    public DateTime? AnonymizedAt { get; set; }
 }

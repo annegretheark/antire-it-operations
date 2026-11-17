@@ -42,6 +42,11 @@ public class AppDbContext : DbContext
     public DbSet<AlertRule> AlertRules { get; set; }
     public DbSet<TeamsSettings> TeamsSettings { get; set; }
     public DbSet<TeamsNotification> TeamsNotifications { get; set; }
+    public DbSet<LifecycleTemplateTask> LifecycleTemplateTasks { get; set; }
+    public DbSet<LifecycleProcess> LifecycleProcesses { get; set; }
+    public DbSet<LifecycleTask> LifecycleTasks { get; set; }
+    public DbSet<ProcessingActivity> ProcessingActivities { get; set; }
+    public DbSet<GdprSettings> GdprSettings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -62,6 +67,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AlertRule>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<TeamsSettings>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<TeamsNotification>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<LifecycleTemplateTask>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<LifecycleProcess>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<LifecycleTask>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ProcessingActivity>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<GdprSettings>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
 
         // Revisjonslogg: historikk per entitet og siste hendelser i tenanten
         modelBuilder.Entity<AuditEvent>(audit =>
@@ -102,6 +112,60 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeResponsibility>()
             .HasIndex(r => new { r.EmployeeId, r.Category })
             .IsUnique();
+
+        // Onboarding og offboarding: bare én aktiv prosess av hver type per ansatt
+        modelBuilder.Entity<LifecycleTemplateTask>(task =>
+        {
+            task.Property(e => e.TenantId).HasMaxLength(36);
+            task.Property(e => e.Type).HasMaxLength(20);
+            task.Property(e => e.Title).HasMaxLength(200);
+            task.Property(e => e.Description).HasMaxLength(1000);
+            task.Property(e => e.Category).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<LifecycleProcess>(process =>
+        {
+            process.Property(e => e.TenantId).HasMaxLength(36);
+            process.Property(e => e.Type).HasMaxLength(20);
+            process.Property(e => e.Status).HasMaxLength(20);
+            process.HasOne(e => e.Employee)
+                .WithMany()
+                .HasForeignKey(e => e.EmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+            process.HasMany(e => e.Tasks)
+                .WithOne()
+                .HasForeignKey(t => t.ProcessId)
+                .OnDelete(DeleteBehavior.Cascade);
+            process.HasIndex(e => new { e.TenantId, e.EmployeeId, e.Type })
+                .IsUnique()
+                .HasFilter("\"Status\" = 'active'");
+        });
+
+        modelBuilder.Entity<LifecycleTask>(task =>
+        {
+            task.Property(e => e.TenantId).HasMaxLength(36);
+            task.Property(e => e.Title).HasMaxLength(200);
+            task.Property(e => e.Description).HasMaxLength(1000);
+            task.Property(e => e.Category).HasMaxLength(100);
+            task.Property(e => e.CompletedByName).HasMaxLength(256);
+            task.Property(e => e.Note).HasMaxLength(1000);
+        });
+
+        // GDPR: behandlingsprotokoll og innstillinger
+        modelBuilder.Entity<ProcessingActivity>(activity =>
+        {
+            activity.Property(e => e.TenantId).HasMaxLength(36);
+            activity.Property(e => e.Name).HasMaxLength(200);
+            activity.Property(e => e.System).HasMaxLength(200);
+            activity.Property(e => e.LegalBasis).HasMaxLength(30);
+            activity.Property(e => e.Owner).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<GdprSettings>(settings =>
+        {
+            settings.Property(e => e.TenantId).HasMaxLength(36);
+            settings.HasIndex(e => e.TenantId).IsUnique();
+        });
 
         // Varsler (fase 4): samme varsel fra samme kilde lagres én gang per tenant.
         // Saken peker på varselet med fremmednøkkel; Alert.TicketId er bare en

@@ -14,13 +14,16 @@ public class EmployeesController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly EmployeeNumberService _employeeNumbers;
+    private readonly LifecycleService _lifecycle;
 
     public EmployeesController(
         AppDbContext context,
-        EmployeeNumberService employeeNumbers)
+        EmployeeNumberService employeeNumbers,
+        LifecycleService lifecycle)
     {
         _context = context;
         _employeeNumbers = employeeNumbers;
+        _lifecycle = lifecycle;
     }
 
     // Hent alle ansatte
@@ -55,6 +58,10 @@ public class EmployeesController : ControllerBase
 
         _context.Employees.Add(employee);
         await _context.SaveChangesAsync();
+
+        // Onboarding starter automatisk for ansatte som begynner i dag eller senere
+        if (employee.StartDate.Date >= DateTime.UtcNow.Date)
+            await _lifecycle.StartAsync(employee, LifecycleTypes.Onboarding, employee.StartDate);
 
         return Ok(employee);
     }
@@ -133,6 +140,9 @@ if (employee.EmployeeNumber != null)
         employee.Status = "Sluttet";
 
         await _context.SaveChangesAsync();
+
+        // Offboarding starter automatisk med sluttdatoen
+        await _lifecycle.StartAsync(employee, LifecycleTypes.Offboarding, update.EndDate);
 
         return Ok(employee);
     }

@@ -10,6 +10,8 @@ import Assets from './components/Assets'
 import M365 from './components/M365'
 import Azure from './components/Azure'
 import Alerts from './components/Alerts'
+import Lifecycle from './components/Lifecycle'
+import Gdpr from './components/Gdpr'
 import {
   useMsal,
   useIsAuthenticated
@@ -235,6 +237,10 @@ await instance.logoutPopup({
   <Azure />
 ) : activePage === 'Microsoft 365' ? (
   <M365 />
+) : activePage === 'Onboarding / Offboarding' ? (
+  <Lifecycle />
+) : activePage === 'GDPR' ? (
+  <Gdpr />
 ) : activePage === 'IT-utstyr' ? (
   <Assets />
 ) : activePage === 'Innstillinger' ? (

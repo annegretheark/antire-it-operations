@@ -35,7 +35,7 @@ public class GraphService
     }
 
     // Henter alle brukere med avdeling og stilling (følger alle sider)
-    public async Task<List<User>> GetEmployeesAsync(
+    public virtual async Task<List<User>> GetEmployeesAsync(
         string tenantId,
         CancellationToken cancellationToken = default)
     {
@@ -371,6 +371,31 @@ public class GraphService
             e.Error?.Message?.Contains("already exist", StringComparison.OrdinalIgnoreCase) == true)
         {
             return AddMemberResult.AlreadyMember;
+        }
+        catch (ODataError e)
+        {
+            throw Unavailable(e, "GroupMember.ReadWrite.All");
+        }
+    }
+
+    // Fjerner brukeren fra gruppen (krever GroupMember.ReadWrite.All).
+    // Er brukeren ikke medlem, regnes det som vellykket. Gir true hvis den ble fjernet.
+    public virtual async Task<bool> RemoveGroupMemberAsync(
+        string tenantId,
+        string groupId,
+        string userObjectId,
+        CancellationToken cancellationToken = default)
+    {
+        var client = ClientFor(tenantId);
+
+        try
+        {
+            await client.Groups[groupId].Members[userObjectId].Ref.DeleteAsync(cancellationToken: cancellationToken);
+            return true;
+        }
+        catch (ODataError e) when (e.ResponseStatusCode == 404)
+        {
+            return false;
         }
         catch (ODataError e)
         {
