@@ -461,6 +461,76 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 
 ---
 
+## 8b. Drift i Azure (steg K)
+
+Appen kjører i dag lokalt. Dette kapitlet beskriver hvordan den kjører i Azure, i riktig størrelse for appen slik den er: én .NET-backend med bakgrunnsjobber, én React-frontend og én PostgreSQL-database. Plattformen i `AZURE_INTEGRATIONS.md` del B (Container Apps, Service Bus, Front Door, Redis, 25 000–45 000 kr i måneden) er laget for MSP-modellen og er mye større enn det appen trenger nå.
+
+**Status (2026-11-17): plan.** Ingenting er opprettet i Azure.
+
+### Arkitektur
+
+```
+Abonnement (dev: Aitrening i 3af5c92b) · region Norway East
+└── rg-itops-dev-noe
+    ├── app-itops-dev-noe      App Service (Linux, .NET 10, Always On): API, bakgrunnsjobber og frontend
+    ├── asp-itops-dev-noe      App Service-plan B1
+    ├── psql-itops-dev-noe     PostgreSQL Flexible Server, Burstable B1ms, 32 GB, Entra-innlogging
+    ├── id-itops-dev-noe       Brukertildelt managed identity for appen
+    ├── kv-itops-dev-noe       Key Vault (RBAC): nøkkel som beskytter Data Protection-nøklene
+    ├── stitopsdevnoe          Storage: Data Protection-nøkler (blob)
+    └── log-/appi-itops-dev-noe Log Analytics og Application Insights
+```
+
+| Valg | Hvorfor |
+|---|---|
+| **App Service, ikke Container Apps** | Bakgrunnsjobbene (SLA og varsler hvert 5. minutt) må kjøre hele tiden. App Service med Always On gjør det enkelt; Container Apps må ha minst én kopi oppe hele tiden for det samme og gir ikke noe ekstra her. |
+| **Frontend i samme App Service** | Én adresse, ingen CORS, én utrulling. Backend serverer de bygde filene fra `wwwroot` med fallback til `index.html`. Static Web Apps (gratis) er et alternativ hvis frontend skal skilles ut senere. |
+| **Ingen hemmeligheter i Azure** | Appen logger inn mot Graph og Azure som app-registreringen via en *federated identity credential* fra den brukertildelte managed identityen. Rettighetene og Reader-rollene appen har i dag, gjelder da uendret, og det virker også når prod-tenanten kommer til (app-registreringen blir flerorganisasjon). PostgreSQL bruker Entra-innlogging med samme identitet, uten passord. |
+| **Data Protection i Blob Storage + Key Vault** | Webhook-adressen til Teams er kryptert med Data Protection. Nøklene må overleve omstart og ny utrulling, ellers kan den ikke leses. |
+| **Ingen VNet i dev** | PostgreSQL med offentlig endepunkt, bare Azure-tjenester og Entra-innlogging. Privat nettverk (VNet, private endpoints) vurderes for prod; det koster mer og gjør utrulling mer komplisert. |
+
+### Kostnad per måned (Norway East, listepris)
+
+Prisene er hentet fra Azures prisliste 17.11.2026 (USD, omregnet med ca. 11 kr per dollar). Lagring for PostgreSQL er anslått.
+
+| Ressurs | Dev/test | Prod (forslag) |
+|---|---|---|
+| App Service-plan | B1 Linux: 0,0177 USD/t ≈ 13 USD ≈ **140 kr** | P0v3 Linux: 0,0985 USD/t ≈ 72 USD ≈ **790 kr** (utrullingsplasser, mer minne) |
+| PostgreSQL Flexible Server | B1ms: 0,0219 USD/t ≈ 16 USD ≈ **175 kr** | B2s eller B2ms: ca. **400–1 400 kr** etter behov |
+| Lagring PostgreSQL (32 / 64 GB) og backup | ca. **50 kr** | ca. **100 kr** |
+| Key Vault, Storage | under **10 kr** | under **20 kr** |
+| Log Analytics og Application Insights | **0 kr** (første 5 GB i måneden er gratis) | 0–100 kr (3,29 USD per GB over 5 GB) |
+| **Sum** | **ca. 375 kr i måneden** | **ca. 1 300–2 400 kr i måneden** |
+
+Budsjettvarsel settes på ressursgruppen (f.eks. 500 kr i dev). Dev kan stoppes helt utenom testing (App Service og PostgreSQL kan stoppes), men da kjører heller ikke bakgrunnsjobbene.
+
+### Kodeendringer før første utrulling
+
+| # | Endring | Omfang |
+|---|---|---|
+| K1 | Backend serverer frontend (`UseStaticFiles` + `MapFallbackToFile`), helsesjekk (`/health`), `UseForwardedHeaders` bak App Service | Lite |
+| K2 | `AppCredentials`: ny variant *managed identity + federated credential* (`ClientAssertionCredential` med token fra den brukertildelte identiteten) | Lite |
+| K3 | PostgreSQL med Entra-token (Npgsql med periodisk token fra managed identity), passord bare lokalt | Middels |
+| K4 | Data Protection: nøkler i Blob Storage, beskyttet med Key Vault (`PersistKeysToAzureBlobStorage`, `ProtectKeysWithAzureKeyVault`) | Lite |
+| K5 | Migreringer som egen jobb i utrullingen (EF migration bundle), ikke ved oppstart | Lite |
+
+### Infrastruktur og utrulling
+
+| # | Leveranse |
+|---|---|
+| K6 | Bicep i `infra/` (`main.bicep` og `dev.bicepparam`, senere `prod.bicepparam`) for alle ressursene over, roller (Key Vault, Storage, PostgreSQL-administrator for identiteten) og budsjettvarsel |
+| K7 | GitHub Actions: bygg og test ved hver PR; ved `main` bygges frontend og backend, migreringsbunten kjøres, og appen rulles ut til dev. Innlogging mot Azure med OIDC (federated credential), uten lagrede hemmeligheter |
+| K8 | Entra: adressen til appen legges til som redirect-URI på SPA-registreringen; federated credential fra identiteten på API-registreringen |
+| K9 | 4.2 webhook: `POST /api/hooks/azure-monitor` med secure webhook (Entra-token fra action group) og Common Alert Schema. Hentingen hvert 5. minutt beholdes som avstemming |
+
+**Ferdig når:** appen kjører i dev i Azure, du logger inn på adressen dens, bakgrunnsjobbene lager saker fra varsler, og et Azure-varsel kommer inn via webhook innen ett minutt.
+
+**Avklaringer før K6:**
+1. **Abonnement for dev:** «Aitrening» i dev-tenanten (forslag), eller et annet?
+2. **Prod:** prod skal ligge i Antire-tenanten, som ikke skal røres før du sier fra. Planen gjelder derfor bare dev nå.
+3. **Kostnad:** er ca. 375 kr i måneden for dev i orden, og hvor skal budsjettvarselet ligge?
+4. **GitHub:** skal utrullingen gå fra `annegretheark/antire-it-operations`? Det krever en federated credential i Entra for repoet.
+
 ## 9. Gjennomføring
 
 | Steg | Innhold | Estimat (1–2 utviklere) |
@@ -476,6 +546,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | H | Fase 3 (3.1–3.3) | Ferdig |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | Bygget; ekte Teams og Defender venter på lisens |
 | J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | Henting ferdig; webhook venter til appen kjører i Azure |
+| K | 8b Drift i Azure (dev): kodeendringer, Bicep, GitHub Actions og webhook for Azure-varsler | Plan; ca. 1–1,5 uker. Dev koster ca. 375 kr i måneden |
 
 **Arbeidsmåte per steg:** én migrering, backend med tester, frontend, test i dev-tenanten (`3af5c92b`), og deretter commit til `main`. Produksjonstenanten tas først i bruk når du sier fra.
 
