@@ -6,11 +6,15 @@ using Azure.Identity;
 namespace backend.Services;
 
 // Appens egen innlogging mot Microsoft Graph og Azure (2.1), i prioritert rekkefølge:
-//   1. MicrosoftGraph:UseManagedIdentity = true  → managed identity (når appen kjører i Azure)
-//   2. MicrosoftGraph:CertificateThumbprint     → sertifikat fra Windows-sertifikatlageret
+//   1. MicrosoftGraph:UseFederatedManagedIdentity = true → appens managed identity
+//      logger inn som app-registreringen (federated identity credential). Ingen
+//      hemmelighet; rettighetene til app-registreringen gjelder, også i andre tenanter.
+//      Brukertildelt identitet: Azure:ManagedIdentityClientId.
+//   2. MicrosoftGraph:UseManagedIdentity = true  → managed identity direkte (bare egen tenant)
+//   3. MicrosoftGraph:CertificateThumbprint     → sertifikat fra Windows-sertifikatlageret
 //      (CurrentUser\My, deretter LocalMachine\My)
-//   3. MicrosoftGraph:CertificatePath (+ CertificatePassword) → sertifikat fra .pfx-fil
-//   4. MicrosoftGraph:ClientSecret              → klienthemmelighet (bare til overgangen)
+//   4. MicrosoftGraph:CertificatePath (+ CertificatePassword) → sertifikat fra .pfx-fil
+//   5. MicrosoftGraph:ClientSecret              → klienthemmelighet (bare til overgangen)
 // Én innlogging (med token-cache) per tenant.
 public class AppCredentials
 {
@@ -18,7 +22,7 @@ public class AppCredentials
     private readonly Func<string, TokenCredential> _create;
     private readonly ConcurrentDictionary<string, TokenCredential> _byTenant = new();
 
-    // certificate | managed_identity | secret, til visning og logg
+    // federated_managed_identity | managed_identity | certificate | secret, til visning og logg
     public string Kind { get; }
 
     public AppCredentials(IConfiguration configuration)
@@ -30,10 +34,22 @@ public class AppCredentials
         var path = configuration["MicrosoftGraph:CertificatePath"];
         var secret = configuration["MicrosoftGraph:ClientSecret"];
 
-        if (configuration.GetValue("MicrosoftGraph:UseManagedIdentity", false))
+        var identityClientId = configuration["Azure:ManagedIdentityClientId"];
+
+        if (configuration.GetValue("MicrosoftGraph:UseFederatedManagedIdentity", false))
+        {
+            Kind = "federated_managed_identity";
+            var identity = ManagedIdentity(identityClientId);
+
+            // Token fra identiteten brukes som bevis (client assertion) for app-registreringen
+            _create = tenantId => new ClientAssertionCredential(tenantId, _clientId, async cancellationToken =>
+                (await identity.GetTokenAsync(
+                    new TokenRequestContext(["api://AzureADTokenExchange/.default"]), cancellationToken)).Token);
+        }
+        else if (configuration.GetValue("MicrosoftGraph:UseManagedIdentity", false))
         {
             Kind = "managed_identity";
-            var identity = new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned);
+            var identity = ManagedIdentity(identityClientId);
             _create = _ => identity;
         }
         else if (!string.IsNullOrWhiteSpace(thumbprint))
@@ -69,6 +85,11 @@ public class AppCredentials
 
         return _byTenant.GetOrAdd(tenantId.ToLowerInvariant(), _create);
     }
+
+    private static ManagedIdentityCredential ManagedIdentity(string? clientId) =>
+        new(string.IsNullOrWhiteSpace(clientId)
+            ? ManagedIdentityId.SystemAssigned
+            : ManagedIdentityId.FromUserAssignedClientId(clientId));
 
     private static X509Certificate2 FindInStore(string thumbprint)
     {

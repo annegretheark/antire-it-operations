@@ -26,13 +26,13 @@ builder.Services.AddSingleton<backend.Services.GraphService>();
 builder.Services.AddHttpClient(nameof(AzureService));
 builder.Services.AddSingleton<AzureService>();
 // Teams-varsling (fase 4.4); webhook-adressen krypteres med Data Protection
+// (nøklene i Blob Storage og Key Vault når appen kjører i Azure, se AzureHosting)
 builder.Services.AddHttpClient(nameof(TeamsService));
 builder.Services.AddSingleton<TeamsService>();
-builder.Services.AddDataProtection();
-builder.Services.AddDbContext<backend.Data.AppDbContext>((services, options) =>
-    options
-        .UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-        .AddInterceptors(services.GetRequiredService<backend.Data.AuditInterceptor>()));
+builder.AddAppDataProtection();
+// PostgreSQL (med Entra-token i Azure: Database:UseEntraAuth) og helsesjekk
+builder.AddAppDatabase();
+builder.AddAppHealthChecks();
 
 // CORS for React frontend: tillatte adresser fra konfigurasjon (Cors:AllowedOrigins)
 var allowedOrigins = builder.Configuration
@@ -113,7 +113,13 @@ if (app.Environment.IsDevelopment())
 }
 
 // HTTP pipeline
+// Bak App Service: riktig adresse og protokoll fra X-Forwarded-*
+app.UseAppForwardedHeaders();
+
 app.UseHttpsRedirection();
+
+// Frontend fra wwwroot (bare når den er bygd inn, som i Azure)
+app.UseFrontend();
 
 app.UseCors("Frontend");
 
@@ -121,5 +127,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers().RequireAuthorization();
+app.MapHealthChecks("/health").AllowAnonymous();
 app.Run();
 public partial class Program { }
