@@ -14,12 +14,18 @@ export function useResource<T>(path: string, reloadKey = 0): ResourceState<T> {
     async function load() {
       try {
         const response = await fetch(apiUrl(path), { headers: await getAuthHeaders() })
-        if (!response.ok) throw new Error()
+
+        if (!response.ok) {
+          // Backend kan forklare feilen, f.eks. { message: "Appen mangler rettigheten …" }
+          const body = await response.json().catch(() => null)
+          throw new Error(typeof body?.message === 'string' ? body.message : '')
+        }
 
         const data: T = await response.json()
         if (!cancelled) setState({ data, loading: false, error: '' })
-      } catch {
-        if (!cancelled) setState({ data: null, loading: false, error: 'Kunne ikke hente data.' })
+      } catch (e) {
+        const message = e instanceof Error && e.message ? e.message : 'Kunne ikke hente data.'
+        if (!cancelled) setState({ data: null, loading: false, error: message })
       }
     }
 
@@ -71,4 +77,14 @@ export function useSend() {
 
 export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'Noe gikk galt.'
+}
+
+export type EntraGroup = { id: string; displayName: string | null }
+
+// Grupper fra Entra ID (Helpdesk.Admin), til forslag i skjemaer. Tom liste hvis
+// Graph ikke svarer; da kan gruppe-ID-en fortsatt limes inn.
+export function useEntraGroups() {
+  const groups = useList<EntraGroup>('/api/m365/groups')
+  const names = new Map(groups.items.map((g) => [g.id.toLowerCase(), g.displayName ?? g.id]))
+  return { groups: groups.items, nameOf: (id: string) => names.get(id.toLowerCase()) }
 }

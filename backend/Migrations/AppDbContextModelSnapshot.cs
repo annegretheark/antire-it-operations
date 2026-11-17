@@ -36,6 +36,9 @@ namespace backend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("EmployeeName")
                         .IsRequired()
                         .HasColumnType("text");
@@ -68,6 +71,8 @@ namespace backend.Migrations
                         .HasColumnType("character varying(36)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
 
                     b.HasIndex("ServiceCatalogItemId");
 
@@ -492,6 +497,11 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.AccessRequest", b =>
                 {
+                    b.HasOne("backend.Models.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.ServiceCatalogItem", null)
                         .WithMany()
                         .HasForeignKey("ServiceCatalogItemId")

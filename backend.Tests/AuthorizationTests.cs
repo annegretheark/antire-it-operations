@@ -32,6 +32,9 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "DELETE", "/api/employeeresponsibilities/1" },
         { "GET", "/api/slatargets" },
         { "PUT", "/api/slatargets/normal" },
+        { "GET", "/api/m365/users" },
+        { "GET", "/api/m365/groups" },
+        { "GET", "/api/m365/groups/00000000-0000-0000-0000-000000000001/members" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin
@@ -45,6 +48,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "PUT", "/api/assets/1" },
         { "PATCH", "/api/assets/1/assign" },
         { "POST", "/api/assets/import" },
+        { "POST", "/api/accessrequests/1/grant" },
     };
 
     // Approver eller Helpdesk.Admin

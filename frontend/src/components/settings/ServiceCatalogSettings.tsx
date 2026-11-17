@@ -6,7 +6,7 @@ import {
   type ServiceCatalogItem,
   type ServiceType,
 } from '../../serviceCatalog'
-import { errorText, useSend } from './settingsApi'
+import { errorText, useEntraGroups, useSend } from './settingsApi'
 import { priorityLabel } from '../../tickets'
 
 type Draft = {
@@ -50,6 +50,7 @@ export default function ServiceCatalogSettings() {
   const send = useSend()
   const [reloadKey, setReloadKey] = useState(0)
   const catalog = useServiceCatalog('includeInactive=true', reloadKey)
+  const entra = useEntraGroups()
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [draft, setDraft] = useState<Draft>(EMPTY)
@@ -198,8 +199,19 @@ export default function ServiceCatalogSettings() {
                 id="sc-group"
                 value={draft.entraGroupId}
                 onChange={(e) => update('entraGroupId', e.target.value)}
-                placeholder="00000000-0000-0000-0000-000000000000"
+                list="sc-entra-groups"
+                placeholder="Velg gruppe eller lim inn gruppe-ID"
               />
+              <datalist id="sc-entra-groups">
+                {entra.groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.displayName}
+                  </option>
+                ))}
+              </datalist>
+              {draft.entraGroupId && entra.nameOf(draft.entraGroupId) && (
+                <p className="service-description">{entra.nameOf(draft.entraGroupId)}</p>
+              )}
             </div>
           )}
         </div>

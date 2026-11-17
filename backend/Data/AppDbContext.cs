@@ -149,6 +149,12 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<AccessRequest>()
+            .HasOne<Employee>()
+            .WithMany()
+            .HasForeignKey(r => r.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<AccessRequest>()
             .HasOne<ServiceCatalogItem>()
             .WithMany()
             .HasForeignKey(r => r.ServiceCatalogItemId)

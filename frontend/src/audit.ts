@@ -25,6 +25,8 @@ const ACTION_LABELS: Record<string, string> = {
   completed: 'Fullført',
   synced: 'Synkronisert',
   sla_breached: 'SLA-brudd',
+  access_granted: 'Tilgang gitt i Entra',
+  access_grant_failed: 'Tilgang feilet i Entra',
 }
 
 export const ENTITY_LABELS: Record<string, string> = {
@@ -92,6 +94,10 @@ const FIELD_LABELS: Record<string, string> = {
   created: 'Nye',
   updated: 'Oppdatert',
   totalFromEntra: 'Totalt i Entra',
+  groupId: 'Entra-gruppe',
+  userObjectId: 'Entra-bruker',
+  alreadyMember: 'Allerede medlem',
+  error: 'Feil',
 }
 
 // Felter som er støy i en «opprettet»-hendelse

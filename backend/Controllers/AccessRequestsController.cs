@@ -1,4 +1,3 @@
-
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
@@ -9,15 +8,28 @@ using Microsoft.Identity.Web;
 
 namespace backend.Controllers;
 
+public record CreateAccessRequest(
+    int? EmployeeId,
+    int? ServiceCatalogItemId,
+    string? Reason,
+    string? ManagerName
+);
+
+// Bestillingen etter godkjenning eller nytt forsøk, med resultatet av å gi
+// tilgangen i Entra (null når det ikke ble forsøkt)
+public record AccessRequestResult(AccessRequest Request, AccessGrantOutcome? Grant);
+
 [ApiController]
 [Route("api/accessrequests")]
 public class AccessRequestsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly AccessGrantService _grants;
 
-    public AccessRequestsController(AppDbContext context)
+    public AccessRequestsController(AppDbContext context, AccessGrantService grants)
     {
         _context = context;
+        _grants = grants;
     }
 
     // Agent, admin og godkjennere ser alle bestillinger i tenanten,
@@ -42,53 +54,80 @@ public class AccessRequestsController : ControllerBase
             .ToListAsync();
     }
 
-    // Opprett tilgangsbestilling
+    // Opprett tilgangsbestilling. Systemet velges fra tjenestekatalogen og den
+    // ansatte fra ansattlisten. Krever systemet ikke godkjenning og bestillingen
+    // gjelder deg selv, godkjennes den med en gang og tilgangen gis.
     [HttpPost]
-    public async Task<ActionResult<AccessRequest>> Create(
-        [FromBody] AccessRequest request)
+    public async Task<ActionResult<AccessRequest>> Create([FromBody] CreateAccessRequest body)
     {
-        if (string.IsNullOrWhiteSpace(request.EmployeeName) ||
-            request.ServiceCatalogItemId == null ||
-            string.IsNullOrWhiteSpace(request.Reason) ||
-            string.IsNullOrWhiteSpace(request.ManagerName))
+        if (body.EmployeeId == null ||
+            body.ServiceCatalogItemId == null ||
+            string.IsNullOrWhiteSpace(body.Reason) ||
+            string.IsNullOrWhiteSpace(body.ManagerName))
         {
             return BadRequest("Alle feltene må fylles ut.");
         }
 
-        // Systemet velges fra tjenestekatalogen; fritekst godtas ikke lenger
         var system = await _context.ServiceCatalogItems
             .AsNoTracking()
             .FirstOrDefaultAsync(i =>
-                i.Id == request.ServiceCatalogItemId &&
+                i.Id == body.ServiceCatalogItemId &&
                 i.Type == ServiceCatalogTypes.Access &&
                 i.IsActive);
 
         if (system == null)
             return BadRequest("Velg et aktivt system fra tjenestekatalogen.");
 
-        request.SystemName = system.Name;
+        var employee = await _context.Employees
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == body.EmployeeId && e.Status == "Aktiv");
 
-        request.Id = 0;
-        request.RequestedByObjectId = User.GetObjectId();
-        request.Status = "Venter på godkjenning";
-        request.CreatedAt = DateTime.UtcNow;
-        request.ApprovedAt = null;
+        if (employee == null)
+            return BadRequest("Velg en aktiv ansatt.");
+
+        var callerObjectId = User.GetObjectId();
+
+        var request = new AccessRequest
+        {
+            RequestedByObjectId = callerObjectId,
+            EmployeeId = employee.Id,
+            EmployeeName = $"{employee.FirstName} {employee.LastName}".Trim(),
+            ServiceCatalogItemId = system.Id,
+            SystemName = system.Name,
+            Reason = body.Reason.Trim(),
+            ManagerName = body.ManagerName.Trim(),
+            Status = AccessRequestStatuses.Pending,
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        var forYourself = !string.IsNullOrWhiteSpace(callerObjectId) &&
+            string.Equals(employee.EntraObjectId, callerObjectId, StringComparison.OrdinalIgnoreCase);
+
+        if (!system.RequiresApproval && forYourself)
+        {
+            request.Status = AccessRequestStatuses.Approved;
+            request.ApprovedAt = DateTime.UtcNow;
+        }
 
         _context.AccessRequests.Add(request);
         await _context.SaveChangesAsync();
 
+        if (request.Status == AccessRequestStatuses.Approved)
+            await _grants.TryGrantAsync(request, HttpContext.RequestAborted);
+
         return CreatedAtAction(nameof(GetAll), request);
     }
 
-    // Godkjenn eller avslå
+    // Godkjenn eller avslå. Godkjent tilgang til et system med Entra-gruppe
+    // gis automatisk.
     [HttpPatch("{id:int}/approval")]
     [Authorize(Policy = AuthPolicies.AccessApprover)]
-    public async Task<ActionResult<AccessRequest>> SetApproval(
+    public async Task<ActionResult<AccessRequestResult>> SetApproval(
         int id,
         [FromBody] ApprovalUpdate update)
     {
-        if (update.Status != "Godkjent" &&
-            update.Status != "Avslått")
+        if (update.Status != AccessRequestStatuses.Approved &&
+            update.Status != AccessRequestStatuses.Rejected)
         {
             return BadRequest("Ugyldig status.");
         }
@@ -98,24 +137,44 @@ public class AccessRequestsController : ControllerBase
         if (request == null)
             return NotFound();
 
-        if (request.Status != "Venter på godkjenning")
+        if (request.Status != AccessRequestStatuses.Pending)
             return BadRequest("Bestillingen er allerede behandlet.");
 
-        request.Status = update.Status;
-        request.ApprovedAt = update.Status == "Godkjent"
-            ? DateTime.UtcNow
-            : null;
+        var approved = update.Status == AccessRequestStatuses.Approved;
 
-        _context.SetAuditAction(request, update.Status == "Godkjent"
-            ? AuditActions.Approved
-            : AuditActions.Rejected);
+        request.Status = update.Status;
+        request.ApprovedAt = approved ? DateTime.UtcNow : null;
+
+        _context.SetAuditAction(request, approved ? AuditActions.Approved : AuditActions.Rejected);
 
         await _context.SaveChangesAsync();
 
-        return Ok(request);
+        var grant = approved
+            ? await _grants.TryGrantAsync(request, HttpContext.RequestAborted)
+            : null;
+
+        return Ok(new AccessRequestResult(request, grant is { Attempted: true } ? grant : null));
     }
 
-    // IT markerer godkjent tilgang som fullført
+    // Nytt forsøk på å gi tilgangen i Entra, f.eks. etter at rettigheten er på plass
+    [HttpPost("{id:int}/grant")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
+    public async Task<ActionResult<AccessRequestResult>> Grant(int id)
+    {
+        var request = await _context.AccessRequests.FindAsync(id);
+
+        if (request == null)
+            return NotFound();
+
+        if (request.Status != AccessRequestStatuses.Approved)
+            return BadRequest("Bare godkjente bestillinger kan gis tilgang.");
+
+        var grant = await _grants.TryGrantAsync(request, HttpContext.RequestAborted);
+
+        return Ok(new AccessRequestResult(request, grant));
+    }
+
+    // IT markerer godkjent tilgang som fullført (når tilgangen er gitt manuelt)
     [HttpPatch("{id:int}/complete")]
     [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
     public async Task<ActionResult<AccessRequest>> Complete(int id)
@@ -125,11 +184,10 @@ public class AccessRequestsController : ControllerBase
         if (request == null)
             return NotFound();
 
-        if (request.Status != "Godkjent")
-            return BadRequest(
-                "Bare godkjente bestillinger kan fullføres.");
+        if (request.Status != AccessRequestStatuses.Approved)
+            return BadRequest("Bare godkjente bestillinger kan fullføres.");
 
-        request.Status = "Fullført";
+        request.Status = AccessRequestStatuses.Completed;
         _context.SetAuditAction(request, AuditActions.Completed);
 
         await _context.SaveChangesAsync();

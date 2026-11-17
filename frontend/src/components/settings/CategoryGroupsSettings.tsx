@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useServiceCatalog } from '../../serviceCatalog'
-import { errorText, useList, useSend } from './settingsApi'
+import { errorText, useEntraGroups, useList, useSend } from './settingsApi'
 
 type CategoryGroup = {
   id: number
@@ -15,6 +15,7 @@ export default function CategoryGroupsSettings() {
   const [reloadKey, setReloadKey] = useState(0)
   const groups = useList<CategoryGroup>('/api/ticketcategorygroups', reloadKey)
   const catalog = useServiceCatalog('includeInactive=true')
+  const entra = useEntraGroups()
 
   const [category, setCategory] = useState('')
   const [groupId, setGroupId] = useState('')
@@ -84,11 +85,20 @@ export default function CategoryGroupsSettings() {
               id="group-id"
               value={groupId}
               onChange={(e) => setGroupId(e.target.value)}
-              placeholder="00000000-0000-0000-0000-000000000000"
+              list="entra-groups"
+              placeholder="Velg gruppe eller lim inn gruppe-ID"
               required
             />
           </div>
         </div>
+
+        <datalist id="entra-groups">
+          {entra.groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.displayName}
+            </option>
+          ))}
+        </datalist>
 
         <div className="settings-form-actions">
           <button type="submit" disabled={saving || !category || !groupId.trim()}>
@@ -110,7 +120,7 @@ export default function CategoryGroupsSettings() {
             <thead>
               <tr>
                 <th>Kategori</th>
-                <th>Entra-gruppe-ID</th>
+                <th>Entra-gruppe</th>
                 <th />
               </tr>
             </thead>
@@ -118,7 +128,10 @@ export default function CategoryGroupsSettings() {
               {groups.items.map((g) => (
                 <tr key={g.id}>
                   <td>{g.category}</td>
-                  <td><code>{g.entraGroupId}</code></td>
+                  <td>
+                    {entra.nameOf(g.entraGroupId) && <strong>{entra.nameOf(g.entraGroupId)}</strong>}
+                    <div><code>{g.entraGroupId}</code></div>
+                  </td>
                   <td>
                     <button
                       type="button"

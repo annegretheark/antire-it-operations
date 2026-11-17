@@ -18,10 +18,11 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
 
-    // Entra objekt-ID-er som regnes som medlem av alle grupper
-    public HashSet<string> GroupMembers => FakeGraph.Members;
+    // Den falske Graph-tjenesten (samme instans som API-et bruker)
+    public FakeGraphService Graph => (FakeGraphService)Services.GetRequiredService<GraphService>();
 
-    private FakeGraphService FakeGraph => (FakeGraphService)Services.GetRequiredService<GraphService>();
+    // Entra objekt-ID-er som regnes som medlem av alle grupper
+    public HashSet<string> GroupMembers => Graph.Members;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -79,15 +80,4 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
         public string? TenantId => tenantId;
     }
 
-    private sealed class FakeGraphService(IConfiguration configuration) : GraphService(configuration)
-    {
-        public HashSet<string> Members { get; } = [];
-
-        public override Task<bool> IsMemberOfAnyGroupAsync(
-            string tenantId,
-            string entraObjectId,
-            IReadOnlyCollection<string> groupIds,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(Members.Contains(entraObjectId));
-    }
 }

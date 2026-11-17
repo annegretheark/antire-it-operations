@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 202 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA og IT-utstyr mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 230 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe og Microsoft 365 (falsk Graph) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -357,6 +357,15 @@ public class Asset : ITenantOwned
 
 Detaljer om endepunkter, paging og struping (throttling) finnes i `GRAPH_API_INTEGRATIONS.md` (kapittel 3–6).
 
+**Status (2026-11-17): delvis ferdig (2.2, 2.3 og 2.4).** Dev-tenanten (`3af5c92b`) har ingen lisenser, så delene som krever Entra ID P1, Microsoft 365 eller Intune venter. Migreringen `AddAccessRequestEmployee` er kjørt i dev-databasen.
+- **2.2 Brukeroversikt** (`GET /api/m365/users`): alle brukere med kontostatus, medlem eller gjest, avdeling, stilling og lisenser. Siste pålogging og MFA hentes for seg og vises som «krever lisens» når rettighet (`AuditLog.Read.All`) eller lisens (Entra ID P1) mangler, i stedet for at oversikten feiler.
+- **2.3 Grupper** (`GET /api/m365/groups` og `/groups/{id}/members`): type (Microsoft 365, sikkerhet, distribusjon), dynamisk medlemskap og medlemmer. Gruppene foreslås også der en gruppe-ID skal fylles inn (tjenestekatalog og kategorigrupper).
+- **2.4 Tilgang via gruppe** (`AccessGrantService`): tilgangsbestillinger peker nå på en ansatt (`AccessRequest.EmployeeId`). Når en bestilling på et system med Entra-gruppe godkjennes, legges den ansatte i gruppen og bestillingen blir «Fullført». Revisjonsloggen får `access_granted`. Feiler Graph, står godkjenningen, `access_grant_failed` logges, og IT kan prøve igjen (`POST /api/accessrequests/{id}/grant`) eller fullføre manuelt. Systemer uten krav om godkjenning gir tilgang med en gang, men bare når du bestiller til deg selv.
+- **Tilgang og cache:** oversiktene er for `Helpdesk.Admin` og caches i 5 minutter per tenant (knappen Oppdater henter på nytt). Manglende rettighet gir en lesbar melding (502) i stedet for en feil i appen.
+- **Graph-rettigheter:** appen har `User.Read.All` og `GroupMember.Read.All`. 2.4 krever `GroupMember.ReadWrite.All` med admin-samtykke; til den er gitt, ender godkjente bestillinger på systemer med gruppe som «Godkjent» med en forklaring.
+- **Gjenstår:** 2.1 (sertifikat), 2.5 lisensoversikt, 2.6 Secure Score, 2.7 Conditional Access og 2.8 Intune. De krever lisens i tenanten for å kunne testes.
+- **Tester:** `AccessGrantTests` (8) og `M365Tests` (4) med falsk Graph, pluss tilgangstester for de nye endepunktene.
+
 ---
 
 ## 7. Fase 3: Azure (innlogget tenant)
@@ -438,7 +447,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | Ferdig |
 | E | 0.6 Engelske koder + 1.4 SLA | Ferdig |
 | F | 1.5 IT-utstyr | Ferdig |
-| G | Fase 2 (2.1–2.8) | 5–7 uker |
+| G | Fase 2 (2.1–2.8) | Delvis: 2.2, 2.3 og 2.4 ferdig; resten venter på lisens |
 | H | Fase 3 (3.1–3.3) | 2–3 uker |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | 2–2,5 uker |
 | J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | 1–1,5 uker |

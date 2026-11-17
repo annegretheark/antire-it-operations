@@ -3,6 +3,7 @@ using Azure.Identity;
 using Microsoft.Graph;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Users.Item.CheckMemberGroups;
+using Microsoft.Graph.Models.ODataErrors;
 
 namespace backend.Services;
 
@@ -152,4 +153,269 @@ public class GraphService
 
         return false;
     }
+
+    // ---------- Microsoft 365-oversikt (fase 2) ----------
+
+    // Brukere med kontostatus og lisenser. Siste pålogging, MFA og lisensnavn
+    // hentes for seg: mangler rettighet eller lisens, står årsaken i svaret.
+    public virtual async Task<M365UserOverview> GetUserOverviewAsync(
+        string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var client = ClientFor(tenantId);
+        var users = new List<User>();
+
+        try
+        {
+            var page = await client.Users.GetAsync(request =>
+            {
+                request.QueryParameters.Select =
+                [
+                    "id", "displayName", "userPrincipalName", "mail", "accountEnabled",
+                    "userType", "department", "jobTitle", "createdDateTime", "assignedLicenses",
+                ];
+                request.QueryParameters.Top = 999;
+            }, cancellationToken);
+
+            await CollectAsync<User, UserCollectionResponse>(client, page, users, cancellationToken);
+        }
+        catch (ODataError e)
+        {
+            throw Unavailable(e, "User.Read.All");
+        }
+
+        // Lisensnavn (skuPartNumber) for lisens-ID-ene på brukerne
+        Dictionary<Guid, string> skuNames = [];
+        string? licensesReason = null;
+
+        try
+        {
+            var skus = await client.SubscribedSkus.GetAsync(cancellationToken: cancellationToken);
+            skuNames = (skus?.Value ?? [])
+                .Where(s => s.SkuId != null)
+                .ToDictionary(s => s.SkuId!.Value, s => s.SkuPartNumber ?? s.SkuId!.Value.ToString());
+        }
+        catch (ODataError e)
+        {
+            licensesReason = Reason(e, "Organization.Read.All");
+        }
+
+        // Siste pålogging: krever AuditLog.Read.All og Entra ID P1
+        Dictionary<string, DateTimeOffset?>? signIns = null;
+        string? signInReason = null;
+
+        try
+        {
+            var withSignIn = new List<User>();
+            var page = await client.Users.GetAsync(request =>
+            {
+                request.QueryParameters.Select = ["id", "signInActivity"];
+                request.QueryParameters.Top = 999;
+            }, cancellationToken);
+
+            await CollectAsync<User, UserCollectionResponse>(client, page, withSignIn, cancellationToken);
+            signIns = withSignIn
+                .Where(u => u.Id != null)
+                .ToDictionary(u => u.Id!, u => u.SignInActivity?.LastSignInDateTime);
+        }
+        catch (ODataError e)
+        {
+            signInReason = Reason(e, "AuditLog.Read.All", "Entra ID P1");
+        }
+
+        // MFA-registrering: krever AuditLog.Read.All og Entra ID P1
+        Dictionary<string, bool?>? mfa = null;
+        string? mfaReason = null;
+
+        try
+        {
+            var details = new List<UserRegistrationDetails>();
+            var page = await client.Reports.AuthenticationMethods.UserRegistrationDetails
+                .GetAsync(cancellationToken: cancellationToken);
+
+            await CollectAsync<UserRegistrationDetails, UserRegistrationDetailsCollectionResponse>(
+                client, page, details, cancellationToken);
+            mfa = details
+                .Where(d => d.Id != null)
+                .ToDictionary(d => d.Id!, d => d.IsMfaRegistered);
+        }
+        catch (ODataError e)
+        {
+            mfaReason = Reason(e, "AuditLog.Read.All", "Entra ID P1");
+        }
+
+        var result = users
+            .Where(u => u.Id != null)
+            .Select(u => new M365User(
+                u.Id!,
+                u.DisplayName,
+                u.UserPrincipalName,
+                u.Mail,
+                u.AccountEnabled,
+                u.UserType,
+                u.Department,
+                u.JobTitle,
+                u.CreatedDateTime,
+                (u.AssignedLicenses ?? [])
+                    .Where(l => l.SkuId != null)
+                    .Select(l => skuNames.GetValueOrDefault(l.SkuId!.Value, l.SkuId!.Value.ToString()))
+                    .ToList(),
+                signIns?.GetValueOrDefault(u.Id!),
+                mfa?.GetValueOrDefault(u.Id!)))
+            .OrderBy(u => u.DisplayName)
+            .ToList();
+
+        return new M365UserOverview(result, signInReason, mfaReason, licensesReason, DateTimeOffset.UtcNow);
+    }
+
+    public virtual async Task<List<M365Group>> GetGroupsAsync(
+        string tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var client = ClientFor(tenantId);
+        var groups = new List<Group>();
+
+        try
+        {
+            var page = await client.Groups.GetAsync(request =>
+            {
+                request.QueryParameters.Select =
+                [
+                    "id", "displayName", "description", "mail", "groupTypes",
+                    "securityEnabled", "mailEnabled",
+                ];
+                request.QueryParameters.Top = 999;
+            }, cancellationToken);
+
+            await CollectAsync<Group, GroupCollectionResponse>(client, page, groups, cancellationToken);
+        }
+        catch (ODataError e)
+        {
+            throw Unavailable(e, "GroupMember.Read.All");
+        }
+
+        return groups
+            .Where(g => g.Id != null)
+            .Select(g =>
+            {
+                var types = g.GroupTypes ?? [];
+                var kind = types.Contains("Unified") ? "microsoft365"
+                    : g.SecurityEnabled == true && g.MailEnabled == true ? "mail_security"
+                    : g.SecurityEnabled == true ? "security"
+                    : "distribution";
+
+                return new M365Group(
+                    g.Id!, g.DisplayName, g.Description, g.Mail, kind,
+                    types.Contains("DynamicMembership"));
+            })
+            .OrderBy(g => g.DisplayName)
+            .ToList();
+    }
+
+    public virtual async Task<List<M365GroupMember>> GetGroupMembersAsync(
+        string tenantId,
+        string groupId,
+        CancellationToken cancellationToken = default)
+    {
+        var client = ClientFor(tenantId);
+        var members = new List<DirectoryObject>();
+
+        try
+        {
+            var page = await client.Groups[groupId].Members.GetAsync(request =>
+            {
+                request.QueryParameters.Select = ["id", "displayName", "userPrincipalName"];
+                request.QueryParameters.Top = 999;
+            }, cancellationToken);
+
+            await CollectAsync<DirectoryObject, DirectoryObjectCollectionResponse>(
+                client, page, members, cancellationToken);
+        }
+        catch (ODataError e)
+        {
+            throw Unavailable(e, "GroupMember.Read.All");
+        }
+
+        return members
+            .Where(m => m.Id != null)
+            .Select(m => m switch
+            {
+                User u => new M365GroupMember(u.Id!, u.DisplayName, u.UserPrincipalName, "user"),
+                Group g => new M365GroupMember(g.Id!, g.DisplayName, null, "group"),
+                Device d => new M365GroupMember(d.Id!, d.DisplayName, null, "device"),
+                _ => new M365GroupMember(m.Id!, null, null, "other"),
+            })
+            .OrderBy(m => m.DisplayName)
+            .ToList();
+    }
+
+    // Legger brukeren i gruppen (krever GroupMember.ReadWrite.All).
+    // Er brukeren allerede medlem, regnes det som vellykket.
+    public virtual async Task<AddMemberResult> AddGroupMemberAsync(
+        string tenantId,
+        string groupId,
+        string userObjectId,
+        CancellationToken cancellationToken = default)
+    {
+        var client = ClientFor(tenantId);
+
+        try
+        {
+            await client.Groups[groupId].Members.Ref.PostAsync(
+                new ReferenceCreate
+                {
+                    OdataId = $"https://graph.microsoft.com/v1.0/directoryObjects/{userObjectId}",
+                },
+                cancellationToken: cancellationToken);
+
+            return AddMemberResult.Added;
+        }
+        catch (ODataError e) when (
+            e.ResponseStatusCode == 400 &&
+            e.Error?.Message?.Contains("already exist", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return AddMemberResult.AlreadyMember;
+        }
+        catch (ODataError e)
+        {
+            throw Unavailable(e, "GroupMember.ReadWrite.All");
+        }
+    }
+
+    // Følger alle sider i et Graph-svar
+    private static async Task CollectAsync<TItem, TPage>(
+        GraphServiceClient client,
+        TPage? firstPage,
+        List<TItem> items,
+        CancellationToken cancellationToken)
+        where TPage : Microsoft.Kiota.Abstractions.Serialization.IParsable,
+            Microsoft.Kiota.Abstractions.Serialization.IAdditionalDataHolder, new()
+    {
+        if (firstPage == null)
+            return;
+
+        var iterator = PageIterator<TItem, TPage>.CreatePageIterator(client, firstPage, item =>
+        {
+            items.Add(item);
+            return true;
+        });
+
+        await iterator.IterateAsync(cancellationToken);
+    }
+
+    // Kort forklaring når en valgfri del av oversikten mangler
+    private static string Reason(ODataError e, string permission, string? license = null) =>
+        e.ResponseStatusCode is 401 or 403
+            ? license == null
+                ? $"Krever rettigheten {permission}."
+                : $"Krever rettigheten {permission} og lisensen {license}."
+            : $"Microsoft Graph svarte med feil: {e.Error?.Message ?? e.Message}";
+
+    private static GraphUnavailableException Unavailable(ODataError e, string permission) =>
+        new(e.ResponseStatusCode switch
+        {
+            401 or 403 => $"Appen mangler rettigheten {permission} i Entra ID (admin-samtykke).",
+            404 => "Fant ikke gruppen eller brukeren i Entra ID.",
+            _ => $"Microsoft Graph svarte med feil: {e.Error?.Message ?? e.Message}",
+        }, e.ResponseStatusCode, e);
 }

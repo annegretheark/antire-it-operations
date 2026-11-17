@@ -232,6 +232,15 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
         }
     }
 
+    private async Task<int> ActiveEmployeeIdAsync()
+    {
+        await using var db = factory.CreateDbContext(TenantA);
+        var employee = new Employee { FirstName = "Kari", LastName = "Bestiller", Email = $"{Guid.NewGuid():N}@t.no" };
+        db.Employees.Add(employee);
+        await db.SaveChangesAsync();
+        return employee.Id;
+    }
+
     [Fact]
     public async Task Access_request_takes_system_name_from_catalog()
     {
@@ -239,7 +248,7 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
 
         var response = await User().PostAsJsonAsync("/api/accessrequests", new
         {
-            employeeName = "Kari",
+            employeeId = await ActiveEmployeeIdAsync(),
             serviceCatalogItemId = system.Id,
             systemName = "Fritekst ignoreres",
             reason = "Ny i teamet",
@@ -261,7 +270,7 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
         {
             var response = await User().PostAsJsonAsync("/api/accessrequests", new
             {
-                employeeName = "Kari",
+                employeeId = await ActiveEmployeeIdAsync(),
                 serviceCatalogItemId = itemId,
                 systemName = "Fritekst",
                 reason = "Ny i teamet",

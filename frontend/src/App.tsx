@@ -7,6 +7,7 @@ import './components/Helpdesk.css'
 import Employees from './components/Employees'
 import Settings from './components/Settings'
 import Assets from './components/Assets'
+import M365 from './components/M365'
 import {
   useMsal,
   useIsAuthenticated
@@ -68,6 +69,7 @@ await instance.logoutPopup({
     'Tilgangsbestillinger',
     'Ansatte',
     'IT-utstyr',
+    'Microsoft 365',
     'Onboarding / Offboarding',
     'GDPR',
     'Innstillinger',
@@ -220,6 +222,8 @@ await instance.logoutPopup({
   <AccessRequests />
 ) : activePage === 'Ansatte' ? (
   <Employees />
+) : activePage === 'Microsoft 365' ? (
+  <M365 />
 ) : activePage === 'IT-utstyr' ? (
   <Assets />
 ) : activePage === 'Innstillinger' ? (

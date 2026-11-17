@@ -48,6 +48,9 @@ builder.Services.AddScoped<EmployeeNumberService>();
 builder.Services.AddScoped<ServiceCatalogService>();
 builder.Services.AddScoped<SlaService>();
 builder.Services.AddScoped<AssetService>();
+builder.Services.AddScoped<AccessGrantService>();
+// Kort cache for Microsoft 365-oversiktene (M365Controller)
+builder.Services.AddMemoryCache();
 // Markerer SLA-brudd hvert 5. minutt (Sla:MonitorEnabled, Sla:CheckIntervalSeconds)
 builder.Services.AddSingleton<SlaMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SlaMonitorService>());

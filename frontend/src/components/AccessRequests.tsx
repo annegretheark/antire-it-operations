@@ -1,8 +1,8 @@
-
 import { useEffect, useState } from 'react'
 import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 import { useServiceCatalog } from '../serviceCatalog'
+import { useList } from './settings/settingsApi'
 
 type AccessRequest = {
   id: number
@@ -13,20 +13,43 @@ type AccessRequest = {
   status: string
   createdAt: string
   approvedAt: string | null
+  serviceCatalogItemId: number | null
+}
+
+type Employee = {
+  id: number
+  firstName: string
+  lastName: string
+  status: string
+  entraObjectId: string | null
+}
+
+// Svar fra godkjenning og nytt forsøk: bestillingen, og om tilgangen ble gitt i Entra
+type AccessRequestResult = {
+  request: AccessRequest
+  grant: { attempted: boolean; granted: boolean; message: string } | null
 }
 
 const API_URL = apiUrl('/api/accessrequests')
 
 export default function AccessRequests() {
   const getAuthHeaders = useAuthHeaders()
-  const { isHelpdeskAgent, isApprover } = useCurrentUser()
+  const { isHelpdeskAgent, isApprover, objectId } = useCurrentUser()
 
-  const [employeeName, setEmployeeName] = useState('')
+  // Den ansatte som skal ha tilgang; deg selv som standard
+  const employees = useList<Employee>('/api/employees')
+  const activeEmployees = employees.items.filter((e) => e.status === 'Aktiv')
+  const [employeeId, setEmployeeId] = useState('')
+  const selectedEmployeeId =
+    employeeId ||
+    (activeEmployees.find((e) => objectId && e.entraObjectId === objectId)?.id.toString() ?? '')
+
   // Systemene kommer fra tjenestekatalogen (type access)
   const systems = useServiceCatalog('type=access')
   const [systemId, setSystemId] = useState<number | null>(null)
   const selectedSystem =
     systems.items.find((s) => s.id === systemId) ?? systems.items[0]
+
   const [reason, setReason] = useState('')
   const [managerName, setManagerName] = useState('')
   const [requests, setRequests] = useState<AccessRequest[]>([])
@@ -42,8 +65,8 @@ export default function AccessRequests() {
     async function loadRequests() {
       try {
         const response = await fetch(API_URL, {
-  headers: await getAuthHeaders(),
-})
+          headers: await getAuthHeaders(),
+        })
         if (!response.ok) throw new Error()
 
         const data: AccessRequest[] = await response.json()
@@ -69,7 +92,7 @@ export default function AccessRequests() {
     if (
       saving ||
       !selectedSystem ||
-      !employeeName.trim() ||
+      !selectedEmployeeId ||
       !reason.trim() ||
       !managerName.trim()
     ) return
@@ -83,7 +106,7 @@ export default function AccessRequests() {
         method: 'POST',
         headers: await getAuthHeaders(),
         body: JSON.stringify({
-          employeeName: employeeName.trim(),
+          employeeId: Number(selectedEmployeeId),
           serviceCatalogItemId: selectedSystem.id,
           reason: reason.trim(),
           managerName: managerName.trim(),
@@ -95,15 +118,29 @@ export default function AccessRequests() {
       const created: AccessRequest = await response.json()
 
       setRequests((previous) => [created, ...previous])
-      setEmployeeName('')
+      setEmployeeId('')
       setReason('')
       setManagerName('')
-      setMessage('Tilgangsbestillingen er registrert.')
+      setMessage(
+        created.status === 'Fullført'
+          ? 'Systemet krever ikke godkjenning, og tilgangen er gitt.'
+          : 'Tilgangsbestillingen er registrert.'
+      )
     } catch {
       setError('Kunne ikke opprette tilgangsbestillingen.')
     } finally {
       setSaving(false)
     }
+  }
+
+  // Oppdaterer bestillingen i listen og viser resultatet fra Entra (om noe ble forsøkt)
+  function showResult(result: AccessRequestResult, fallback: string) {
+    setRequests((previous) =>
+      previous.map((request) => (request.id === result.request.id ? result.request : request))
+    )
+
+    if (result.grant && !result.grant.granted) setError(result.grant.message)
+    else setMessage(result.grant?.message ?? fallback)
   }
 
   async function updateApproval(
@@ -125,15 +162,7 @@ export default function AccessRequests() {
 
       if (!response.ok) throw new Error()
 
-      const updated: AccessRequest = await response.json()
-
-      setRequests((previous) =>
-        previous.map((request) =>
-          request.id === updated.id ? updated : request
-        )
-      )
-
-      setMessage(`Bestillingen er ${status.toLowerCase()}.`)
+      showResult(await response.json(), `Bestillingen er ${status.toLowerCase()}.`)
     } catch {
       setError('Kunne ikke oppdatere godkjenningen.')
     } finally {
@@ -141,7 +170,31 @@ export default function AccessRequests() {
     }
   }
 
-  // IT fullfører godkjent tilgangsbestilling
+  // Nytt forsøk på å gi tilgangen i Entra
+  async function grantRequest(id: number) {
+    if (updatingId !== null) return
+
+    setUpdatingId(id)
+    setError('')
+    setMessage('')
+
+    try {
+      const response = await fetch(`${API_URL}/${id}/grant`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+      })
+
+      if (!response.ok) throw new Error()
+
+      showResult(await response.json(), '')
+    } catch {
+      setError('Kunne ikke gi tilgangen.')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  // IT fullfører godkjent tilgangsbestilling (tilgangen er gitt manuelt)
   async function completeRequest(id: number) {
     if (updatingId !== null) return
 
@@ -150,10 +203,10 @@ export default function AccessRequests() {
     setMessage('')
 
     try {
-     const response = await fetch(`${API_URL}/${id}/complete`, {
-    method: 'PATCH',
-    headers: await getAuthHeaders(),
-    })
+      const response = await fetch(`${API_URL}/${id}/complete`, {
+        method: 'PATCH',
+        headers: await getAuthHeaders(),
+      })
       if (!response.ok) throw new Error()
 
       const updated: AccessRequest = await response.json()
@@ -172,6 +225,13 @@ export default function AccessRequests() {
     }
   }
 
+  // Systemer med Entra-gruppe gir tilgangen automatisk når bestillingen godkjennes
+  function hasGroup(request: AccessRequest): boolean {
+    return systems.items.some(
+      (s) => s.id === request.serviceCatalogItemId && Boolean(s.entraGroupId)
+    )
+  }
+
   return (
     <section className="helpdesk">
       <div className="helpdesk-card">
@@ -185,13 +245,20 @@ export default function AccessRequests() {
           }}
         >
           <label htmlFor="access-employee">Ansatt</label>
-          <input
+          <select
             id="access-employee"
-            value={employeeName}
-            onChange={(e) => setEmployeeName(e.target.value)}
-            placeholder="Navn på ansatt"
+            value={selectedEmployeeId}
+            onChange={(e) => setEmployeeId(e.target.value)}
+            disabled={employees.loading}
             required
-          />
+          >
+            <option value="">{employees.loading ? 'Henter ansatte...' : 'Velg ansatt'}</option>
+            {activeEmployees.map((e) => (
+              <option key={e.id} value={e.id}>
+                {`${e.firstName} ${e.lastName}`.trim()}
+              </option>
+            ))}
+          </select>
 
           <label htmlFor="access-system">System</label>
           <select
@@ -214,6 +281,13 @@ export default function AccessRequests() {
 
           {selectedSystem?.description && (
             <p className="service-description">{selectedSystem.description}</p>
+          )}
+          {selectedSystem?.entraGroupId && (
+            <p className="service-description">
+              {selectedSystem.requiresApproval
+                ? 'Tilgangen gis automatisk når bestillingen er godkjent.'
+                : 'Krever ikke godkjenning når du bestiller til deg selv: tilgangen gis med en gang.'}
+            </p>
           )}
           {systems.error && <p role="alert">{systems.error}</p>}
 
@@ -241,7 +315,7 @@ export default function AccessRequests() {
             disabled={
               saving ||
               !selectedSystem ||
-              !employeeName.trim() ||
+              !selectedEmployeeId ||
               !reason.trim() ||
               !managerName.trim()
             }
@@ -251,8 +325,8 @@ export default function AccessRequests() {
         </form>
       </div>
 
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
+      {error && <p role="alert" className="settings-error">{error}</p>}
+      {message && <p role="status" className="settings-message">{message}</p>}
 
       <div className="helpdesk-card">
         <h3>Registrerte tilgangsbestillinger</h3>
@@ -297,6 +371,18 @@ export default function AccessRequests() {
 
               {isHelpdeskAgent && request.status === 'Godkjent' && (
                 <div className="approval-actions">
+                  {hasGroup(request) && (
+                    <button
+                      type="button"
+                      disabled={updatingId !== null}
+                      onClick={() => {
+                        void grantRequest(request.id)
+                      }}
+                    >
+                      {updatingId === request.id ? 'Gir tilgang...' : 'Gi tilgang i Entra'}
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     disabled={updatingId !== null}
@@ -304,9 +390,7 @@ export default function AccessRequests() {
                       void completeRequest(request.id)
                     }}
                   >
-                    {updatingId === request.id
-                      ? 'Fullfører...'
-                      : 'Fullfør'}
+                    {hasGroup(request) ? 'Fullfør (gitt manuelt)' : 'Fullfør'}
                   </button>
                 </div>
               )}
