@@ -21,6 +21,9 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
     // Den falske Graph-tjenesten (samme instans som API-et bruker)
     public FakeGraphService Graph => (FakeGraphService)Services.GetRequiredService<GraphService>();
 
+    // Den falske Azure-tjenesten (samme instans som API-et bruker)
+    public FakeAzureService Azure => (FakeAzureService)Services.GetRequiredService<AzureService>();
+
     // Entra objekt-ID-er som regnes som medlem av alle grupper
     public HashSet<string> GroupMembers => Graph.Members;
 
@@ -40,6 +43,10 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
             services.RemoveAll<GraphService>();
             services.AddSingleton<GraphService>(sp =>
                 new FakeGraphService(sp.GetRequiredService<IConfiguration>()));
+
+            services.RemoveAll<AzureService>();
+            services.AddSingleton<AzureService>(sp => new FakeAzureService(
+                sp.GetRequiredService<IHttpClientFactory>(), sp.GetRequiredService<IConfiguration>()));
         });
     }
 

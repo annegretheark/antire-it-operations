@@ -62,17 +62,29 @@ export function useSend() {
 
       if (!response.ok) {
         const text = await response.text().catch(() => '')
-        throw new Error(
-          text && text.length < 200 && !text.startsWith('{')
-            ? text
-            : 'Lagringen feilet. Prøv igjen.'
-        )
+        throw new Error(readableError(text) ?? 'Lagringen feilet. Prøv igjen.')
       }
 
       return response
     },
     [getAuthHeaders]
   )
+}
+
+// Feilmelding fra backend: ren tekst («Navn er påkrevd.») eller { message: "…" }
+function readableError(text: string): string | null {
+  if (!text || text.length > 500) return null
+
+  if (text.startsWith('{')) {
+    try {
+      const body = JSON.parse(text)
+      return typeof body?.message === 'string' ? body.message : null
+    } catch {
+      return null
+    }
+  }
+
+  return text
 }
 
 export function errorText(error: unknown): string {

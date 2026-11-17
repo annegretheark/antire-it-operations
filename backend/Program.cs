@@ -21,6 +21,9 @@ builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<backend.Data.AuditInterceptor>();
 // Singleton: gjenbruker credential og token-cache på tvers av forespørsler
 builder.Services.AddSingleton<backend.Services.GraphService>();
+// Azure Resource Manager og Resource Graph (fase 3), samme app-registrering som Graph
+builder.Services.AddHttpClient(nameof(AzureService));
+builder.Services.AddSingleton<AzureService>();
 builder.Services.AddDbContext<backend.Data.AppDbContext>((services, options) =>
     options
         .UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))

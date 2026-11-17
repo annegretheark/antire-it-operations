@@ -37,6 +37,7 @@ public class AppDbContext : DbContext
     public DbSet<ServiceCatalogItem> ServiceCatalogItems { get; set; }
     public DbSet<SlaTarget> SlaTargets { get; set; }
     public DbSet<Asset> Assets { get; set; }
+    public DbSet<AzureSubscription> AzureSubscriptions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,6 +53,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ServiceCatalogItem>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<SlaTarget>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<Asset>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<AzureSubscription>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
 
         // Revisjonslogg: historikk per entitet og siste hendelser i tenanten
         modelBuilder.Entity<AuditEvent>(audit =>
@@ -92,6 +94,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeResponsibility>()
             .HasIndex(r => new { r.EmployeeId, r.Category })
             .IsUnique();
+
+        // Azure-abonnementer: abonnements-ID-en er unik i tenanten
+        modelBuilder.Entity<AzureSubscription>(subscription =>
+        {
+            subscription.Property(e => e.TenantId).HasMaxLength(36);
+            subscription.Property(e => e.SubscriptionId).HasMaxLength(36);
+            subscription.Property(e => e.DisplayName).HasMaxLength(200);
+            subscription.Property(e => e.State).HasMaxLength(20);
+            subscription.HasIndex(e => new { e.TenantId, e.SubscriptionId }).IsUnique();
+        });
 
         // IT-utstyr: utstyrsnummeret er unikt i tenanten. Utstyr og ansatte slettes
         // ikke så lenge noe peker på dem.

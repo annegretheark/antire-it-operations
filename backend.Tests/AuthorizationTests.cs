@@ -35,6 +35,9 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "GET", "/api/m365/users" },
         { "GET", "/api/m365/groups" },
         { "GET", "/api/m365/groups/00000000-0000-0000-0000-000000000001/members" },
+        { "GET", "/api/azure/subscriptions" },
+        { "POST", "/api/azure/subscriptions/sync" },
+        { "GET", "/api/azure/resources" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin

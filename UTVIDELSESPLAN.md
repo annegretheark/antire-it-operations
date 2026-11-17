@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 230 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe og Microsoft 365 (falsk Graph) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 247 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365 og Azure (falsk Graph og Azure) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -378,6 +378,14 @@ Detaljer om endepunkter, paging og struping (throttling) finnes i `GRAPH_API_INT
 
 Kostnader og Defender for Cloud-anbefalinger kan komme senere. Varsler fra Azure Monitor og Defender er beskrevet i fase 4. Detaljene er beskrevet i `AZURE_INTEGRATIONS.md` (del A, kapittel 2), men der må «Lighthouse» leses som «Reader-rolle til appen i egen tenant».
 
+**Status (2026-11-17): bygget, venter på Reader-rolle i dev-tenanten.** Migreringen `AddAzureSubscriptions` er kjørt i dev-databasen.
+- **3.1 Tilkobling:** `scripts/Grant-AzureReader.ps1` gir appens tjenestekonto rollen Reader på ett eller flere abonnementer. Skriptet stopper hvis Azure CLI står i feil tenant, og hopper over tildelinger som finnes. Appen bruker samme app-registrering og hemmelighet som for Graph (`AzureService`).
+- **3.2 Abonnementer** (`AzureSubscription`, `ITenantOwned`, `IAudited`): `POST /api/azure/subscriptions/sync` henter abonnementene appen ser fra Azure Resource Manager. Nye legges til, eksisterende oppdateres, og de appen ikke lenger ser, får `IsVisible = false` i stedet for å slettes. Hver synk logges.
+- **3.3 Ressurser** (`GET /api/azure/resources`): Resource Graph på tvers av synlige abonnementer (maks 5000), cachet i 5 minutter. Filter på abonnement, type, region og ressursgruppe, og søk i navn, ressursgruppe og tagger, gjøres i backend på listen, slik at brukerens tekst aldri blir en del av spørringen mot Azure. Lagres ikke.
+- **Tilgang:** `Helpdesk.Admin`. Mangler appen Reader, gir API-et en lesbar melding (502) med henvisning til skriptet.
+- **Skjermbilder:** siden Azure med fanene Abonnementer (liste og knappen Synk fra Azure) og Ressurser (filter, søk og tagger).
+- **Tester:** `AzureTests` (4) med falsk Azure, pluss tilgangstester for de nye endepunktene.
+
 ---
 
 ## 8. Fase 4: Varsler blir saker, og Teams-integrasjon
@@ -448,7 +456,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | E | 0.6 Engelske koder + 1.4 SLA | Ferdig |
 | F | 1.5 IT-utstyr | Ferdig |
 | G | Fase 2 (2.1–2.8) | Delvis: 2.2, 2.3 og 2.4 ferdig; resten venter på lisens |
-| H | Fase 3 (3.1–3.3) | 2–3 uker |
+| H | Fase 3 (3.1–3.3) | Bygget, venter på Reader-rolle |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | 2–2,5 uker |
 | J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | 1–1,5 uker |
 
