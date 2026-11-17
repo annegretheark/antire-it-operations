@@ -453,7 +453,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 - **Tester:** `AlertTests` (20) med falsk Graph og Teams: prioritet, terskel, deduplisering, gjenåpning, løst hos kilden, tenant-skille, regler, bakgrunnsjobben, Teams-kort, kø og nytt forsøk, adressekontroll og maskering.
 - **Gjenstår for ferdig-kriteriet:** ekte Teams-kanal og Defender-varsel krever lisens. 4.2 (Azure Monitor) er steg J.
 
-**Status steg J (2026-11-17): henting bygget; webhook venter til appen kjører i Azure.** Ingen ny migrering.
+**Status steg J (2026-11-17): henting ferdig og testet mot ekte Azure; webhook venter til appen kjører i Azure.** Ingen ny migrering. Et aktivitetsloggvarsel i abonnementet Aitrening (6 forekomster) ble ett varsel og én sak.
 - **Henting** (`AzureService.ListMonitorAlertsAsync`): Alerts Management API for hvert synket og synlig abonnement, varsler fra de siste 7 dagene, hvert 5. minutt i `AlertMonitorService`. Krever bare Reader. Abonnementer appen ikke har tilgang til, hoppes over.
 - **Samme varsel = samme regel på samme ressurs** (`ExternalId` = `alertRule|targetResource`). Azure gir ofte en ny varsel-ID når et varsel fyrer igjen etter å ha vært løst; med regel og ressurs som nøkkel gjenåpnes saken i stedet for at det lages en ny, som planen sier.
 - **Bare siste forekomst per varsel** brukes i hver henting, og «løst» for en eldre forekomst enn den siste ignoreres. Ellers ville et varsel med én løst og én ny forekomst veksle mellom løst og fyrt ved hver henting.
