@@ -40,19 +40,15 @@ public class AzureService
     public const int MaxResources = 5000;
 
     private readonly IHttpClientFactory _httpClients;
-    private readonly string _clientId;
-    private readonly string _clientSecret;
-    private readonly ConcurrentDictionary<string, TokenCredential> _credentials = new();
+    private readonly AppCredentials _credentials;
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public AzureService(IHttpClientFactory httpClients, IConfiguration configuration)
     {
         _httpClients = httpClients;
-        _clientId = configuration["MicrosoftGraph:ClientId"]
-            ?? throw new InvalidOperationException("ClientId mangler");
-        _clientSecret = configuration["MicrosoftGraph:ClientSecret"]
-            ?? throw new InvalidOperationException("ClientSecret mangler");
+        // Samme innlogging som Graph (sertifikat, managed identity eller hemmelighet)
+        _credentials = new AppCredentials(configuration);
     }
 
     public virtual async Task<List<AzureSubscriptionInfo>> ListSubscriptionsAsync(
@@ -126,8 +122,7 @@ public class AzureService
     private async Task<T> SendAsync<T>(
         string tenantId, HttpMethod method, string url, object? body, CancellationToken cancellationToken)
     {
-        var credential = _credentials.GetOrAdd(tenantId.ToLowerInvariant(),
-            id => new ClientSecretCredential(id, _clientId, _clientSecret));
+        var credential = _credentials.For(tenantId);
 
         AccessToken token;
 

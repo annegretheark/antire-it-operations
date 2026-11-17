@@ -14,17 +14,13 @@ public class GraphService
     // checkMemberGroups godtar maks 20 gruppe-ID-er per kall
     private const int CheckMemberGroupsBatchSize = 20;
 
-    private readonly string _clientId;
-    private readonly string _clientSecret;
+    private readonly AppCredentials _credentials;
     private readonly ConcurrentDictionary<string, GraphServiceClient> _clients = new();
 
+    // Innlogging med sertifikat, managed identity eller hemmelighet (se AppCredentials)
     public GraphService(IConfiguration configuration)
     {
-        _clientId = configuration["MicrosoftGraph:ClientId"]
-            ?? throw new InvalidOperationException("ClientId mangler");
-
-        _clientSecret = configuration["MicrosoftGraph:ClientSecret"]
-            ?? throw new InvalidOperationException("ClientSecret mangler");
+        _credentials = new AppCredentials(configuration);
     }
 
     private GraphServiceClient ClientFor(string tenantId)
@@ -34,7 +30,7 @@ public class GraphService
 
         return _clients.GetOrAdd(tenantId.ToLowerInvariant(), id =>
             new GraphServiceClient(
-                new ClientSecretCredential(id, _clientId, _clientSecret),
+                _credentials.For(id),
                 new[] { "https://graph.microsoft.com/.default" }));
     }
 

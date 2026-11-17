@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 303 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure, varsler fra Defender og Azure Monitor med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 308 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure, varsler fra Defender og Azure Monitor med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -128,7 +128,7 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 |---|---|
 | Godkjent tilgang må fortsatt gis manuelt i Entra | 2.4 |
 | Revisjonslogg, katalog og SLA er ikke testet mot PostgreSQL (bare SQLite) | 0.10b |
-| Graph bruker klienthemmelighet | 2.1 |
+| Klienthemmelighetene ligger fortsatt på app-registreringen (appen bruker sertifikat) | Fjernes når sertifikatet er bekreftet i bruk |
 | Ingen databasetester (tenant-filteret er bare testet via tilgang) | 0.10b |
 
 ---
@@ -363,7 +363,8 @@ Detaljer om endepunkter, paging og struping (throttling) finnes i `GRAPH_API_INT
 - **2.4 Tilgang via gruppe** (`AccessGrantService`): tilgangsbestillinger peker nå på en ansatt (`AccessRequest.EmployeeId`). Når en bestilling på et system med Entra-gruppe godkjennes, legges den ansatte i gruppen og bestillingen blir «Fullført». Revisjonsloggen får `access_granted`. Feiler Graph, står godkjenningen, `access_grant_failed` logges, og IT kan prøve igjen (`POST /api/accessrequests/{id}/grant`) eller fullføre manuelt. Systemer uten krav om godkjenning gir tilgang med en gang, men bare når du bestiller til deg selv.
 - **Tilgang og cache:** oversiktene er for `Helpdesk.Admin` og caches i 5 minutter per tenant (knappen Oppdater henter på nytt). Manglende rettighet gir en lesbar melding (502) i stedet for en feil i appen.
 - **Graph-rettigheter:** appen har `User.Read.All` og `GroupMember.Read.All`. 2.4 krever `GroupMember.ReadWrite.All` med admin-samtykke; til den er gitt, ender godkjente bestillinger på systemer med gruppe som «Godkjent» med en forklaring.
-- **Gjenstår:** 2.1 (sertifikat), 2.5 lisensoversikt, 2.6 Secure Score, 2.7 Conditional Access og 2.8 Intune. De krever lisens i tenanten for å kunne testes.
+- **2.1 Sertifikat (2026-11-17): ferdig.** `AppCredentials` velger innlogging mot Graph og Azure: managed identity (`MicrosoftGraph:UseManagedIdentity`), sertifikat fra sertifikatlageret (`CertificateThumbprint`) eller .pfx-fil (`CertificatePath`), og til slutt klienthemmeligheten. Et sertifikat som er konfigurert men ikke finnes, gir en tydelig feil i stedet for å falle tilbake til hemmeligheten. `scripts/New-AppCertificate.ps1` lager et selvsignert sertifikat (privat nøkkel kan ikke eksporteres), legger den offentlige delen til på app-registreringen og setter tommelavtrykket i user secrets. Kjørt i dev-tenanten: appen logger nå inn med sertifikat mot både Graph og Azure. Klienthemmelighetene ligger fortsatt på app-registreringen og i user secrets til de fjernes. Når appen tas i bruk for flere tenanter (prod), settes app-registreringene til flere organisasjoner, det gis admin-samtykke der, og tenanten legges i `Tenants:Allowed`.
+- **Gjenstår:** 2.5 lisensoversikt, 2.6 Secure Score, 2.7 Conditional Access og 2.8 Intune. De krever lisens i tenanten for å kunne testes.
 - **Tester:** `AccessGrantTests` (8) og `M365Tests` (4) med falsk Graph, pluss tilgangstester for de nye endepunktene.
 
 ---
@@ -473,7 +474,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | Ferdig |
 | E | 0.6 Engelske koder + 1.4 SLA | Ferdig |
 | F | 1.5 IT-utstyr | Ferdig |
-| G | Fase 2 (2.1–2.8) | Delvis: 2.2, 2.3 og 2.4 ferdig; resten venter på lisens |
+| G | Fase 2 (2.1–2.8) | Delvis: 2.1–2.4 ferdig; 2.5–2.8 venter på lisens |
 | H | Fase 3 (3.1–3.3) | Ferdig |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | Bygget; ekte Teams og Defender venter på lisens |
 | J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | Henting ferdig; webhook venter til appen kjører i Azure |
