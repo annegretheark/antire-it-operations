@@ -16,6 +16,8 @@ public class TenantTests(TestWebApplicationFactory factory)
     [InlineData("/api/tickets")]
     [InlineData("/api/employees")]
     [InlineData("/api/accessrequests")]
+    [InlineData("/api/audit")]
+    [InlineData("/api/tickets/1/history")]
     public async Task User_from_unknown_tenant_is_forbidden(string path)
     {
         var client = factory.CreateClientInTenant(

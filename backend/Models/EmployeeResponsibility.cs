@@ -1,6 +1,6 @@
 namespace backend.Models;
 
-public class EmployeeResponsibility : ITenantOwned
+public class EmployeeResponsibility : ITenantOwned, IAudited
 {
     public int Id { get; set; }
 

@@ -65,6 +65,37 @@ public TicketsController(
         return Ok(tickets);
     }
 
+    // Historikk for en sak (hvem endret hva og når). Samme tilgang som til
+    // selve saken: agent og admin, eller den som meldte inn saken.
+    [HttpGet("{id:int}/history")]
+    public async Task<ActionResult<IEnumerable<AuditEventDto>>> GetHistory(int id)
+    {
+        var ticket = await _db.Tickets
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (ticket == null)
+            return NotFound();
+
+        if (!User.IsHelpdeskAgent())
+        {
+            var callerEmployeeId = await GetCallerEmployeeIdAsync();
+
+            if (callerEmployeeId == null || ticket.ReportedByEmployeeId != callerEmployeeId)
+                return NotFound();
+        }
+
+        var entityId = id.ToString();
+
+        var events = await _db.AuditEvents
+            .AsNoTracking()
+            .Where(e => e.EntityType == nameof(Ticket) && e.EntityId == entityId)
+            .OrderBy(e => e.Id)
+            .ToListAsync();
+
+        return Ok(events.Select(AuditEventDto.From));
+    }
+
     // Finn ansatt koblet til innlogget bruker via Entra objekt-ID
     private async Task<int?> GetCallerEmployeeIdAsync()
     {

@@ -23,6 +23,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "GET", "/api/ticketcategorygroups" },
         { "POST", "/api/ticketcategorygroups" },
         { "DELETE", "/api/ticketcategorygroups/1" },
+        { "GET", "/api/audit" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin
@@ -56,6 +57,8 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
     [InlineData("GET", "/api/employees")]
     [InlineData("GET", "/api/accessrequests")]
     [InlineData("GET", "/api/tickets/me")]
+    [InlineData("GET", "/api/tickets/1/history")]
+    [InlineData("GET", "/api/audit")]
     public async Task Anonymous_requests_are_rejected(string method, string path)
     {
         var client = factory.CreateClient();

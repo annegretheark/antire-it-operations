@@ -1,6 +1,6 @@
 namespace backend.Models;
 
-public class TicketCategoryGroup : ITenantOwned
+public class TicketCategoryGroup : ITenantOwned, IAudited
 {
     public int Id { get; set; }
 

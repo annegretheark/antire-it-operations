@@ -1,8 +1,9 @@
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './Helpdesk.css'
 import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
+import TicketHistory from './TicketHistory'
 
 type Ticket = {
   id: number
@@ -34,6 +35,22 @@ export default function Helpdesk() {
   const [saving, setSaving] = useState(false)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [error, setError] = useState('')
+  // Saker der historikken er åpen
+  const [openHistory, setOpenHistory] = useState<Set<number>>(new Set())
+
+  const employeeNames = useMemo(
+    () => new Map(employees.map((e) => [e.id, `${e.firstName} ${e.lastName}`.trim()])),
+    [employees]
+  )
+
+  function toggleHistory(ticketId: number) {
+    setOpenHistory((previous) => {
+      const next = new Set(previous)
+      if (next.has(ticketId)) next.delete(ticketId)
+      else next.add(ticketId)
+      return next
+    })
+  }
 
   const filteredTickets = tickets.filter((ticket) => {
     if (filter === 'Åpne') return ticket.status !== 'Løst'
@@ -321,6 +338,23 @@ setEmployees(employeeData)
                     ))}
                 </select>
               </div>
+
+              <button
+                type="button"
+                className="ticket-history-toggle"
+                aria-expanded={openHistory.has(ticket.id)}
+                onClick={() => toggleHistory(ticket.id)}
+              >
+                {openHistory.has(ticket.id) ? 'Skjul historikk' : 'Vis historikk'}
+              </button>
+
+              {openHistory.has(ticket.id) && (
+                <TicketHistory
+                  ticketId={ticket.id}
+                  employees={employeeNames}
+                  version={`${ticket.status}|${ticket.priority}|${ticket.assignedToEmployeeId ?? ''}`}
+                />
+              )}
             </div>
           ))
         )}

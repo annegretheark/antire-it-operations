@@ -5,6 +5,7 @@ import './App.css'
 import AccessRequests from './components/AccessRequests'
 import './components/Helpdesk.css'
 import Employees from './components/Employees'
+import Settings from './components/Settings'
 import {
   useMsal,
   useIsAuthenticated
@@ -205,6 +206,8 @@ await instance.logoutPopup({
   <AccessRequests />
 ) : activePage === 'Ansatte' ? (
   <Employees />
+) : activePage === 'Innstillinger' ? (
+  <Settings />
 ) : (
           <section className="card">
             <h3>{activePage}</h3>

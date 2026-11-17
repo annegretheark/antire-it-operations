@@ -1,7 +1,7 @@
 
 namespace backend.Models;
 
-public class Employee : ITenantOwned
+public class Employee : ITenantOwned, IAudited
 {
     public int Id { get; set; }
 

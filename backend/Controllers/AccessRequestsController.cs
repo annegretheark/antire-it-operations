@@ -93,6 +93,10 @@ public class AccessRequestsController : ControllerBase
             ? DateTime.UtcNow
             : null;
 
+        _context.SetAuditAction(request, update.Status == "Godkjent"
+            ? AuditActions.Approved
+            : AuditActions.Rejected);
+
         await _context.SaveChangesAsync();
 
         return Ok(request);
@@ -113,6 +117,7 @@ public class AccessRequestsController : ControllerBase
                 "Bare godkjente bestillinger kan fullføres.");
 
         request.Status = "Fullført";
+        _context.SetAuditAction(request, AuditActions.Completed);
 
         await _context.SaveChangesAsync();
 

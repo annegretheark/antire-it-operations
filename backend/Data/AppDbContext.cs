@@ -1,4 +1,6 @@
 
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using backend.Models;
 using backend.Services;
@@ -8,6 +10,11 @@ namespace backend.Data;
 public class AppDbContext : DbContext
 {
     private readonly ITenantContext? _tenant;
+
+    // Forretningshendelse for en entitet i neste lagring (f.eks. approved i stedet
+    // for updated). Leses av AuditInterceptor.
+    private readonly Dictionary<object, string> _auditActions =
+        new(ReferenceEqualityComparer.Instance);
 
     public AppDbContext(
         DbContextOptions<AppDbContext> options,
@@ -26,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<AccessRequest> AccessRequests { get; set; }
     public DbSet<EmployeeResponsibility> EmployeeResponsibilities { get; set; }
     public DbSet<TicketCategoryGroup> TicketCategoryGroups { get; set; }
+    public DbSet<AuditEvent> AuditEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -37,6 +45,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AccessRequest>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<EmployeeResponsibility>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<TicketCategoryGroup>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<AuditEvent>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+
+        // Revisjonslogg: historikk per entitet og siste hendelser i tenanten
+        modelBuilder.Entity<AuditEvent>(audit =>
+        {
+            audit.Property(e => e.TenantId).HasMaxLength(36);
+            audit.Property(e => e.ActorObjectId).HasMaxLength(64);
+            audit.Property(e => e.ActorName).HasMaxLength(256);
+            audit.Property(e => e.EntityType).HasMaxLength(64);
+            audit.Property(e => e.EntityId).HasMaxLength(64);
+            audit.Property(e => e.Action).HasMaxLength(32);
+            audit.Property(e => e.Changes).HasColumnType("jsonb");
+            audit.HasIndex(e => new { e.TenantId, e.EntityType, e.EntityId });
+            audit.HasIndex(e => new { e.TenantId, e.OccurredAt });
+        });
 
         modelBuilder.Entity<Ticket>().Property(e => e.TenantId).HasMaxLength(36);
         modelBuilder.Entity<Employee>().Property(e => e.TenantId).HasMaxLength(36);
@@ -91,6 +114,31 @@ public class AppDbContext : DbContext
             .HasFilter("\"EmployeeNumber\" IS NOT NULL");
     }
 
+    // Merk neste lagring av entiteten med en forretningshendelse, f.eks.
+    // SetAuditAction(request, AuditActions.Approved). Uten dette brukes updated.
+    public void SetAuditAction(object entity, string action) =>
+        _auditActions[entity] = action;
+
+    internal bool TryTakeAuditAction(object entity, [NotNullWhen(true)] out string? action) =>
+        _auditActions.Remove(entity, out action);
+
+    // Logg en hendelse som ikke er en endring på én rad, f.eks. synk fra Entra.
+    // Lagres med neste SaveChanges; AuditInterceptor fyller inn hvem og når.
+    public void AddAuditEvent(
+        string entityType, string entityId, string action, object? details = null)
+    {
+        AuditEvents.Add(new AuditEvent
+        {
+            EntityType = entityType,
+            EntityId = entityId,
+            Action = action,
+            Changes = details == null
+                ? null
+                : JsonSerializer.Serialize(details, AuditInterceptor.JsonOptions),
+        });
+    }
+
+    // Revisjonsloggen føres av AuditInterceptor (registreres i Program.cs)
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         ApplyTenant();

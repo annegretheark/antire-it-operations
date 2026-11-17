@@ -15,11 +15,16 @@ var tenantOptions = builder.Configuration
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
+// Innlogget person (brukes bl.a. av revisjonsloggen)
+builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
+// Revisjonslogg: logger endringer på IAudited-entiteter ved lagring
+builder.Services.AddScoped<backend.Data.AuditInterceptor>();
 // Singleton: gjenbruker credential og token-cache på tvers av forespørsler
 builder.Services.AddSingleton<backend.Services.GraphService>();
-builder.Services.AddDbContext<backend.Data.AppDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<backend.Data.AppDbContext>((services, options) =>
+    options
+        .UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+        .AddInterceptors(services.GetRequiredService<backend.Data.AuditInterceptor>()));
 
 // CORS for React frontend: tillatte adresser fra konfigurasjon (Cors:AllowedOrigins)
 var allowedOrigins = builder.Configuration

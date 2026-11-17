@@ -1,6 +1,6 @@
 namespace backend.Models;
 
-public class AccessRequest : ITenantOwned
+public class AccessRequest : ITenantOwned, IAudited
 {
     public int Id { get; set; }
 

@@ -105,6 +105,14 @@ public async Task<IActionResult> SyncEmployees()
         }
     }
 
+    // Én samlet hendelse for synken; endringer per ansatt logges automatisk
+    _context.AddAuditEvent("EmployeeSync", "entra", backend.Models.AuditActions.Synced, new
+    {
+        created,
+        updated,
+        totalFromEntra = users.Count
+    });
+
     await _context.SaveChangesAsync();
 
     return Ok(new

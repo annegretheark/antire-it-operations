@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | v0.2 (2026-11-16): skrevet om fra MSP-modell til én organisasjon med egne tenanter |
+| Status | v0.3 (2026-11-16): fase 4 lagt til (varsler blir saker, Teams). v0.2: skrevet om fra MSP-modell til én organisasjon med egne tenanter |
 | Utgangspunkt | `main` @ `2208729` |
 | Prinsipp | Helpdesken er fundamentet. Vi bygger videre på eksisterende modeller, kontrollere, tjenester og skjermbilder, uten ny arkitektur fra bunnen av. |
 | Forhold til andre dokumenter | Dette dokumentet er **hovedplanen**. `TARGET_ARCHITECTURE.md`, `DATABASE_DESIGN.md`, `GRAPH_API_INTEGRATIONS.md`, `AZURE_INTEGRATIONS.md` og `DEVELOPMENT_ROADMAP.md` ble skrevet for en MSP-modell med mange kunder. De brukes bare som teknisk referanse for Graph-endepunkter, Azure-API-er og sikkerhetssjekker. Se merknaden øverst i hvert av dem. |
@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 71 tester for tilgang og tenant; ingen databasetester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 97 tester: tilgang og tenant, og revisjonslogg mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -129,7 +129,7 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 | Status og prioritet er norske strenger brukt som nøkler | 0.6 (sammen med SLA) |
 | Ansvarsområder og kategorigrupper har ikke noe skjermbilde | 1.3 |
 | Tilgangsbestillinger er fritekst | 1.3 og 2.4 |
-| Ingen revisjonslogg | 1.2 |
+| Revisjonslogg er ikke testet mot PostgreSQL (bare SQLite) | 0.10b |
 | Graph bruker klienthemmelighet | 2.1 |
 | Ingen databasetester (tenant-filteret er bare testet via tilgang) | 0.10b |
 
@@ -219,6 +219,15 @@ public class AuditEvent : ITenantOwned
 **Skjermbilder:** historikk på hver sak, og en side for revisjonslogg under **Innstillinger** (`Helpdesk.Admin`).
 
 **Ferdig når:** endring av status, prioritet og ansvarlig synes i sakens historikk med hvem og når.
+
+**Status (2026-11-17): ferdig.** Migreringen `AddAuditLog` er kjørt i dev-databasen.
+- Loggingen ligger i `AuditInterceptor` (`Data/AuditInterceptor.cs`), en `SaveChangesInterceptor` som registreres i `Program.cs`. Tenant-logikken ligger fortsatt i `AppDbContext`. Nye rader får ID først ved lagring, så hendelsene lagres i en andre runde (fra `SavedChanges`) i samme transaksjon.
+- `IAudited` på `Ticket`, `AccessRequest`, `Employee`, `EmployeeResponsibility` og `TicketCategoryGroup`. Lagring uten faktiske endringer gir ingen hendelse.
+- Forretningshendelser: `SetAuditAction` (approved, rejected, completed på tilgangsbestillinger) og `AddAuditEvent` (én `synced`-hendelse per synk fra Entra).
+- Innlogget person kommer fra `ICurrentUser` (`Services/CurrentUser.cs`); uten innlogget bruker logges `system`.
+- API: `GET /api/tickets/{id}/history` (samme tilgang som til saken) og `GET /api/audit` (`Helpdesk.Admin`, filter og bla bakover).
+- Endring eller sletting av revisjonsrader stoppes i `AuditInterceptor`, og det finnes ingen endepunkter for det.
+- Tester mot SQLite i minnet: `AuditTests` (9, interceptoren) og `HistoryEndpointTests` (9, gjennom API-et). Ferdig-kriteriet testes ende til ende: endring av status, prioritet og ansvarlig vises i `GET /api/tickets/{id}/history` med hvem og når. Tilgangstester for begge endepunktene ligger i `AuthorizationTests` og `TenantTests`.
 
 ### 1.3 Tjenestekatalog
 
@@ -332,31 +341,93 @@ Detaljer om endepunkter, paging og struping (throttling) finnes i `GRAPH_API_INT
 | 3.2 | **Abonnementsoversikt** | Ny tabell `AzureSubscriptions` (`ITenantOwned`) synket med ARM: navn, tilstand og sist sett |
 | 3.3 | **Ressursoversikt** | Resource Graph-spørring på tvers av abonnementene: type, navn, region, ressursgruppe og tagger, med filter og søk. Lagres ikke i første versjon. |
 
-Kostnader, Defender for Cloud og overvåking kan komme senere. Detaljene er beskrevet i `AZURE_INTEGRATIONS.md` (del A, kapittel 2), men der må «Lighthouse» leses som «Reader-rolle til appen i egen tenant».
+Kostnader og Defender for Cloud-anbefalinger kan komme senere. Varsler fra Azure Monitor og Defender er beskrevet i fase 4. Detaljene er beskrevet i `AZURE_INTEGRATIONS.md` (del A, kapittel 2), men der må «Lighthouse» leses som «Reader-rolle til appen i egen tenant».
 
 ---
 
-## 8. Gjennomføring
+## 8. Fase 4: Varsler blir saker, og Teams-integrasjon
+
+Varsler fra Azure og Microsoft Defender blir helpdesk-saker automatisk, og IT får beskjed i Teams. Fasen bygger på saker (`Ticket`), revisjonsloggen (1.2), tjenestekatalogen (1.3), SLA (1.4), Graph-tilkoblingen (2.1) og Azure-tilkoblingen (3.1).
+
+### 4.1 Varselmottak (felles fundament)
+
+| Del | Innhold |
+|---|---|
+| **Ny tabell `Alerts`** (`ITenantOwned`, `IAudited`) | `Source` (`azure-monitor`, `defender`), `ExternalId` (varselets ID hos kilden), `Title`, `Severity`, `ResourceId`, `State` (`fired`/`resolved`), `FirstSeenAt`, `LastSeenAt`, `Occurrences`, `RawPayload` (jsonb) og `TicketId`. Unik indeks på (`TenantId`, `Source`, `ExternalId`). |
+| **Nye felt på `Ticket`** | `Source` (`manual` som standard, ellers `alert`) og `AlertId`. Eksisterende saker får `manual` i migreringen. |
+| **`AlertIngestionService`** | Ett felles inngangspunkt for alle kilder: finn eller opprett `Alert` → opprett sak hvis ingen åpen sak finnes for varselet → send til Teams (4.4). |
+| **Deduplisering** | Samme varsel på nytt (samme `ExternalId`) gir ikke ny sak, men øker `Occurrences` og `LastSeenAt` og logges i revisjonsloggen. Fyrer varselet etter at saken er **Løst**, gjenåpnes saken (status **Ny**) i stedet for at det lages en ny. |
+| **Når varselet løses hos kilden** | `State` settes til `resolved`, og det logges på saken. Saken lukkes **ikke** automatisk i første versjon (se avklaring 6). |
+| **Regler** (Innstillinger) | Ny tabell `AlertRules`: kilde, minste alvorlighetsgrad som gir sak, kategori og ansvarsgruppe fra tjenestekatalogen, og om Teams skal varsles. Standard: Azure Sev0–2 og Defender høy/middels gir sak. Lavere alvorlighetsgrad lagres som varsel uten sak. |
+| **Prioritet** | Azure Sev0 → **Kritisk**, Sev1 → **Høy**, Sev2 → **Normal**, Sev3–4 → **Lav**. Defender høy → **Høy**, middels → **Normal**, lav/informasjon → **Lav**. Kan overstyres per regel. |
+| **Sakstekst** | Tittel, alvorlighetsgrad, berørt ressurs, tidspunkt og lenke til varselet i Azure-portalen eller Defender-portalen. Saken meldes inn av **system**, og tildeling skjer via `TicketAssignmentService` med kategori fra regelen. |
+| **Bakgrunnsjobb** | En `BackgroundService` som henter varsler for hver tenant i `Tenants:Allowed`. Den kjører uten innlogget bruker, så `ITenantContext` må kunne settes eksplisitt per tenant i et eget scope (revisjonsloggen bruker da aktøren **system**). |
+| **Skjermbilde** | Ny side **Varsler** med alle mottatte varsler, filter på kilde, alvorlighetsgrad og tilstand, og lenke til saken. På saken vises et merke «Fra varsel» med kilde og antall forekomster. |
+
+### 4.2 Azure Alert → sak
+
+| Del | Innhold |
+|---|---|
+| **Henting (første versjon)** | Alerts Management API (`Microsoft.AlertsManagement/alerts`) for hvert abonnement fra 3.2, hvert 5. minutt. Krever bare **Reader** (3.1), og virker også når backend kjører lokalt. |
+| **Webhook (når appen kjører i Azure)** | Action group med *secure webhook* og Common Alert Schema → `POST /api/hooks/azure-monitor`. Endepunktet krever et Entra-token utstedt til action group-ens app og en tillatt tenant. Hentingen hvert 5. minutt beholdes som avstemming, slik at ingen varsler går tapt. |
+| **Hva som fanges** | Metrikkvarsler, loggvarsler, aktivitetsloggvarsler, Service Health og Resource Health, altså alt som fyrer i Azure Monitor. |
+| **Grunnoppsett (valgfritt)** | Et Bicep-skript som oppretter action group og noen standardvarsler (Service Health, Resource Health, VM nede, disk nesten full). Kjøres bare i dev-tenanten til du sier fra. |
+
+### 4.3 Defender Alert → sak
+
+| Del | Innhold |
+|---|---|
+| **Kilde** | Graph Security API `GET /security/alerts_v2`, som samler varsler fra Defender for Endpoint, Office 365, Identity, Cloud Apps og Defender for Cloud (når det er koblet til Defender XDR). |
+| **Henting** | Hvert 5. minutt med filter på `lastUpdateDateTime`, slik at bare nye og endrede varsler hentes. |
+| **Rettighet** | Graph-applikasjonsrettigheten `SecurityAlert.Read.All` med admin-samtykke. Skrivetilgang (`SecurityAlert.ReadWrite.All`) for å sette varselet til «løst» i Defender når saken lukkes, kommer eventuelt senere. |
+| **Lisens** | Krever Defender-lisens i tenanten (f.eks. Microsoft 365 Business Premium eller E5). Uten lisens er listen bare tom. |
+| **Kategori** | Defender-varsler går til en egen kategori **Sikkerhet** i tjenestekatalogen, slik at de kan tildeles en egen ansvarsgruppe. |
+
+### 4.4 Teams-integrasjon
+
+| Del | Innhold |
+|---|---|
+| **Kanal** | En Teams-kanal for IT-drift (per tenant) som mottar meldinger via en **Workflows-webhook** («Post to a channel when a webhook request is received»). De gamle Office 365-connectorene er avviklet av Microsoft og brukes ikke. |
+| **Oppsett** | Webhook-URL-en lagres per tenant i Innstillinger (kun **Helpdesk.Admin**) og behandles som en hemmelighet: den vises maskert og lagres utenfor koden (user secrets lokalt, Key Vault i Azure). Knappen **Send testmelding** bekrefter oppsettet. |
+| **Hva som sendes** | Adaptive Card ved ny sak fra varsel, ved varsel som gjenåpner en sak, og (valgfritt) ved nye manuelle saker med prioritet **Kritisk**. Kortet viser tittel, alvorlighetsgrad, ressurs og en knapp **Åpne sak** som lenker til saken i appen. |
+| **Feil** | Sending skjer etter at saken er lagret. Feiler Teams, beholdes saken, feilen logges, og meldingen forsøkes på nytt ved neste kjøring av bakgrunnsjobben. |
+| **Senere** | Knapper som gjør noe i selve kortet (f.eks. **Ta saken**, **Godkjenn tilgang**) krever en Teams-bot (Bot Framework) og kommer eventuelt i en senere fase. |
+
+### 4.5 Tester
+
+Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separasjon (et varsel fra én tenant gir aldri sak i en annen), webhook-autentisering og at Teams-feil ikke stopper saksopprettelsen. Azure, Graph og Teams byttes ut med falske implementasjoner i testene.
+
+**Ferdig når:** et testvarsel som fyres i dev-tenanten (`3af5c92b`), både fra Azure Monitor og fra Defender (eller simulert), blir én sak med riktig prioritet og ansvarlig, vises i Teams-kanalen innen 5 minutter, og et nytt varsel av samme type gir ikke en ny sak.
+
+---
+
+## 9. Gjennomføring
 
 | Steg | Innhold | Estimat (1–2 utviklere) |
 |---|---|---|
 | A | Felles API-klient, CORS og testprosjekt | Ferdig |
 | T | Tenant-isolasjon | Ferdig |
 | B | 0.9 opprydding + 1.1 RBAC | Ferdig |
-| C | 1.2 Revisjonslogg | 1 uke |
+| C | 1.2 Revisjonslogg | Ferdig |
 | D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | 1,5 uker |
 | E | 0.6 Engelske koder + 1.4 SLA | 2 uker |
 | F | 1.5 IT-utstyr | 1,5 uker |
 | G | Fase 2 (2.1–2.8) | 5–7 uker |
 | H | Fase 3 (3.1–3.3) | 2–3 uker |
+| I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | 2–2,5 uker |
+| J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | 1–1,5 uker |
 
 **Arbeidsmåte per steg:** én migrering, backend med tester, frontend, test i dev-tenanten (`3af5c92b`), og deretter commit til `main`. Produksjonstenanten tas først i bruk når du sier fra.
 
 ---
 
-## 9. Avklaringer
+## 10. Avklaringer
 
 1. **SLA:** hvilke responstider og løsningstider per prioritet? Skal noe gå døgnet rundt?
 2. **Arbeidstid:** 08–16 mandag–fredag med norske helligdager?
 3. **Godkjenning av tilgang:** skal leder godkjenne (rollen `Approver`), eller holder det med IT?
 4. **Test-tenant:** skal en egen test-tenant tas i bruk i tillegg til dev-tenanten før prod?
+5. **Teams:** hvilken kanal skal motta varsler, og skal kritiske manuelle saker også varsles der?
+6. **Løste varsler:** skal saken lukkes automatisk når varselet løses i Azure eller Defender, eller skal IT alltid lukke den selv?
+7. **Terskel:** gir Azure Sev0–2 og Defender høy/middels sak, eller skal flere (eller færre) varsler bli saker?
+8. **Rekkefølge:** steg I trenger bare en ny Graph-rettighet og kan flyttes foran fase 2 og 3 hvis varsler er viktigere enn M365- og Azure-oversiktene.
