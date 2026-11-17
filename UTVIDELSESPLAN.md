@@ -378,7 +378,7 @@ Detaljer om endepunkter, paging og struping (throttling) finnes i `GRAPH_API_INT
 
 Kostnader og Defender for Cloud-anbefalinger kan komme senere. Varsler fra Azure Monitor og Defender er beskrevet i fase 4. Detaljene er beskrevet i `AZURE_INTEGRATIONS.md` (del A, kapittel 2), men der må «Lighthouse» leses som «Reader-rolle til appen i egen tenant».
 
-**Status (2026-11-17): bygget, venter på Reader-rolle i dev-tenanten.** Migreringen `AddAzureSubscriptions` er kjørt i dev-databasen.
+**Status (2026-11-17): ferdig.** Migreringen `AddAzureSubscriptions` er kjørt i dev-databasen, og appen har Reader på de tre abonnementene i dev-tenanten (Aitrening, Aitrening2 og az-700), gitt med skriptet. Synk og ressursoversikt er testet mot ekte Azure.
 - **3.1 Tilkobling:** `scripts/Grant-AzureReader.ps1` gir appens tjenestekonto rollen Reader på ett eller flere abonnementer. Skriptet stopper hvis Azure CLI står i feil tenant, og hopper over tildelinger som finnes. Appen bruker samme app-registrering og hemmelighet som for Graph (`AzureService`).
 - **3.2 Abonnementer** (`AzureSubscription`, `ITenantOwned`, `IAudited`): `POST /api/azure/subscriptions/sync` henter abonnementene appen ser fra Azure Resource Manager. Nye legges til, eksisterende oppdateres, og de appen ikke lenger ser, får `IsVisible = false` i stedet for å slettes. Hver synk logges.
 - **3.3 Ressurser** (`GET /api/azure/resources`): Resource Graph på tvers av synlige abonnementer (maks 5000), cachet i 5 minutter. Filter på abonnement, type, region og ressursgruppe, og søk i navn, ressursgruppe og tagger, gjøres i backend på listen, slik at brukerens tekst aldri blir en del av spørringen mot Azure. Lagres ikke.
@@ -456,7 +456,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | E | 0.6 Engelske koder + 1.4 SLA | Ferdig |
 | F | 1.5 IT-utstyr | Ferdig |
 | G | Fase 2 (2.1–2.8) | Delvis: 2.2, 2.3 og 2.4 ferdig; resten venter på lisens |
-| H | Fase 3 (3.1–3.3) | Bygget, venter på Reader-rolle |
+| H | Fase 3 (3.1–3.3) | Ferdig |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | 2–2,5 uker |
 | J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | 1–1,5 uker |
 
