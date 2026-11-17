@@ -48,12 +48,25 @@ public class AccessRequestsController : ControllerBase
         [FromBody] AccessRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.EmployeeName) ||
-            string.IsNullOrWhiteSpace(request.SystemName) ||
+            request.ServiceCatalogItemId == null ||
             string.IsNullOrWhiteSpace(request.Reason) ||
             string.IsNullOrWhiteSpace(request.ManagerName))
         {
             return BadRequest("Alle feltene må fylles ut.");
         }
+
+        // Systemet velges fra tjenestekatalogen; fritekst godtas ikke lenger
+        var system = await _context.ServiceCatalogItems
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i =>
+                i.Id == request.ServiceCatalogItemId &&
+                i.Type == ServiceCatalogTypes.Access &&
+                i.IsActive);
+
+        if (system == null)
+            return BadRequest("Velg et aktivt system fra tjenestekatalogen.");
+
+        request.SystemName = system.Name;
 
         request.Id = 0;
         request.RequestedByObjectId = User.GetObjectId();

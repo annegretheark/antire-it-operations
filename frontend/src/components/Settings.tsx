@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
+import ServiceCatalogSettings from './settings/ServiceCatalogSettings'
+import ResponsibilitiesSettings from './settings/ResponsibilitiesSettings'
+import CategoryGroupsSettings from './settings/CategoryGroupsSettings'
 import {
   actionLabel,
   describeChanges,
@@ -18,10 +21,19 @@ type Employee = {
 
 const PAGE_SIZE = 50
 
-// Innstillinger. Foreløpig bare revisjonsloggen (Helpdesk.Admin); tjenestekatalog,
-// ansvarsområder og kategorigrupper kommer i steg D.
+const TABS = [
+  { key: 'catalog', label: 'Tjenestekatalog' },
+  { key: 'responsibilities', label: 'Ansvarsområder' },
+  { key: 'groups', label: 'Kategorigrupper' },
+  { key: 'audit', label: 'Revisjonslogg' },
+] as const
+
+type TabKey = (typeof TABS)[number]['key']
+
+// Innstillinger (Helpdesk.Admin): tjenestekatalog, automatisk tildeling og revisjonslogg
 export default function Settings() {
   const { isHelpdeskAdmin } = useCurrentUser()
+  const [tab, setTab] = useState<TabKey>('catalog')
 
   if (!isHelpdeskAdmin) {
     return (
@@ -36,7 +48,24 @@ export default function Settings() {
 
   return (
     <section className="helpdesk">
-      <AuditLog />
+      <div className="settings-tabs" role="tablist" aria-label="Innstillinger">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'catalog' && <ServiceCatalogSettings />}
+      {tab === 'responsibilities' && <ResponsibilitiesSettings />}
+      {tab === 'groups' && <CategoryGroupsSettings />}
+      {tab === 'audit' && <AuditLog />}
     </section>
   )
 }

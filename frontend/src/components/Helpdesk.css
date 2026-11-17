@@ -286,3 +286,93 @@
   background: white;
   cursor: pointer;
 }
+
+/* Tjenestekatalog i skjemaer */
+.service-description {
+  margin: -6px 0 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+/* Innstillinger */
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.settings-tabs button {
+  padding: 8px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.settings-tabs button[aria-selected='true'] {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: white;
+}
+
+.helpdesk-form input:not([type='checkbox']) {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.settings-form {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.settings-form .settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.settings-form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-form-actions button.secondary,
+.settings-row-action {
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: white;
+  color: #0f172a;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-row-action + .settings-row-action {
+  margin-left: 6px;
+}
+
+.settings-muted {
+  color: #64748b;
+}
+
+.settings-message {
+  color: #15803d;
+}
+
+.settings-error {
+  color: #dc2626;
+}

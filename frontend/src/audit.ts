@@ -29,6 +29,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   EmployeeResponsibility: 'Ansvarsområde',
   TicketCategoryGroup: 'Kategorigruppe',
   EmployeeSync: 'Synk fra Entra',
+  ServiceCatalogItem: 'Tjeneste',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -57,6 +58,12 @@ const FIELD_LABELS: Record<string, string> = {
   EntraObjectId: 'Entra objekt-ID',
   EntraGroupId: 'Entra-gruppe',
   CanBeAssigned: 'Kan tildeles',
+  ServiceCatalogItemId: 'Tjeneste',
+  Name: 'Navn',
+  Type: 'Type',
+  DefaultPriority: 'Standard prioritet',
+  RequiresApproval: 'Krever godkjenning',
+  IsActive: 'Aktiv',
   created: 'Nye',
   updated: 'Oppdatert',
   totalFromEntra: 'Totalt i Entra',

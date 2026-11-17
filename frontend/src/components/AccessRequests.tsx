@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
+import { useServiceCatalog } from '../serviceCatalog'
 
 type AccessRequest = {
   id: number
@@ -21,7 +22,11 @@ export default function AccessRequests() {
   const { isHelpdeskAgent, isApprover } = useCurrentUser()
 
   const [employeeName, setEmployeeName] = useState('')
-  const [systemName, setSystemName] = useState('Microsoft 365')
+  // Systemene kommer fra tjenestekatalogen (type access)
+  const systems = useServiceCatalog('type=access')
+  const [systemId, setSystemId] = useState<number | null>(null)
+  const selectedSystem =
+    systems.items.find((s) => s.id === systemId) ?? systems.items[0]
   const [reason, setReason] = useState('')
   const [managerName, setManagerName] = useState('')
   const [requests, setRequests] = useState<AccessRequest[]>([])
@@ -63,6 +68,7 @@ export default function AccessRequests() {
   async function createRequest() {
     if (
       saving ||
+      !selectedSystem ||
       !employeeName.trim() ||
       !reason.trim() ||
       !managerName.trim()
@@ -78,7 +84,7 @@ export default function AccessRequests() {
         headers: await getAuthHeaders(),
         body: JSON.stringify({
           employeeName: employeeName.trim(),
-          systemName,
+          serviceCatalogItemId: selectedSystem.id,
           reason: reason.trim(),
           managerName: managerName.trim(),
         }),
@@ -190,15 +196,26 @@ export default function AccessRequests() {
           <label htmlFor="access-system">System</label>
           <select
             id="access-system"
-            value={systemName}
-            onChange={(e) => setSystemName(e.target.value)}
+            value={selectedSystem?.id ?? ''}
+            onChange={(e) => setSystemId(Number(e.target.value))}
+            disabled={systems.loading || systems.items.length === 0}
+            required
           >
-            <option>Microsoft 365</option>
-            <option>Teams</option>
-            <option>SharePoint</option>
-            <option>Azure</option>
-            <option>Annet</option>
+            {systems.loading && <option value="">Henter systemer...</option>}
+            {!systems.loading && systems.items.length === 0 && (
+              <option value="">Ingen systemer i tjenestekatalogen</option>
+            )}
+            {systems.items.map((system) => (
+              <option key={system.id} value={system.id}>
+                {system.name}
+              </option>
+            ))}
           </select>
+
+          {selectedSystem?.description && (
+            <p className="service-description">{selectedSystem.description}</p>
+          )}
+          {systems.error && <p role="alert">{systems.error}</p>}
 
           <label htmlFor="access-reason">Begrunnelse</label>
           <textarea
@@ -223,6 +240,7 @@ export default function AccessRequests() {
             type="submit"
             disabled={
               saving ||
+              !selectedSystem ||
               !employeeName.trim() ||
               !reason.trim() ||
               !managerName.trim()

@@ -24,4 +24,7 @@ public class Ticket : ITenantOwned, IAudited
     // Ansvarlig ansatt (eneste ansvarlig-felt, se migrering MergeTicketAssignee)
     public int? AssignedToEmployeeId { get; set; }
     public Employee? AssignedToEmployee { get; set; }
+
+    // Tjenesten saken ble meldt inn på (valgfri). Category settes fra tjenesten.
+    public int? ServiceCatalogItemId { get; set; }
 }

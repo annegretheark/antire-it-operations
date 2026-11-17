@@ -45,6 +45,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddScoped<TicketAssignmentService>();
 builder.Services.AddScoped<EmployeeNumberService>();
+builder.Services.AddScoped<ServiceCatalogService>();
 // Microsoft Entra ID - autentisering av API
 builder.Services
     .AddAuthentication("Bearer")

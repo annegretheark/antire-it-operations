@@ -126,7 +126,8 @@ public class GraphService
 
     // Sjekker om brukeren er medlem (også indirekte) av minst én av gruppene.
     // Ett kall per 20 grupper i stedet for å liste alle brukerens grupper.
-    public async Task<bool> IsMemberOfAnyGroupAsync(
+    // Virtual slik at testene kan bytte ut Graph.
+    public virtual async Task<bool> IsMemberOfAnyGroupAsync(
         string tenantId,
         string entraObjectId,
         IReadOnlyCollection<string> groupIds,

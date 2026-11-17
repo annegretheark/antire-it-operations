@@ -4,6 +4,7 @@ import './Helpdesk.css'
 import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 import TicketHistory from './TicketHistory'
+import { SERVICE_TYPE_LABELS, useServiceCatalog } from '../serviceCatalog'
 
 type Ticket = {
   id: number
@@ -12,6 +13,7 @@ type Ticket = {
   status: string
   priority: string
   assignedToEmployeeId: number | null
+  serviceCatalogItemId: number | null
 }
 
 type Employee = {
@@ -26,7 +28,28 @@ export default function Helpdesk() {
   const getAuthHeaders = useAuthHeaders()
   const { isHelpdeskAgent } = useCurrentUser()
 
-  const [category, setCategory] = useState('Feil')
+  // Tjenester brukerne kan melde inn saker på (tilgang bestilles på egen side)
+  const catalog = useServiceCatalog()
+  const services = useMemo(
+    () => catalog.items.filter((s) => s.type !== 'access'),
+    [catalog.items]
+  )
+  const [serviceId, setServiceId] = useState<number | null>(null)
+  const selectedService = services.find((s) => s.id === serviceId) ?? services[0]
+  const selectedServiceId = selectedService?.id ?? null
+  const serviceNames = useMemo(
+    () => new Map(catalog.items.map((s) => [s.id, s.name])),
+    [catalog.items]
+  )
+
+  // Tjenestenavnet når saken har en tjeneste (og kategorien er en annen)
+  function ticketTitle(ticket: Ticket): string {
+    const name = ticket.serviceCatalogItemId
+      ? serviceNames.get(ticket.serviceCatalogItemId)
+      : undefined
+    return name && name !== ticket.category ? `${name} (${ticket.category})` : ticket.category
+  }
+
   const [description, setDescription] = useState('')
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -93,7 +116,7 @@ setEmployees(employeeData)
   }, [getAuthHeaders])
 
   async function createTicket() {
-    if (!description.trim() || saving) return
+    if (!description.trim() || selectedServiceId === null || saving) return
 
     setSaving(true)
     setError('')
@@ -103,7 +126,7 @@ setEmployees(employeeData)
         method: 'POST',
        headers: await getAuthHeaders(),
         body: JSON.stringify({
-          category,
+          serviceCatalogItemId: selectedServiceId,
           description: description.trim(),
         }),
       })
@@ -170,20 +193,39 @@ setEmployees(employeeData)
             void createTicket()
           }}
         >
-          <label htmlFor="ticket-category">
-            Kategori
+          <label htmlFor="ticket-service">
+            Hva gjelder det?
           </label>
 
           <select
-            id="ticket-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            id="ticket-service"
+            value={selectedServiceId ?? ''}
+            onChange={(e) => setServiceId(Number(e.target.value))}
+            disabled={catalog.loading || services.length === 0}
+            required
           >
-            <option>Feil</option>
-            <option>Tilgangsbestilling</option>
-            <option>Bestilling av utstyr</option>
-            <option>Annet</option>
+            {catalog.loading && <option value="">Henter tjenester...</option>}
+            {(['incident', 'request'] as const).map((type) => {
+              const group = services.filter((s) => s.type === type)
+              if (group.length === 0) return null
+
+              return (
+                <optgroup key={type} label={SERVICE_TYPE_LABELS[type]}>
+                  {group.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            })}
           </select>
+
+          {selectedService?.description && (
+            <p className="service-description">{selectedService.description}</p>
+          )}
+
+          {catalog.error && <p role="alert">{catalog.error}</p>}
 
           <label htmlFor="ticket-description">
             Beskrivelse
@@ -200,7 +242,7 @@ setEmployees(employeeData)
 
           <button
             type="submit"
-            disabled={saving || !description.trim()}
+            disabled={saving || !description.trim() || selectedServiceId === null}
           >
             {saving ? 'Lagrer...' : 'Opprett sak'}
           </button>
@@ -245,7 +287,7 @@ setEmployees(employeeData)
               key={ticket.id}
             >
               <h4>
-                #{ticket.id} – {ticket.category}
+                #{ticket.id} – {ticketTitle(ticket)}
               </h4>
 
               <p>{ticket.description}</p>

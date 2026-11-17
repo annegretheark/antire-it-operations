@@ -34,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<EmployeeResponsibility> EmployeeResponsibilities { get; set; }
     public DbSet<TicketCategoryGroup> TicketCategoryGroups { get; set; }
     public DbSet<AuditEvent> AuditEvents { get; set; }
+    public DbSet<ServiceCatalogItem> ServiceCatalogItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,6 +47,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeResponsibility>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<TicketCategoryGroup>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<AuditEvent>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ServiceCatalogItem>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
 
         // Revisjonslogg: historikk per entitet og siste hendelser i tenanten
         modelBuilder.Entity<AuditEvent>(audit =>
@@ -86,6 +88,32 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeResponsibility>()
             .HasIndex(r => new { r.EmployeeId, r.Category })
             .IsUnique();
+
+        // Tjenestekatalog: navnet er unikt i tenanten. Saker og bestillinger peker hit,
+        // og en tjeneste kan ikke slettes så lenge noe peker på den (deaktiveres i stedet).
+        modelBuilder.Entity<ServiceCatalogItem>(item =>
+        {
+            item.Property(e => e.TenantId).HasMaxLength(36);
+            item.Property(e => e.Name).HasMaxLength(100);
+            item.Property(e => e.Category).HasMaxLength(100);
+            item.Property(e => e.Description).HasMaxLength(500);
+            item.Property(e => e.Type).HasMaxLength(20);
+            item.Property(e => e.DefaultPriority).HasMaxLength(20);
+            item.Property(e => e.EntraGroupId).HasMaxLength(36);
+            item.HasIndex(e => new { e.TenantId, e.Name }).IsUnique();
+        });
+
+        modelBuilder.Entity<Ticket>()
+            .HasOne<ServiceCatalogItem>()
+            .WithMany()
+            .HasForeignKey(t => t.ServiceCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<AccessRequest>()
+            .HasOne<ServiceCatalogItem>()
+            .WithMany()
+            .HasForeignKey(r => r.ServiceCatalogItemId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Behold eksisterende relasjon mellom sak og ansatt
         modelBuilder.Entity<Ticket>()

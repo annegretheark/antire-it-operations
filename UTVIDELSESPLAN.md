@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 97 tester: tilgang og tenant, og revisjonslogg mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 141 tester: tilgang og tenant, og revisjonslogg, tjenestekatalog og tildeling mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -254,6 +254,15 @@ public class ServiceCatalogItem : ITenantOwned
 
 **Ferdig når:** Helpdesk viser katalogen, og automatisk tildeling virker som før.
 
+**Status (2026-11-17): ferdig.** Migreringen `AddServiceCatalog` er kjørt i dev-databasen.
+- Startinnhold: første gang en tenant henter katalogen (eller en admin legger til en tjeneste), opprettes de fire sakskategoriene og de fem systemene fra det gamle tilgangsskjemaet (Microsoft 365, Teams, SharePoint, Azure, «Annet system») som `access`-tjenester (`ServiceCatalogService`). Tjenester slettes aldri, bare deaktiveres, så gamle saker beholder koblingen.
+- `DefaultPriority` bruker foreløpig de norske verdiene (`Normal` osv.). Engelske koder kommer med 0.6 i steg E.
+- Sak med `ServiceCatalogItemId` får kategori og prioritet fra tjenesten; `Ticket.Category` brukes fortsatt av `TicketAssignmentService`, så tildelingen er uendret. Uten tjeneste virker API-et som før (kategori påkrevd).
+- Tilgangsbestillinger krever en aktiv `access`-tjeneste; `SystemName` settes fra navnet. `RequiresApproval` og `EntraGroupId` lagres, men tas i bruk først i 2.4.
+- API: `GET /api/servicecatalog` (alle innloggede, aktive tjenester; `?type=` og `?includeInactive=true` for admin), `POST`/`PUT /api/servicecatalog` og `/api/employeeresponsibilities` (GET, POST, PATCH, DELETE) for `Helpdesk.Admin`.
+- Innstillinger har faner for tjenestekatalog, ansvarsområder, kategorigrupper og revisjonslogg.
+- Tester: `ServiceCatalogTests` (17) mot SQLite gjennom API-et, med falsk Graph. Ferdig-kriteriet testes ende til ende: en sak meldt inn på en tjeneste får kategori og prioritet fra katalogen og tildeles automatisk ansatt med ansvarsområdet som er medlem av kategorigruppen.
+
 ### 1.4 SLA-håndtering (+ 0.6 engelske koder)
 
 ```csharp
@@ -409,7 +418,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | T | Tenant-isolasjon | Ferdig |
 | B | 0.9 opprydding + 1.1 RBAC | Ferdig |
 | C | 1.2 Revisjonslogg | Ferdig |
-| D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | 1,5 uker |
+| D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | Ferdig |
 | E | 0.6 Engelske koder + 1.4 SLA | 2 uker |
 | F | 1.5 IT-utstyr | 1,5 uker |
 | G | Fase 2 (2.1–2.8) | 5–7 uker |

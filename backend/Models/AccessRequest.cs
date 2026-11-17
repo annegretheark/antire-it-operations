@@ -23,4 +23,8 @@ public class AccessRequest : ITenantOwned, IAudited
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? ApprovedAt { get; set; }
+
+    // Systemet fra tjenestekatalogen (type access). SystemName settes fra navnet,
+    // og er fritekst bare for bestillinger fra før katalogen.
+    public int? ServiceCatalogItemId { get; set; }
 }

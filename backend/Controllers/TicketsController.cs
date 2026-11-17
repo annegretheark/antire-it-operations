@@ -10,10 +10,13 @@ using Microsoft.Identity.Web;
 
 namespace backend.Controllers;
 
+// Med ServiceCatalogItemId hentes kategori og prioritet fra tjenestekatalogen,
+// og Category ignoreres. Uten den er Category påkrevd (som før katalogen).
 public record CreateTicketRequest(
-    string Category,
+    string? Category,
     string Description,
-    int? ReportedByEmployeeId
+    int? ReportedByEmployeeId,
+    int? ServiceCatalogItemId = null
 );
 
 public record UpdateTicketStatusRequest(
@@ -116,12 +119,27 @@ public TicketsController(
     public async Task<ActionResult<Ticket>> CreateTicket(
         [FromBody] CreateTicketRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Category) ||
-            string.IsNullOrWhiteSpace(request.Description))
+        if (string.IsNullOrWhiteSpace(request.Description))
+            return BadRequest("Beskrivelse er påkrevd.");
+
+        var category = request.Category?.Trim();
+        var priority = "Normal";
+
+        if (request.ServiceCatalogItemId is int itemId)
         {
-            return BadRequest(
-                "Kategori og beskrivelse er påkrevd."
-            );
+            var item = await _db.ServiceCatalogItems
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == itemId && i.IsActive);
+
+            if (item == null)
+                return BadRequest("Ukjent eller deaktivert tjeneste.");
+
+            category = item.Category;
+            priority = item.DefaultPriority;
+        }
+        else if (string.IsNullOrWhiteSpace(category))
+        {
+            return BadRequest("Tjeneste eller kategori er påkrevd.");
         }
 
         // Bare agent og admin kan melde inn på vegne av andre
@@ -131,13 +149,13 @@ public TicketsController(
 
         var ticket = new Ticket
         {
-            Category = request.Category,
+            Category = category,
             Description = request.Description,
             ReportedByEmployeeId = reportedByEmployeeId,
+            ServiceCatalogItemId = request.ServiceCatalogItemId,
             Status = "Ny",
-            Priority = "Normal",
+            Priority = priority,
             CreatedAt = DateTime.UtcNow
-            
         };
         // Finn ansvarlig basert på rettigheter og ansvarsområde
 ticket.AssignedToEmployeeId =
@@ -222,15 +240,7 @@ ticket.AssignedToEmployeeId =
         int id,
         [FromBody] UpdateTicketPriorityRequest request)
     {
-        var allowedPriorities = new[]
-        {
-            "Lav",
-            "Normal",
-            "Høy",
-            "Kritisk"
-        };
-
-        if (!allowedPriorities.Contains(request.Priority))
+        if (!TicketPriorities.All.Contains(request.Priority))
         {
             return BadRequest("Ugyldig prioritet.");
         }

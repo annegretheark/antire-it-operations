@@ -51,6 +51,9 @@ namespace backend.Migrations
                     b.Property<string>("RequestedByObjectId")
                         .HasColumnType("text");
 
+                    b.Property<int?>("ServiceCatalogItemId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -65,6 +68,8 @@ namespace backend.Migrations
                         .HasColumnType("character varying(36)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ServiceCatalogItemId");
 
                     b.HasIndex("TenantId");
 
@@ -217,6 +222,61 @@ namespace backend.Migrations
                     b.ToTable("EmployeeResponsibilities");
                 });
 
+            modelBuilder.Entity("backend.Models.ServiceCatalogItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DefaultPriority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("EntraGroupId")
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("RequiresApproval")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ServiceCatalogItems");
+                });
+
             modelBuilder.Entity("backend.Models.Ticket", b =>
                 {
                     b.Property<int>("Id")
@@ -246,6 +306,9 @@ namespace backend.Migrations
                     b.Property<int?>("ReportedByEmployeeId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("ServiceCatalogItemId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -260,6 +323,8 @@ namespace backend.Migrations
                     b.HasIndex("AssignedToEmployeeId");
 
                     b.HasIndex("ReportedByEmployeeId");
+
+                    b.HasIndex("ServiceCatalogItemId");
 
                     b.HasIndex("TenantId");
 
@@ -295,6 +360,14 @@ namespace backend.Migrations
                     b.ToTable("TicketCategoryGroups");
                 });
 
+            modelBuilder.Entity("backend.Models.AccessRequest", b =>
+                {
+                    b.HasOne("backend.Models.ServiceCatalogItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("backend.Models.EmployeeResponsibility", b =>
                 {
                     b.HasOne("backend.Models.Employee", "Employee")
@@ -316,6 +389,11 @@ namespace backend.Migrations
                     b.HasOne("backend.Models.Employee", "ReportedByEmployee")
                         .WithMany()
                         .HasForeignKey("ReportedByEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.ServiceCatalogItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceCatalogItemId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("AssignedToEmployee");

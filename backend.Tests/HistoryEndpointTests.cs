@@ -14,59 +14,6 @@ using backend.Services;
 
 namespace backend.Tests;
 
-// API-et med SQLite i minnet i stedet for PostgreSQL, for tester som trenger data
-public class SqliteWebApplicationFactory : TestWebApplicationFactory
-{
-    private readonly SqliteConnection _connection = new("Data Source=:memory:");
-    private bool _created;
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        base.ConfigureWebHost(builder);
-        _connection.Open();
-
-        builder.ConfigureTestServices(services =>
-        {
-            services.RemoveAll<DbContextOptions<AppDbContext>>();
-            services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
-            services.AddDbContext<AppDbContext>((sp, options) => options
-                .UseSqlite(_connection)
-                .AddInterceptors(sp.GetRequiredService<AuditInterceptor>()));
-        });
-    }
-
-    // Kontekst for oppsett av testdata i en bestemt tenant (lagres som "system")
-    public AppDbContext CreateDbContext(string tenantId)
-    {
-        var options = Services.GetRequiredService<IServiceScopeFactory>()
-            .CreateScope().ServiceProvider
-            .GetRequiredService<DbContextOptions<AppDbContext>>();
-
-        var db = new AppDbContext(options, new FixedTenant(tenantId));
-
-        if (!_created)
-        {
-            db.Database.EnsureCreated();
-            _created = true;
-        }
-
-        return db;
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-
-        if (disposing)
-            _connection.Dispose();
-    }
-
-    private sealed class FixedTenant(string tenantId) : ITenantContext
-    {
-        public string? TenantId => tenantId;
-    }
-}
-
 // Historikk per sak og revisjonsloggen gjennom API-et
 public class HistoryEndpointTests(SqliteWebApplicationFactory factory)
     : IClassFixture<SqliteWebApplicationFactory>
