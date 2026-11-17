@@ -38,6 +38,10 @@ public class AppDbContext : DbContext
     public DbSet<SlaTarget> SlaTargets { get; set; }
     public DbSet<Asset> Assets { get; set; }
     public DbSet<AzureSubscription> AzureSubscriptions { get; set; }
+    public DbSet<Alert> Alerts { get; set; }
+    public DbSet<AlertRule> AlertRules { get; set; }
+    public DbSet<TeamsSettings> TeamsSettings { get; set; }
+    public DbSet<TeamsNotification> TeamsNotifications { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +58,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SlaTarget>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<Asset>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<AzureSubscription>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<Alert>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<AlertRule>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<TeamsSettings>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<TeamsNotification>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
 
         // Revisjonslogg: historikk per entitet og siste hendelser i tenanten
         modelBuilder.Entity<AuditEvent>(audit =>
@@ -94,6 +102,59 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeResponsibility>()
             .HasIndex(r => new { r.EmployeeId, r.Category })
             .IsUnique();
+
+        // Varsler (fase 4): samme varsel fra samme kilde lagres én gang per tenant.
+        // Saken peker på varselet med fremmednøkkel; Alert.TicketId er bare en
+        // kolonne (fremmednøkkel begge veier ville hindret lagring i én omgang).
+        modelBuilder.Entity<Alert>(alert =>
+        {
+            alert.Property(e => e.TenantId).HasMaxLength(36);
+            alert.Property(e => e.Source).HasMaxLength(20);
+            alert.Property(e => e.ExternalId).HasMaxLength(500);
+            alert.Property(e => e.Title).HasMaxLength(500);
+            alert.Property(e => e.Severity).HasMaxLength(20);
+            alert.Property(e => e.ResourceId).HasMaxLength(1000);
+            alert.Property(e => e.PortalUrl).HasMaxLength(2000);
+            alert.Property(e => e.State).HasMaxLength(20);
+            alert.Property(e => e.RawPayload).HasColumnType("jsonb");
+            alert.HasIndex(e => new { e.TenantId, e.Source, e.ExternalId }).IsUnique();
+            alert.HasIndex(e => e.TicketId);
+        });
+
+        modelBuilder.Entity<Ticket>(ticket =>
+        {
+            ticket.Property(e => e.Source).HasMaxLength(20);
+            ticket.HasOne<Alert>()
+                .WithMany()
+                .HasForeignKey(t => t.AlertId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AlertRule>(rule =>
+        {
+            rule.Property(e => e.TenantId).HasMaxLength(36);
+            rule.Property(e => e.Source).HasMaxLength(20);
+            rule.Property(e => e.MinSeverity).HasMaxLength(20);
+            rule.Property(e => e.Category).HasMaxLength(100);
+            rule.Property(e => e.PriorityOverride).HasMaxLength(20);
+            rule.HasIndex(e => new { e.TenantId, e.Source }).IsUnique();
+        });
+
+        modelBuilder.Entity<TeamsSettings>(settings =>
+        {
+            settings.Property(e => e.TenantId).HasMaxLength(36);
+            settings.HasIndex(e => e.TenantId).IsUnique();
+        });
+
+        modelBuilder.Entity<TeamsNotification>(notification =>
+        {
+            notification.Property(e => e.TenantId).HasMaxLength(36);
+            notification.Property(e => e.Kind).HasMaxLength(30);
+            notification.Property(e => e.Status).HasMaxLength(20);
+            notification.Property(e => e.Payload).HasColumnType("jsonb");
+            notification.Property(e => e.LastError).HasMaxLength(1000);
+            notification.HasIndex(e => new { e.TenantId, e.Status });
+        });
 
         // Azure-abonnementer: abonnements-ID-en er unik i tenanten
         modelBuilder.Entity<AzureSubscription>(subscription =>

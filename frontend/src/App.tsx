@@ -9,6 +9,7 @@ import Settings from './components/Settings'
 import Assets from './components/Assets'
 import M365 from './components/M365'
 import Azure from './components/Azure'
+import Alerts from './components/Alerts'
 import {
   useMsal,
   useIsAuthenticated
@@ -59,7 +60,10 @@ await instance.logoutPopup({
       console.error('Utlogging feilet:', error)
     }
   }
-  const [activePage, setActivePage] = useState('Dashboard')
+  // ?sak=123 (fra Teams-meldinger og Varsler) åpner Helpdesk med saken
+  const [activePage, setActivePage] = useState(() =>
+    new URLSearchParams(window.location.search).has('sak') ? 'Helpdesk' : 'Dashboard'
+  )
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -69,6 +73,7 @@ await instance.logoutPopup({
     'Helpdesk',
     'Tilgangsbestillinger',
     'Ansatte',
+    'Varsler',
     'IT-utstyr',
     'Microsoft 365',
     'Azure',
@@ -224,6 +229,8 @@ await instance.logoutPopup({
   <AccessRequests />
 ) : activePage === 'Ansatte' ? (
   <Employees />
+) : activePage === 'Varsler' ? (
+  <Alerts />
 ) : activePage === 'Azure' ? (
   <Azure />
 ) : activePage === 'Microsoft 365' ? (

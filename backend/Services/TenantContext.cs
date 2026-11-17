@@ -32,9 +32,12 @@ public interface ITenantContext
     string? TenantId { get; }
 }
 
+// Bakgrunnsjobber (uten innlogget bruker) setter tenanten selv med UseTenant i
+// sitt eget scope; da bruker AppDbContext og tjenestene i scopet den tenanten.
 public class HttpTenantContext : ITenantContext
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private string? _tenantOverride;
 
     public HttpTenantContext(IHttpContextAccessor httpContextAccessor)
     {
@@ -42,5 +45,20 @@ public class HttpTenantContext : ITenantContext
     }
 
     public string? TenantId =>
+        _tenantOverride ??
         _httpContextAccessor.HttpContext?.User.GetTenantId()?.ToLowerInvariant();
+
+    public void UseTenant(string tenantId) =>
+        _tenantOverride = tenantId.ToLowerInvariant();
+}
+
+public static class TenantScopeExtensions
+{
+    // Nytt DI-scope der alt arbeid gjelder den oppgitte tenanten
+    public static IServiceScope CreateTenantScope(this IServiceScopeFactory scopes, string tenantId)
+    {
+        var scope = scopes.CreateScope();
+        scope.ServiceProvider.GetRequiredService<HttpTenantContext>().UseTenant(tenantId);
+        return scope;
+    }
 }

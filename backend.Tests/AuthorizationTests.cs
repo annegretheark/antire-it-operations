@@ -38,6 +38,12 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "GET", "/api/azure/subscriptions" },
         { "POST", "/api/azure/subscriptions/sync" },
         { "GET", "/api/azure/resources" },
+        { "POST", "/api/alerts/simulate" },
+        { "GET", "/api/alertrules" },
+        { "PUT", "/api/alertrules/defender" },
+        { "GET", "/api/teams/settings" },
+        { "PUT", "/api/teams/settings" },
+        { "POST", "/api/teams/test" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin
@@ -52,6 +58,8 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "PATCH", "/api/assets/1/assign" },
         { "POST", "/api/assets/import" },
         { "POST", "/api/accessrequests/1/grant" },
+        { "GET", "/api/alerts" },
+        { "GET", "/api/alerts/sources" },
     };
 
     // Approver eller Helpdesk.Admin

@@ -418,4 +418,76 @@ public class GraphService
             404 => "Fant ikke gruppen eller brukeren i Entra ID.",
             _ => $"Microsoft Graph svarte med feil: {e.Error?.Message ?? e.Message}",
         }, e.ResponseStatusCode, e);
+
+    // ---------- Microsoft Defender (fase 4.3) ----------
+
+    // Varsler fra Graph Security API (alerts_v2) som er endret siden «since».
+    // Krever SecurityAlert.Read.All og Defender-lisens i tenanten.
+    public virtual async Task<List<AlertSignal>> GetDefenderAlertsAsync(
+        string tenantId,
+        DateTimeOffset since,
+        CancellationToken cancellationToken = default)
+    {
+        var client = ClientFor(tenantId);
+        var alerts = new List<Microsoft.Graph.Models.Security.Alert>();
+
+        try
+        {
+            var page = await client.Security.Alerts_v2.GetAsync(request =>
+            {
+                request.QueryParameters.Filter =
+                    $"lastUpdateDateTime ge {since.UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}";
+                request.QueryParameters.Top = 500;
+            }, cancellationToken);
+
+            await CollectAsync<Microsoft.Graph.Models.Security.Alert,
+                Microsoft.Graph.Models.Security.AlertCollectionResponse>(client, page, alerts, cancellationToken);
+        }
+        catch (ODataError e)
+        {
+            throw Unavailable(e, "SecurityAlert.Read.All");
+        }
+
+        return alerts
+            .Where(a => !string.IsNullOrEmpty(a.Id))
+            .Select(a =>
+            {
+                var severity = a.Severity switch
+                {
+                    Microsoft.Graph.Models.Security.AlertSeverity.High => "high",
+                    Microsoft.Graph.Models.Security.AlertSeverity.Medium => "medium",
+                    Microsoft.Graph.Models.Security.AlertSeverity.Low => "low",
+                    _ => "informational",
+                };
+
+                var firedAt = (a.LastActivityDateTime ?? a.CreatedDateTime ?? DateTimeOffset.UtcNow).UtcDateTime;
+
+                var raw = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    a.Id,
+                    a.Title,
+                    severity,
+                    status = a.Status?.ToString(),
+                    category = a.Category,
+                    serviceSource = a.ServiceSource?.ToString(),
+                    a.CreatedDateTime,
+                    a.LastActivityDateTime,
+                    a.AlertWebUrl,
+                });
+
+                return new AlertSignal(
+                    backend.Models.AlertSources.Defender,
+                    a.Id!,
+                    a.Title ?? "Defender-varsel",
+                    severity,
+                    null,
+                    a.AlertWebUrl,
+                    a.Status == Microsoft.Graph.Models.Security.AlertStatus.Resolved
+                        ? backend.Models.AlertStates.Resolved
+                        : backend.Models.AlertStates.Fired,
+                    firedAt,
+                    raw);
+            })
+            .ToList();
+    }
 }

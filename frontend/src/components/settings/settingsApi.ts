@@ -3,15 +3,15 @@ import { apiUrl, useAuthHeaders } from '../../apiClient'
 
 type ResourceState<T> = { data: T | null; loading: boolean; error: string }
 
-// Henter JSON fra API-et; endre reloadKey for å hente på nytt
-export function useResource<T>(path: string, reloadKey = 0): ResourceState<T> {
+// Henter JSON fra API-et; endre reloadKey for å hente på nytt. path = null henter ingenting.
+export function useResource<T>(path: string | null, reloadKey = 0): ResourceState<T> {
   const getAuthHeaders = useAuthHeaders()
-  const [state, setState] = useState<ResourceState<T>>({ data: null, loading: true, error: '' })
+  const [state, setState] = useState<ResourceState<T>>({ data: null, loading: path !== null, error: '' })
 
   useEffect(() => {
     let cancelled = false
 
-    async function load() {
+    async function load(path: string) {
       try {
         const response = await fetch(apiUrl(path), { headers: await getAuthHeaders() })
 
@@ -29,7 +29,7 @@ export function useResource<T>(path: string, reloadKey = 0): ResourceState<T> {
       }
     }
 
-    void load()
+    if (path !== null) void load(path)
 
     return () => {
       cancelled = true
@@ -42,7 +42,7 @@ export function useResource<T>(path: string, reloadKey = 0): ResourceState<T> {
 type ListState<T> = { items: T[]; loading: boolean; error: string }
 
 // Henter en liste fra API-et; endre reloadKey for å hente på nytt
-export function useList<T>(path: string, reloadKey = 0): ListState<T> {
+export function useList<T>(path: string | null, reloadKey = 0): ListState<T> {
   const { data, loading, error } = useResource<T[]>(path, reloadKey)
   return { items: data ?? [], loading, error }
 }

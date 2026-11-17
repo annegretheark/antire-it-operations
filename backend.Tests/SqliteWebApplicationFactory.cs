@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.DataProtection;
 using backend.Data;
 using backend.Services;
 
@@ -20,6 +21,9 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
 
     // Den falske Graph-tjenesten (samme instans som API-et bruker)
     public FakeGraphService Graph => (FakeGraphService)Services.GetRequiredService<GraphService>();
+
+    // Den falske Teams-mottakeren
+    public FakeTeamsService Teams => (FakeTeamsService)Services.GetRequiredService<TeamsService>();
 
     // Den falske Azure-tjenesten (samme instans som API-et bruker)
     public FakeAzureService Azure => (FakeAzureService)Services.GetRequiredService<AzureService>();
@@ -43,6 +47,13 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
             services.RemoveAll<GraphService>();
             services.AddSingleton<GraphService>(sp =>
                 new FakeGraphService(sp.GetRequiredService<IConfiguration>()));
+
+            services.RemoveAll<TeamsService>();
+            services.AddSingleton<TeamsService>(sp =>
+                new FakeTeamsService(sp.GetRequiredService<IHttpClientFactory>()));
+
+            // Krypteringsnøkler bare i minnet, så testene ikke skriver til brukerprofilen
+            services.AddDataProtection().UseEphemeralDataProtectionProvider();
 
             services.RemoveAll<AzureService>();
             services.AddSingleton<AzureService>(sp => new FakeAzureService(

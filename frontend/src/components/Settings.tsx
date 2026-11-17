@@ -5,6 +5,8 @@ import ServiceCatalogSettings from './settings/ServiceCatalogSettings'
 import ResponsibilitiesSettings from './settings/ResponsibilitiesSettings'
 import CategoryGroupsSettings from './settings/CategoryGroupsSettings'
 import SlaSettings from './settings/SlaSettings'
+import AlertRulesSettings from './settings/AlertRulesSettings'
+import TeamsSettings from './settings/TeamsSettings'
 import {
   actionLabel,
   describeChanges,
@@ -27,12 +29,14 @@ const TABS = [
   { key: 'responsibilities', label: 'Ansvarsområder' },
   { key: 'groups', label: 'Kategorigrupper' },
   { key: 'sla', label: 'SLA' },
+  { key: 'alertrules', label: 'Varselregler' },
+  { key: 'teams', label: 'Teams' },
   { key: 'audit', label: 'Revisjonslogg' },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
 
-// Innstillinger (Helpdesk.Admin): tjenestekatalog, automatisk tildeling, SLA og revisjonslogg
+// Innstillinger (Helpdesk.Admin): tjenestekatalog, automatisk tildeling, SLA, varsler, Teams og revisjonslogg
 export default function Settings() {
   const { isHelpdeskAdmin } = useCurrentUser()
   const [tab, setTab] = useState<TabKey>('catalog')
@@ -68,6 +72,8 @@ export default function Settings() {
       {tab === 'responsibilities' && <ResponsibilitiesSettings />}
       {tab === 'groups' && <CategoryGroupsSettings />}
       {tab === 'sla' && <SlaSettings />}
+      {tab === 'alertrules' && <AlertRulesSettings />}
+      {tab === 'teams' && <TeamsSettings />}
       {tab === 'audit' && <AuditLog />}
     </section>
   )

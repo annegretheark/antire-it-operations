@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 247 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365 og Azure (falsk Graph og Azure) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 298 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure og varsler med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -442,6 +442,17 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 
 **Ferdig når:** et testvarsel som fyres i dev-tenanten (`3af5c92b`), både fra Azure Monitor og fra Defender (eller simulert), blir én sak med riktig prioritet og ansvarlig, vises i Teams-kanalen innen 5 minutter, og et nytt varsel av samme type gir ikke en ny sak.
 
+**Status steg I (2026-11-17): bygget, uten ekte Teams og Defender.** Dev-tenanten har verken Teams eller Defender (ingen lisenser), så begge er testet mot falske tjenester og med simulerte varsler. Migreringen `AddAlertsAndTeams` er kjørt i dev-databasen.
+- **4.1 Varselmottak** (`AlertIngestionService`): `Alerts`, `AlertRules`, `Ticket.Source` og `Ticket.AlertId` som beskrevet. Bare saken peker på varselet med fremmednøkkel (`Alert.TicketId` er en vanlig kolonne), slik at begge kan lagres i samme flyt. En ny forekomst er et nytt tidspunkt for når varselet fyrte: samme varsel hentet på nytt endrer ingenting og logges ikke. Ny forekomst på en åpen sak logges på saken (`alert_recurred`), en løst sak gjenåpnes (`reopened_by_alert`), og «løst hos kilden» logges (`alert_resolved`) uten at saken lukkes. Standardregler: Azure Sev0–2 og Defender høy/middels gir sak, med kategoriene Feil og Sikkerhet.
+- **Bakgrunnsjobb** (`AlertMonitorService`, hvert 5. minutt, `Alerts:MonitorEnabled`): henter Defender-varsler og prøver Teams-meldinger på nytt for hver tillatt tenant. Jobbene setter tenanten i sitt eget DI-scope (`CreateTenantScope`), så SLA, tildeling og revisjonslogg (aktør `system`) virker som i API-et. SLA-jobben bruker nå samme mønster.
+- **4.3 Defender** (`GraphService.GetDefenderAlertsAsync`, `alerts_v2` filtrert på `lastUpdateDateTime`): krever `SecurityAlert.Read.All` og lisens. Mangler de, vises årsaken under Varsler → Kilder.
+- **Simulert varsel** (`POST /api/alerts/simulate`, `Helpdesk.Admin`): sender et testvarsel gjennom hele flyten, slik at ferdig-kriteriet kan prøves uten Defender.
+- **4.4 Teams**: webhook-adressen legges inn under Innstillinger → Teams og lagres kryptert i databasen med ASP.NET Data Protection (ikke i user secrets eller Key Vault, siden admin legger den inn i appen). Bare Workflows-adresser over https godtas, adressen vises maskert, og revisjonsloggen viser bare at den er endret. Adaptive Card ved ny sak fra varsel, gjenåpning og (valgfritt) nye kritiske manuelle saker, med knappen «Åpne sak» (`?sak=…` åpner Helpdesk med saken). Meldinger legges i en kø (`TeamsNotifications`) og prøves på nytt inntil 5 ganger; feil i Teams stopper aldri saken.
+- **Når appen kjører i Azure:** nøklene til Data Protection må lagres felles (f.eks. Blob Storage og Key Vault), ellers kan ikke adressen leses etter omstart på en annen instans.
+- **Skjermbilder:** siden Varsler (kilder, liste med filter og lenke til saken, simulering), merket «Fra varsel» med kilde og forekomster på saken, og fanene Varselregler og Teams under Innstillinger.
+- **Tester:** `AlertTests` (20) med falsk Graph og Teams: prioritet, terskel, deduplisering, gjenåpning, løst hos kilden, tenant-skille, regler, bakgrunnsjobben, Teams-kort, kø og nytt forsøk, adressekontroll og maskering.
+- **Gjenstår for ferdig-kriteriet:** ekte Teams-kanal og Defender-varsel krever lisens. 4.2 (Azure Monitor) er steg J.
+
 ---
 
 ## 9. Gjennomføring
@@ -457,7 +468,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | F | 1.5 IT-utstyr | Ferdig |
 | G | Fase 2 (2.1–2.8) | Delvis: 2.2, 2.3 og 2.4 ferdig; resten venter på lisens |
 | H | Fase 3 (3.1–3.3) | Ferdig |
-| I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | 2–2,5 uker |
+| I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | Bygget; ekte Teams og Defender venter på lisens |
 | J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | 1–1,5 uker |
 
 **Arbeidsmåte per steg:** én migrering, backend med tester, frontend, test i dev-tenanten (`3af5c92b`), og deretter commit til `main`. Produksjonstenanten tas først i bruk når du sier fra.

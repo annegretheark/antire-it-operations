@@ -40,15 +40,18 @@ public class TicketsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly TicketAssignmentService _assignmentService;
     private readonly SlaService _sla;
+    private readonly TeamsNotificationService _teams;
 
     public TicketsController(
         AppDbContext db,
         TicketAssignmentService assignmentService,
-        SlaService sla)
+        SlaService sla,
+        TeamsNotificationService teams)
     {
         _db = db;
         _assignmentService = assignmentService;
         _sla = sla;
+        _teams = teams;
     }
     // Agent og admin ser alle saker i tenanten, andre ser bare saker de selv har meldt inn
     [HttpGet]
@@ -187,6 +190,10 @@ public class TicketsController : ControllerBase
 
         _db.Tickets.Add(ticket);
         await _db.SaveChangesAsync();
+
+        // Kritiske saker varsles i Teams hvis tenanten har slått det på
+        if (ticket.Priority == TicketPriorities.Critical)
+            await _teams.NotifyCriticalManualTicketAsync(ticket, HttpContext.RequestAborted);
 
         return StatusCode(201, ticket);
     }

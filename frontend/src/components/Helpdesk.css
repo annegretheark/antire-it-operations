@@ -542,3 +542,26 @@
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* Varsler */
+.alert-sources {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.ticket-alert-badge {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.helpdesk-ticket.ticket-focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 4px;
+  border-radius: 6px;
+}

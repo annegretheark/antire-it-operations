@@ -34,6 +34,10 @@ public class Ticket : ITenantOwned, IAudited
     // Utstyret saken gjelder (valgfri)
     public int? AssetId { get; set; }
 
+    // manual | alert (TicketSources). Saker fra varsler peker på varselet.
+    public string Source { get; set; } = TicketSources.Manual;
+    public int? AlertId { get; set; }
+
     // SLA-frister, beregnet fra CreatedAt ved opprettelse og ved endring av
     // prioritet (SlaService). Null for saker fra før SLA.
     public DateTime? ResponseDueAt { get; set; }

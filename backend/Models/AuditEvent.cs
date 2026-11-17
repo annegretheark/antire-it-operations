@@ -26,7 +26,7 @@ public class AuditEvent : ITenantOwned
     public string EntityId { get; set; } = string.Empty;
 
     // created | updated | deleted | approved | rejected | completed | synced | sla_breached
-    // | access_granted | access_grant_failed
+    // | access_granted | access_grant_failed | alert_recurred | alert_resolved | reopened_by_alert
     public string Action { get; set; } = string.Empty;
 
     // JSON: { "Felt": [før, etter] } for endringer, eller fritt innhold for
@@ -47,4 +47,8 @@ public static class AuditActions
     // Brukeren ble lagt i Entra-gruppen for en godkjent tilgangsbestilling (2.4)
     public const string AccessGranted = "access_granted";
     public const string AccessGrantFailed = "access_grant_failed";
+    // Varsler (fase 4)
+    public const string AlertRecurred = "alert_recurred";
+    public const string AlertResolved = "alert_resolved";
+    public const string ReopenedByAlert = "reopened_by_alert";
 }

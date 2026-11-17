@@ -31,6 +31,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
 
         // SLA-jobben kjøres direkte fra testene (SlaMonitorService.CheckTenantAsync)
         builder.UseSetting("Sla:MonitorEnabled", "false");
+        builder.UseSetting("Alerts:MonitorEnabled", "false");
 
         builder.ConfigureTestServices(services =>
         {

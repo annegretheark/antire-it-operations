@@ -18,6 +18,7 @@ import {
 import { formatDateTime } from '../audit'
 import { assetName, type Asset } from '../assets'
 import { useList } from './settings/settingsApi'
+import { ALERT_SOURCE_LABELS, type Alert } from '../alerts'
 
 type Ticket = {
   id: number
@@ -33,6 +34,9 @@ type Ticket = {
   resolvedAt: string | null
   slaStatus: SlaStatus
   assetId: number | null
+  // manual | alert
+  source: string
+  alertId: number | null
 }
 
 type Employee = {
@@ -91,6 +95,29 @@ export default function Helpdesk() {
   const [error, setError] = useState('')
   // Saker der historikken er åpen
   const [openHistory, setOpenHistory] = useState<Set<number>>(new Set())
+
+  // Sak fra lenken ?sak=123 (Teams-melding eller Varsler) markeres og vises
+  const [focusId] = useState(() => {
+    const id = Number(new URLSearchParams(window.location.search).get('sak'))
+    return Number.isInteger(id) && id > 0 ? id : null
+  })
+
+  useEffect(() => {
+    if (focusId !== null && tickets.some((t) => t.id === focusId)) {
+      document.getElementById(`sak-${focusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [focusId, tickets])
+
+  // Varselet bak saker fra varsler (bare for agent og admin, som kan se varsler)
+  const alerts = useList<Alert>(isHelpdeskAgent ? '/api/alerts' : null)
+  const alertsById = useMemo(() => new Map(alerts.items.map((a) => [a.id, a])), [alerts.items])
+
+  function alertInfo(ticket: Ticket): string {
+    const alert = ticket.alertId ? alertsById.get(ticket.alertId) : undefined
+    if (!alert) return ''
+    const forekomster = alert.occurrences === 1 ? '1 forekomst' : `${alert.occurrences} forekomster`
+    return ` · ${ALERT_SOURCE_LABELS[alert.source] ?? alert.source} · ${forekomster}`
+  }
 
   const employeeNames = useMemo(
     () => new Map(employees.map((e) => [e.id, `${e.firstName} ${e.lastName}`.trim()])),
@@ -337,12 +364,17 @@ setEmployees(employeeData)
         ) : (
           filteredTickets.map((ticket) => (
             <div
-              className="helpdesk-ticket"
+              className={`helpdesk-ticket${ticket.id === focusId ? ' ticket-focus' : ''}`}
+              id={`sak-${ticket.id}`}
               key={ticket.id}
             >
               <h4>
                 #{ticket.id} – {ticketTitle(ticket)}
               </h4>
+
+              {ticket.source === 'alert' && (
+                <p className="ticket-alert-badge">Fra varsel{alertInfo(ticket)}</p>
+              )}
 
               <TicketSla ticket={ticket} />
 

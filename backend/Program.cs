@@ -14,7 +14,8 @@ var tenantOptions = builder.Configuration
     .Get<TenantOptions>() ?? new TenantOptions();
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
+builder.Services.AddScoped<HttpTenantContext>();
+builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HttpTenantContext>());
 // Innlogget person (brukes bl.a. av revisjonsloggen)
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 // Revisjonslogg: logger endringer på IAudited-entiteter ved lagring
@@ -24,6 +25,10 @@ builder.Services.AddSingleton<backend.Services.GraphService>();
 // Azure Resource Manager og Resource Graph (fase 3), samme app-registrering som Graph
 builder.Services.AddHttpClient(nameof(AzureService));
 builder.Services.AddSingleton<AzureService>();
+// Teams-varsling (fase 4.4); webhook-adressen krypteres med Data Protection
+builder.Services.AddHttpClient(nameof(TeamsService));
+builder.Services.AddSingleton<TeamsService>();
+builder.Services.AddDataProtection();
 builder.Services.AddDbContext<backend.Data.AppDbContext>((services, options) =>
     options
         .UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
@@ -52,6 +57,13 @@ builder.Services.AddScoped<ServiceCatalogService>();
 builder.Services.AddScoped<SlaService>();
 builder.Services.AddScoped<AssetService>();
 builder.Services.AddScoped<AccessGrantService>();
+// Varsler blir saker (fase 4)
+builder.Services.AddScoped<TeamsNotificationService>();
+builder.Services.AddScoped<AlertRuleService>();
+builder.Services.AddScoped<AlertIngestionService>();
+builder.Services.AddSingleton<AlertSourceStatusRegistry>();
+builder.Services.AddSingleton<AlertMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AlertMonitorService>());
 // Kort cache for Microsoft 365-oversiktene (M365Controller)
 builder.Services.AddMemoryCache();
 // Markerer SLA-brudd hvert 5. minutt (Sla:MonitorEnabled, Sla:CheckIntervalSeconds)

@@ -29,6 +29,21 @@ public class FakeGraphService(IConfiguration configuration) : GraphService(confi
 
     public int UserOverviewCalls;
 
+    // Defender-varsler per tenant (GetDefenderAlertsAsync)
+    public ConcurrentDictionary<string, List<AlertSignal>> DefenderAlerts { get; } = new();
+
+    // Settes for å la bare Defender-hentingen feile
+    public Exception? DefenderFailure { get; set; }
+
+    public override Task<List<AlertSignal>> GetDefenderAlertsAsync(
+        string tenantId, DateTimeOffset since, CancellationToken cancellationToken = default)
+    {
+        if (DefenderFailure is { } failure)
+            throw failure;
+
+        return Task.FromResult(DefenderAlerts.GetValueOrDefault(tenantId)?.ToList() ?? []);
+    }
+
     public override Task<bool> IsMemberOfAnyGroupAsync(
         string tenantId, string entraObjectId, IReadOnlyCollection<string> groupIds,
         CancellationToken cancellationToken = default) =>

@@ -67,9 +67,8 @@ public class SlaMonitorService : BackgroundService
     public async Task<int> CheckTenantAsync(
         string tenantId, DateTime nowUtc, CancellationToken cancellationToken = default)
     {
-        using var scope = _scopes.CreateScope();
-        var options = scope.ServiceProvider.GetRequiredService<DbContextOptions<AppDbContext>>();
-        await using var db = new AppDbContext(options, new FixedTenantContext(tenantId));
+        using var scope = _scopes.CreateTenantScope(tenantId);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var tickets = await db.Tickets
             .Where(t => t.Status != TicketStatuses.Resolved)

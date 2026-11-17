@@ -244,7 +244,10 @@ public class AuditInterceptor : SaveChangesInterceptor
             if (Equals(before, after))
                 continue;
 
-            changes[name] = [before, after];
+            // Hemmeligheter (f.eks. EncryptedWebhookUrl) logges bare som endret
+            changes[name] = name.StartsWith("Encrypted", StringComparison.Ordinal)
+                ? [before == null ? null : "***", after == null ? null : "***"]
+                : [before, after];
         }
 
         return changes.Count == 0 ? null : changes;
