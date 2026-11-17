@@ -187,4 +187,116 @@ public class AzureService
     private sealed record ResourceDto(
         string? Id, string? Name, string? Type, string? Location,
         string? ResourceGroup, string? SubscriptionId, JsonElement? Tags);
+
+    // ---------- Azure Monitor-varsler (fase 4.2) ----------
+
+    // Varsler fra de siste 7 dagene i abonnementene (Alerts Management API, krever
+    // bare Reader). Abonnementer appen ikke har tilgang til, hoppes over; feiler
+    // alle, kastes feilen.
+    public virtual async Task<List<AlertSignal>> ListMonitorAlertsAsync(
+        string tenantId, IReadOnlyCollection<string> subscriptionIds,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new List<AlertSignal>();
+        AzureUnavailableException? lastError = null;
+        var succeeded = 0;
+
+        foreach (var subscriptionId in subscriptionIds)
+        {
+            string? url = $"{ArmBase}/subscriptions/{Uri.EscapeDataString(subscriptionId)}" +
+                "/providers/Microsoft.AlertsManagement/alerts?api-version=2019-05-05-preview&timeRange=7d";
+
+            try
+            {
+                while (url != null)
+                {
+                    var page = await SendAsync<JsonElement>(tenantId, HttpMethod.Get, url, null, cancellationToken);
+                    result.AddRange(ParseMonitorAlerts(page));
+                    url = page.TryGetProperty("nextLink", out var next) && next.ValueKind == JsonValueKind.String
+                        ? next.GetString()
+                        : null;
+                }
+
+                succeeded++;
+            }
+            catch (AzureUnavailableException e)
+            {
+                lastError = e;
+            }
+        }
+
+        if (succeeded == 0 && lastError != null)
+            throw lastError;
+
+        return result;
+    }
+
+    // Gjør om en side fra Alerts Management API til varsler. Samme varselregel på
+    // samme ressurs er samme varsel (ExternalId), slik at et varsel som fyrer igjen
+    // etter å ha vært løst, gjenåpner saken i stedet for å gi en ny.
+    public static List<AlertSignal> ParseMonitorAlerts(JsonElement page)
+    {
+        var result = new List<AlertSignal>();
+
+        if (!page.TryGetProperty("value", out var items) || items.ValueKind != JsonValueKind.Array)
+            return result;
+
+        foreach (var item in items.EnumerateArray())
+        {
+            if (!item.TryGetProperty("properties", out var properties) ||
+                !properties.TryGetProperty("essentials", out var essentials))
+            {
+                continue;
+            }
+
+            string? Get(JsonElement element, string name) =>
+                element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+                    ? value.GetString()
+                    : null;
+
+            var alertId = Get(item, "id");
+
+            if (string.IsNullOrEmpty(alertId))
+                continue;
+
+            var rule = Get(essentials, "alertRule") ?? Get(item, "name") ?? alertId;
+            var target = Get(essentials, "targetResource") ?? "";
+            var externalId = $"{rule}|{target}".ToLowerInvariant();
+
+            // Holder ID-en innenfor kolonnen (500 tegn) uten å miste entydigheten
+            if (externalId.Length > 500)
+            {
+                externalId = "sha256:" + Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(externalId)));
+            }
+
+            var severity = Get(essentials, "severity") ?? "Sev4";
+            var monitorCondition = Get(essentials, "monitorCondition");
+            var alertState = Get(essentials, "alertState");
+            var resolved = string.Equals(monitorCondition, "Resolved", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(alertState, "Closed", StringComparison.OrdinalIgnoreCase);
+
+            var firedAt = DateTime.TryParse(Get(essentials, "startDateTime"), null,
+                System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                out var started)
+                ? started
+                : DateTime.UtcNow;
+
+            var title = Get(item, "name") ?? rule.Split('/').Last();
+            var targetName = Get(essentials, "targetResourceName");
+
+            result.Add(new AlertSignal(
+                backend.Models.AlertSources.AzureMonitor,
+                externalId,
+                targetName == null ? title : $"{title} ({targetName})",
+                severity,
+                string.IsNullOrEmpty(target) ? null : target,
+                $"https://portal.azure.com/#view/Microsoft_Azure_Monitoring_Alerts/AlertDetails.ReactView/alertId/{Uri.EscapeDataString(alertId)}",
+                resolved ? backend.Models.AlertStates.Resolved : backend.Models.AlertStates.Fired,
+                firedAt,
+                item.GetRawText()));
+        }
+
+        return result;
+    }
 }

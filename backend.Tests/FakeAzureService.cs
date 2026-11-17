@@ -19,6 +19,22 @@ public class FakeAzureService(IHttpClientFactory httpClients, IConfiguration con
     public IReadOnlyCollection<string> LastQueriedSubscriptions { get; private set; } = [];
     public int ResourceQueries;
 
+    // Azure Monitor-varsler per tenant (ListMonitorAlertsAsync)
+    public ConcurrentDictionary<string, List<AlertSignal>> MonitorAlerts { get; } = new();
+
+    // Settes for å la bare varselhentingen feile
+    public Exception? MonitorFailure { get; set; }
+
+    public override Task<List<AlertSignal>> ListMonitorAlertsAsync(
+        string tenantId, IReadOnlyCollection<string> subscriptionIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (MonitorFailure is { } failure)
+            throw failure;
+
+        return Task.FromResult(MonitorAlerts.GetValueOrDefault(tenantId)?.ToList() ?? []);
+    }
+
     public override Task<List<AzureSubscriptionInfo>> ListSubscriptionsAsync(
         string tenantId, CancellationToken cancellationToken = default)
     {

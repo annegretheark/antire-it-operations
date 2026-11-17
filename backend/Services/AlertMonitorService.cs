@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
+using backend.Data;
 using backend.Models;
 
 namespace backend.Services;
@@ -24,7 +26,7 @@ public class AlertSourceStatusRegistry
         AlertSources.All
             .Select(source => _statuses.GetValueOrDefault((tenantId.ToLowerInvariant(), source))
                 ?? new AlertSourceStatus(source, null, false, source == AlertSources.AzureMonitor
-                    ? "Henting fra Azure Monitor kommer i steg J."
+                    ? "Ikke hentet ennå."
                     : "Ikke hentet ennå.", 0))
             .ToList();
 }
@@ -43,6 +45,7 @@ public class AlertMonitorService : BackgroundService
     private readonly IServiceScopeFactory _scopes;
     private readonly IOptionsMonitor<TenantOptions> _tenants;
     private readonly GraphService _graph;
+    private readonly AzureService _azure;
     private readonly AlertSourceStatusRegistry _status;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AlertMonitorService> _logger;
@@ -53,6 +56,7 @@ public class AlertMonitorService : BackgroundService
         IServiceScopeFactory scopes,
         IOptionsMonitor<TenantOptions> tenants,
         GraphService graph,
+        AzureService azure,
         AlertSourceStatusRegistry status,
         IConfiguration configuration,
         ILogger<AlertMonitorService> logger)
@@ -60,6 +64,7 @@ public class AlertMonitorService : BackgroundService
         _scopes = scopes;
         _tenants = tenants;
         _graph = graph;
+        _azure = azure;
         _status = status;
         _configuration = configuration;
         _logger = logger;
@@ -93,10 +98,11 @@ public class AlertMonitorService : BackgroundService
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    // Én runde for én tenant: Defender-varsler og Teams-køen
+    // Én runde for én tenant: Defender, Azure Monitor og Teams-køen
     public async Task RunTenantAsync(string tenantId, CancellationToken cancellationToken = default)
     {
         await PollDefenderAsync(tenantId, cancellationToken);
+        await PollAzureMonitorAsync(tenantId, cancellationToken);
 
         using var scope = _scopes.CreateTenantScope(tenantId);
         await scope.ServiceProvider.GetRequiredService<TeamsNotificationService>()
@@ -132,5 +138,55 @@ public class AlertMonitorService : BackgroundService
         _defenderSince[key] = startedAt;
         _status.Set(tenantId, new AlertSourceStatus(
             AlertSources.Defender, startedAt, true, $"{signals.Count} varsler hentet.", signals.Count));
+    }
+
+    // Azure Monitor (4.2): varsler i abonnementene som er synket og synlige
+    private async Task PollAzureMonitorAsync(string tenantId, CancellationToken cancellationToken)
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+
+        using var scope = _scopes.CreateTenantScope(tenantId);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var subscriptionIds = await db.AzureSubscriptions
+            .AsNoTracking()
+            .Where(s => s.IsVisible)
+            .Select(s => s.SubscriptionId)
+            .ToListAsync(cancellationToken);
+
+        if (subscriptionIds.Count == 0)
+        {
+            _status.Set(tenantId, new AlertSourceStatus(AlertSources.AzureMonitor, startedAt, false,
+                "Ingen Azure-abonnementer er synket (Azure → Abonnementer → Synk).", 0));
+            return;
+        }
+
+        List<AlertSignal> signals;
+
+        try
+        {
+            signals = await _azure.ListMonitorAlertsAsync(tenantId, subscriptionIds, cancellationToken);
+        }
+        catch (AzureUnavailableException e)
+        {
+            _status.Set(tenantId, new AlertSourceStatus(AlertSources.AzureMonitor, startedAt, false, e.Message, 0));
+            _logger.LogInformation("Azure Monitor-varsler er ikke tilgjengelige i {TenantId}: {Message}", tenantId, e.Message);
+            return;
+        }
+
+        var ingestion = scope.ServiceProvider.GetRequiredService<AlertIngestionService>();
+
+        // Samme regel og ressurs kan ha flere forekomster de siste 7 dagene (en løst
+        // og en ny). Bare den siste gjelder, ellers ville varselet veksle mellom
+        // løst og fyrt ved hver henting.
+        var latest = signals
+            .GroupBy(s => s.ExternalId)
+            .Select(g => g.OrderByDescending(s => s.FiredAt).First());
+
+        foreach (var signal in latest)
+            await ingestion.IngestAsync(signal, cancellationToken);
+
+        _status.Set(tenantId, new AlertSourceStatus(AlertSources.AzureMonitor, startedAt, true,
+            $"{signals.Count} varsler siste 7 dager i {subscriptionIds.Count} abonnementer.", signals.Count));
     }
 }

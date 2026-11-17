@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 298 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure og varsler med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 303 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA, IT-utstyr, tilgang via gruppe, Microsoft 365, Azure, varsler fra Defender og Azure Monitor med Teams (falsk Graph, Azure og Teams) mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -453,6 +453,13 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 - **Tester:** `AlertTests` (20) med falsk Graph og Teams: prioritet, terskel, deduplisering, gjenåpning, løst hos kilden, tenant-skille, regler, bakgrunnsjobben, Teams-kort, kø og nytt forsøk, adressekontroll og maskering.
 - **Gjenstår for ferdig-kriteriet:** ekte Teams-kanal og Defender-varsel krever lisens. 4.2 (Azure Monitor) er steg J.
 
+**Status steg J (2026-11-17): henting bygget; webhook venter til appen kjører i Azure.** Ingen ny migrering.
+- **Henting** (`AzureService.ListMonitorAlertsAsync`): Alerts Management API for hvert synket og synlig abonnement, varsler fra de siste 7 dagene, hvert 5. minutt i `AlertMonitorService`. Krever bare Reader. Abonnementer appen ikke har tilgang til, hoppes over.
+- **Samme varsel = samme regel på samme ressurs** (`ExternalId` = `alertRule|targetResource`). Azure gir ofte en ny varsel-ID når et varsel fyrer igjen etter å ha vært løst; med regel og ressurs som nøkkel gjenåpnes saken i stedet for at det lages en ny, som planen sier.
+- **Bare siste forekomst per varsel** brukes i hver henting, og «løst» for en eldre forekomst enn den siste ignoreres. Ellers ville et varsel med én løst og én ny forekomst veksle mellom løst og fyrt ved hver henting.
+- **Webhook** (`POST /api/hooks/azure-monitor` med secure webhook) er ikke bygget: Azure kan ikke nå appen mens den kjører lokalt. Hentingen virker uansett og blir avstemming når webhooken kommer.
+- **Tester:** `AzureMonitorAlertTests` (3) og `AzureMonitorParseTests` (2): sak og gjenåpning, ingen veksling, status uten abonnementer og uten tilgang, tolkning av svaret og lange ID-er.
+
 ---
 
 ## 9. Gjennomføring
@@ -469,7 +476,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | G | Fase 2 (2.1–2.8) | Delvis: 2.2, 2.3 og 2.4 ferdig; resten venter på lisens |
 | H | Fase 3 (3.1–3.3) | Ferdig |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | Bygget; ekte Teams og Defender venter på lisens |
-| J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | 1–1,5 uker |
+| J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | Henting ferdig; webhook venter til appen kjører i Azure |
 
 **Arbeidsmåte per steg:** én migrering, backend med tester, frontend, test i dev-tenanten (`3af5c92b`), og deretter commit til `main`. Produksjonstenanten tas først i bruk når du sier fra.
 

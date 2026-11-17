@@ -87,7 +87,9 @@ public class AlertIngestionService
             _db.Alerts.Add(alert);
             newFiring = signal.State == AlertStates.Fired;
         }
-        else if (signal.State == AlertStates.Resolved && alert.State != AlertStates.Resolved)
+        // «Løst» for en eldre forekomst enn den siste gjelder ikke lenger
+        else if (signal.State == AlertStates.Resolved && alert.State != AlertStates.Resolved &&
+                 firedAt >= alert.LastFiredAt)
         {
             Copy(signal, alert, now);
             alert.State = AlertStates.Resolved;
