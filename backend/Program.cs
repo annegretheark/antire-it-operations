@@ -46,6 +46,10 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<TicketAssignmentService>();
 builder.Services.AddScoped<EmployeeNumberService>();
 builder.Services.AddScoped<ServiceCatalogService>();
+builder.Services.AddScoped<SlaService>();
+// Markerer SLA-brudd hvert 5. minutt (Sla:MonitorEnabled, Sla:CheckIntervalSeconds)
+builder.Services.AddSingleton<SlaMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SlaMonitorService>());
 // Microsoft Entra ID - autentisering av API
 builder.Services
     .AddAuthentication("Bearer")

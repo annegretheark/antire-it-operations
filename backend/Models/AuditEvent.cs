@@ -25,7 +25,7 @@ public class AuditEvent : ITenantOwned
     public string EntityType { get; set; } = string.Empty;
     public string EntityId { get; set; } = string.Empty;
 
-    // created | updated | deleted | approved | rejected | completed | synced
+    // created | updated | deleted | approved | rejected | completed | synced | sla_breached
     public string Action { get; set; } = string.Empty;
 
     // JSON: { "Felt": [før, etter] } for endringer, eller fritt innhold for
@@ -42,4 +42,5 @@ public static class AuditActions
     public const string Rejected = "rejected";
     public const string Completed = "completed";
     public const string Synced = "synced";
+    public const string SlaBreached = "sla_breached";
 }

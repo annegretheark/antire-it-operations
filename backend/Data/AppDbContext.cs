@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
     public DbSet<TicketCategoryGroup> TicketCategoryGroups { get; set; }
     public DbSet<AuditEvent> AuditEvents { get; set; }
     public DbSet<ServiceCatalogItem> ServiceCatalogItems { get; set; }
+    public DbSet<SlaTarget> SlaTargets { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<TicketCategoryGroup>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<AuditEvent>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<ServiceCatalogItem>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<SlaTarget>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
 
         // Revisjonslogg: historikk per entitet og siste hendelser i tenanten
         modelBuilder.Entity<AuditEvent>(audit =>
@@ -88,6 +90,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeResponsibility>()
             .HasIndex(r => new { r.EmployeeId, r.Category })
             .IsUnique();
+
+        // SLA-mål: ett per prioritet i tenanten
+        modelBuilder.Entity<SlaTarget>(target =>
+        {
+            target.Property(e => e.TenantId).HasMaxLength(36);
+            target.Property(e => e.Priority).HasMaxLength(20);
+            target.HasIndex(e => new { e.TenantId, e.Priority }).IsUnique();
+        });
 
         // Tjenestekatalog: navnet er unikt i tenanten. Saker og bestillinger peker hit,
         // og en tjeneste kan ikke slettes så lenge noe peker på den (deaktiveres i stedet).

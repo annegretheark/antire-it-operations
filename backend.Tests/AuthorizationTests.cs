@@ -30,6 +30,8 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "POST", "/api/employeeresponsibilities" },
         { "PATCH", "/api/employeeresponsibilities/1" },
         { "DELETE", "/api/employeeresponsibilities/1" },
+        { "GET", "/api/slatargets" },
+        { "PUT", "/api/slatargets/normal" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin

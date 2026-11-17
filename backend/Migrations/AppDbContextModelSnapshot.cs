@@ -277,6 +277,41 @@ namespace backend.Migrations
                     b.ToTable("ServiceCatalogItems");
                 });
 
+            modelBuilder.Entity("backend.Models.SlaTarget", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("ResolutionMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ResponseMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<bool>("TwentyFourSeven")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Priority")
+                        .IsUnique();
+
+                    b.ToTable("SlaTargets");
+                });
+
             modelBuilder.Entity("backend.Models.Ticket", b =>
                 {
                     b.Property<int>("Id")
@@ -299,12 +334,30 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("FirstRespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int?>("ReportedByEmployeeId")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ResolutionBreachedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ResolutionDueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ResponseBreachedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ResponseDueAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("ServiceCatalogItemId")
                         .HasColumnType("integer");

@@ -20,8 +20,8 @@ public class ServiceCatalogItem : ITenantOwned, IAudited
     // incident | request | access (se ServiceCatalogTypes)
     public string Type { get; set; } = ServiceCatalogTypes.Incident;
 
-    // Prioritet nye saker får. Norske verdier til engelske koder kommer (0.6).
-    public string DefaultPriority { get; set; } = "Normal";
+    // Prioritet nye saker får (TicketPriorities)
+    public string DefaultPriority { get; set; } = TicketPriorities.Normal;
 
     // Tatt i bruk når godkjent tilgang gis automatisk (2.4)
     public bool RequiresApproval { get; set; }
@@ -40,10 +40,4 @@ public static class ServiceCatalogTypes
     public const string Access = "access";
 
     public static readonly string[] All = [Incident, Request, Access];
-}
-
-// Gyldige prioriteter for saker (samme verdier som PATCH /api/tickets/{id}/priority)
-public static class TicketPriorities
-{
-    public static readonly string[] All = ["Lav", "Normal", "Høy", "Kritisk"];
 }

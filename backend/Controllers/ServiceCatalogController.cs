@@ -109,7 +109,7 @@ public class ServiceCatalogController : ControllerBase
         var name = request.Name?.Trim();
         var category = request.Category?.Trim();
         var type = request.Type?.Trim() ?? ServiceCatalogTypes.Incident;
-        var priority = request.DefaultPriority?.Trim() ?? "Normal";
+        var priority = request.DefaultPriority?.Trim() ?? TicketPriorities.Normal;
         var groupId = request.EntraGroupId?.Trim();
 
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(category))

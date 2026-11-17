@@ -14,12 +14,14 @@ import {
 import { loginRequest } from './msalConfig'
 import { apiUrl, useAuthHeaders } from './apiClient'
 import { useCurrentUser } from './useCurrentUser'
+import type { SlaStatus } from './tickets'
 
 
 type Ticket = {
   id: number
   status: string
   priority: string
+  slaStatus: SlaStatus
 }
 
 const API_URL = apiUrl('/api/tickets')
@@ -109,16 +111,17 @@ await instance.logoutPopup({
 }, [activePage, getAuthHeaders, isAuthenticated])
 
   const stats = {
-    new: tickets.filter((t) => t.status === 'Ny').length,
-    inProgress: tickets.filter(
-      (t) => t.status === 'Under behandling'
-    ).length,
-    resolved: tickets.filter(
-      (t) => t.status === 'Løst'
-    ).length,
+    new: tickets.filter((t) => t.status === 'new').length,
+    inProgress: tickets.filter((t) => t.status === 'in_progress').length,
+    resolved: tickets.filter((t) => t.status === 'resolved').length,
     critical: tickets.filter(
-      (t) => t.priority === 'Kritisk' && t.status !== 'Løst'
+      (t) => t.priority === 'critical' && t.status !== 'resolved'
     ).length,
+    // SLA på åpne saker (løste saker med brudd teller ikke lenger)
+    breached: tickets.filter(
+      (t) => t.slaStatus === 'breached' && t.status !== 'resolved'
+    ).length,
+    atRisk: tickets.filter((t) => t.slaStatus === 'at_risk').length,
   }
 
   return (
@@ -196,6 +199,16 @@ await instance.logoutPopup({
                 <div className="dashboard-stat">
                   <h4>Kritiske åpne saker</h4>
                   <strong>{stats.critical}</strong>
+                </div>
+
+                <div className="dashboard-stat dashboard-alert">
+                  <h4>Brudd</h4>
+                  <strong>{stats.breached}</strong>
+                </div>
+
+                <div className="dashboard-stat dashboard-warning">
+                  <h4>I fare</h4>
+                  <strong>{stats.atRisk}</strong>
                 </div>
               </div>
             )}

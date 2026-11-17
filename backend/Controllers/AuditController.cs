@@ -9,7 +9,7 @@ using backend.Services;
 namespace backend.Controllers;
 
 // Hendelse slik API-et viser den. Changes er JSON-objektet fra databasen,
-// f.eks. { "Status": ["Ny", "Løst"] }.
+// f.eks. { "Status": ["new", "resolved"] }.
 public record AuditEventDto(
     long Id,
     DateTime OccurredAt,

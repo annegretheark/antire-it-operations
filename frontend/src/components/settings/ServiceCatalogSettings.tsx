@@ -7,6 +7,7 @@ import {
   type ServiceType,
 } from '../../serviceCatalog'
 import { errorText, useSend } from './settingsApi'
+import { priorityLabel } from '../../tickets'
 
 type Draft = {
   name: string
@@ -24,7 +25,7 @@ const EMPTY: Draft = {
   category: '',
   description: '',
   type: 'incident',
-  defaultPriority: 'Normal',
+  defaultPriority: 'normal',
   requiresApproval: false,
   entraGroupId: '',
   isActive: true,
@@ -183,7 +184,9 @@ export default function ServiceCatalogSettings() {
               onChange={(e) => update('defaultPriority', e.target.value)}
             >
               {PRIORITIES.map((p) => (
-                <option key={p}>{p}</option>
+                <option key={p} value={p}>
+                  {priorityLabel(p)}
+                </option>
               ))}
             </select>
           </div>
@@ -271,7 +274,7 @@ export default function ServiceCatalogSettings() {
                   </td>
                   <td>{item.category}</td>
                   <td className="audit-nowrap">{SERVICE_TYPE_LABELS[item.type] ?? item.type}</td>
-                  <td>{item.defaultPriority}</td>
+                  <td>{priorityLabel(item.defaultPriority)}</td>
                   <td>{item.requiresApproval ? 'Ja' : 'Nei'}</td>
                   <td>{item.isActive ? 'Aktiv' : 'Deaktivert'}</td>
                   <td className="audit-nowrap">

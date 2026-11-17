@@ -29,6 +29,9 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Tenants:Allowed:1:TenantId", TestAuthHandler.OtherAllowedTenantId);
         builder.UseSetting("Tenants:Allowed:1:Name", "Prod");
 
+        // SLA-jobben kjøres direkte fra testene (SlaMonitorService.CheckTenantAsync)
+        builder.UseSetting("Sla:MonitorEnabled", "false");
+
         builder.ConfigureTestServices(services =>
         {
             services

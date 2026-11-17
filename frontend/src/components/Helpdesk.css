@@ -142,7 +142,7 @@
   font-weight: 600;
 }
 
-.ticket-priority select.priority-lav {
+.ticket-priority select.priority-low {
   background: #dcfce7;
   color: #166534;
 }
@@ -152,12 +152,12 @@
   color: #1d4ed8;
 }
 
-.ticket-priority select.priority-hoy {
+.ticket-priority select.priority-high {
   background: #ffedd5;
   color: #9a3412;
 }
 
-.ticket-priority select.priority-kritisk {
+.ticket-priority select.priority-critical {
   background: #fee2e2;
   color: #b91c1c;
 }
@@ -165,7 +165,7 @@
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
   margin-top: 20px;
 }
@@ -375,4 +375,52 @@
 
 .settings-error {
   color: #dc2626;
+}
+
+/* SLA per sak */
+.ticket-sla {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.sla-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.sla-ok,
+.sla-met {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.sla-at_risk {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.sla-breached {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.dashboard-stat.dashboard-alert strong {
+  color: #b91c1c;
+}
+
+.dashboard-stat.dashboard-warning strong {
+  color: #b45309;
+}
+
+.sla-minutes {
+  width: 110px;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
 }

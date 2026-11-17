@@ -5,6 +5,17 @@ import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 import TicketHistory from './TicketHistory'
 import { SERVICE_TYPE_LABELS, useServiceCatalog } from '../serviceCatalog'
+import {
+  formatRelative,
+  needsAttention,
+  PRIORITIES,
+  priorityLabel,
+  SLA_LABELS,
+  STATUSES,
+  statusLabel,
+  type SlaStatus,
+} from '../tickets'
+import { formatDateTime } from '../audit'
 
 type Ticket = {
   id: number
@@ -14,6 +25,11 @@ type Ticket = {
   priority: string
   assignedToEmployeeId: number | null
   serviceCatalogItemId: number | null
+  responseDueAt: string | null
+  resolutionDueAt: string | null
+  firstRespondedAt: string | null
+  resolvedAt: string | null
+  slaStatus: SlaStatus
 }
 
 type Employee = {
@@ -76,8 +92,9 @@ export default function Helpdesk() {
   }
 
   const filteredTickets = tickets.filter((ticket) => {
-    if (filter === 'Åpne') return ticket.status !== 'Løst'
-    if (filter === 'Løste') return ticket.status === 'Løst'
+    if (filter === 'Åpne') return ticket.status !== 'resolved'
+    if (filter === 'Løste') return ticket.status === 'resolved'
+    if (filter === 'SLA i fare') return needsAttention(ticket.slaStatus)
     return true
   })
 
@@ -271,6 +288,7 @@ setEmployees(employeeData)
             <option value="Alle">Alle</option>
             <option value="Åpne">Åpne</option>
             <option value="Løste">Løste</option>
+            <option value="SLA i fare">SLA i fare (brudd eller under 25 % igjen)</option>
           </select>
         </div>
 
@@ -289,6 +307,8 @@ setEmployees(employeeData)
               <h4>
                 #{ticket.id} – {ticketTitle(ticket)}
               </h4>
+
+              <TicketSla ticket={ticket} />
 
               <p>{ticket.description}</p>
 
@@ -309,11 +329,11 @@ setEmployees(employeeData)
                     )
                   }}
                 >
-                  <option value="Ny">Ny</option>
-                  <option value="Under behandling">
-                    Under behandling
-                  </option>
-                  <option value="Løst">Løst</option>
+                  {STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {statusLabel(status)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -324,12 +344,8 @@ setEmployees(employeeData)
 
                 <select
                   id={`priority-${ticket.id}`}
-                  className={`priority-${
-                    ticket.priority === 'Høy'
-                      ? 'hoy'
-                      : (ticket.priority ?? 'Normal').toLowerCase()
-                  }`}
-                  value={ticket.priority ?? 'Normal'}
+                  className={`priority-${ticket.priority}`}
+                  value={ticket.priority}
                   disabled={!isHelpdeskAgent || updatingId !== null}
                   onChange={(e) => {
                     void updateTicket(
@@ -339,10 +355,11 @@ setEmployees(employeeData)
                     )
                   }}
                 >
-                  <option value="Lav">Lav</option>
-                  <option value="Normal">Normal</option>
-                  <option value="Høy">Høy</option>
-                  <option value="Kritisk">Kritisk</option>
+                  {PRIORITIES.map((priority) => (
+                    <option key={priority} value={priority}>
+                      {priorityLabel(priority)}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -402,5 +419,36 @@ setEmployees(employeeData)
         )}
       </div>
     </section>
+  )
+}
+
+// SLA-merke og frister for én sak
+function TicketSla({ ticket }: { ticket: Ticket }) {
+  if (ticket.slaStatus === 'none') return null
+
+  const open = ticket.status !== 'resolved'
+
+  return (
+    <div className="ticket-sla">
+      <span className={`sla-badge sla-${ticket.slaStatus}`}>
+        SLA: {SLA_LABELS[ticket.slaStatus]}
+      </span>
+
+      {ticket.responseDueAt && (
+        <span>
+          Respons: {ticket.firstRespondedAt
+            ? `gitt ${formatDateTime(ticket.firstRespondedAt)}`
+            : `frist ${formatDateTime(ticket.responseDueAt)}${open ? ` (${formatRelative(ticket.responseDueAt)})` : ''}`}
+        </span>
+      )}
+
+      {ticket.resolutionDueAt && (
+        <span>
+          Løsning: {ticket.resolvedAt
+            ? `løst ${formatDateTime(ticket.resolvedAt)}`
+            : `frist ${formatDateTime(ticket.resolutionDueAt)} (${formatRelative(ticket.resolutionDueAt)})`}
+        </span>
+      )}
+    </div>
   )
 }

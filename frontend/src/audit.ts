@@ -1,3 +1,5 @@
+import { PRIORITY_LABELS, STATUS_LABELS } from './tickets'
+
 // Felles typer og visning for revisjonsloggen (sakshistorikk og Innstillinger)
 
 export type AuditEvent = {
@@ -20,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   rejected: 'Avslått',
   completed: 'Fullført',
   synced: 'Synkronisert',
+  sla_breached: 'SLA-brudd',
 }
 
 export const ENTITY_LABELS: Record<string, string> = {
@@ -64,6 +67,15 @@ const FIELD_LABELS: Record<string, string> = {
   DefaultPriority: 'Standard prioritet',
   RequiresApproval: 'Krever godkjenning',
   IsActive: 'Aktiv',
+  ResponseDueAt: 'Svarfrist',
+  ResolutionDueAt: 'Løsningsfrist',
+  FirstRespondedAt: 'Første respons',
+  ResolvedAt: 'Løst',
+  ResponseBreachedAt: 'Svarfrist brutt',
+  ResolutionBreachedAt: 'Løsningsfrist brutt',
+  ResponseMinutes: 'Responstid (min)',
+  ResolutionMinutes: 'Løsningstid (min)',
+  TwentyFourSeven: 'Døgnet rundt',
   created: 'Nye',
   updated: 'Oppdatert',
   totalFromEntra: 'Totalt i Entra',
@@ -73,6 +85,13 @@ const FIELD_LABELS: Record<string, string> = {
 const HIDDEN_ON_CREATE = new Set(['CreatedAt', 'RequestedByObjectId', 'EntraObjectId'])
 
 const EMPLOYEE_FIELDS = new Set(['AssignedToEmployeeId', 'ReportedByEmployeeId', 'EmployeeId'])
+
+// Koder som vises med norske navn (gamle hendelser kan ha norske verdier, som vises som de er)
+const CODE_LABELS: Record<string, Record<string, string>> = {
+  Status: STATUS_LABELS,
+  Priority: PRIORITY_LABELS,
+  DefaultPriority: PRIORITY_LABELS,
+}
 
 export function actionLabel(action: string): string {
   return ACTION_LABELS[action] ?? action
@@ -90,6 +109,8 @@ export type EmployeeNames = Map<number, string>
 
 function formatValue(field: string, value: unknown, employees: EmployeeNames): string {
   if (value === null || value === undefined || value === '') return '–'
+
+  if (typeof value === 'string' && CODE_LABELS[field]?.[value]) return CODE_LABELS[field][value]
 
   if (EMPLOYEE_FIELDS.has(field) && typeof value === 'number') {
     return employees.get(value) ?? `#${value}`

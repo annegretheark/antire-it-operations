@@ -79,8 +79,8 @@ public class AuditTests : IDisposable
         await using (var db = CreateContext(TenantA, "agent-oid", "Ola Agent"))
         {
             var ticket = await db.Tickets.SingleAsync(t => t.Id == id);
-            ticket.Status = "Under behandling";
-            ticket.Priority = "Normal"; // samme verdi som før
+            ticket.Status = "in_progress";
+            ticket.Priority = "normal"; // samme verdi som før
             await db.SaveChangesAsync();
         }
 
@@ -90,8 +90,8 @@ public class AuditTests : IDisposable
         Assert.Equal("Ola Agent", update.ActorName);
         var changes = ChangesOf(update);
         Assert.Equal(["Status"], changes.Keys);
-        Assert.Equal("Ny", changes["Status"][0].GetString());
-        Assert.Equal("Under behandling", changes["Status"][1].GetString());
+        Assert.Equal("new", changes["Status"][0].GetString());
+        Assert.Equal("in_progress", changes["Status"][1].GetString());
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class AuditTests : IDisposable
         await using (var db = CreateContext(TenantA))
         {
             var ticket = await db.Tickets.SingleAsync(t => t.Id == id);
-            ticket.Status = "Ny";
+            ticket.Status = "new";
             await db.SaveChangesAsync();
         }
 

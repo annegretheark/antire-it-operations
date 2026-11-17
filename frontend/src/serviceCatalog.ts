@@ -23,7 +23,7 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
   access: 'Tilgang til system',
 }
 
-export const PRIORITIES = ['Lav', 'Normal', 'Høy', 'Kritisk']
+export { PRIORITIES } from './tickets'
 
 type CatalogState = {
   items: ServiceCatalogItem[]

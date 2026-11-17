@@ -90,13 +90,13 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
             name = Unique("NetSuite"),
             category = "Tilgangsbestilling",
             type = "access",
-            defaultPriority = "Høy",
+            defaultPriority = "high",
             requiresApproval = true,
             entraGroupId = groupId.ToUpperInvariant(),
         });
 
         Assert.Equal(groupId, item.EntraGroupId);
-        Assert.Equal("Høy", item.DefaultPriority);
+        Assert.Equal("high", item.DefaultPriority);
 
         var response = await Admin().PutAsJsonAsync($"/api/servicecatalog/{item.Id}", new
         {
@@ -104,7 +104,7 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
             category = "Tilgangsbestilling",
             description = "Økonomisystemet",
             type = "access",
-            defaultPriority = "Normal",
+            defaultPriority = "normal",
             requiresApproval = false,
             isActive = true,
         });
@@ -117,12 +117,12 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
     }
 
     [Theory]
-    [InlineData("", "Feil", "incident", "Normal", null)]
-    [InlineData("Navn", "", "incident", "Normal", null)]
-    [InlineData("Navn", "Feil", "ukjent", "Normal", null)]
+    [InlineData("", "Feil", "incident", "normal", null)]
+    [InlineData("Navn", "", "incident", "normal", null)]
+    [InlineData("Navn", "Feil", "ukjent", "normal", null)]
     [InlineData("Navn", "Feil", "incident", "Middels", null)]
-    [InlineData("Navn", "Feil", "incident", "Normal", "6b3c1f2e-0000-0000-0000-000000000001")]
-    [InlineData("Navn", "Feil", "access", "Normal", "ikke-en-guid")]
+    [InlineData("Navn", "Feil", "incident", "normal", "6b3c1f2e-0000-0000-0000-000000000001")]
+    [InlineData("Navn", "Feil", "access", "normal", "ikke-en-guid")]
     public async Task Invalid_item_is_rejected(
         string name, string category, string type, string priority, string? groupId)
     {
@@ -153,7 +153,7 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
         var category = Unique("Nettverk");
         var item = await CreateItemAsync(new
         {
-            name = Unique("VPN virker ikke"), category, type = "incident", defaultPriority = "Høy",
+            name = Unique("VPN virker ikke"), category, type = "incident", defaultPriority = "high",
         });
 
         // Ansvarlig: aktiv ansatt med ansvarsområdet, medlem av kategorigruppen
@@ -192,7 +192,7 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var ticket = await ReadAsync<Ticket>(response);
         Assert.Equal(category, ticket.Category);
-        Assert.Equal("Høy", ticket.Priority);
+        Assert.Equal("high", ticket.Priority);
         Assert.Equal(item.Id, ticket.ServiceCatalogItemId);
         Assert.Equal(employeeId, ticket.AssignedToEmployeeId);
     }
@@ -208,7 +208,7 @@ public class ServiceCatalogTests(SqliteWebApplicationFactory factory)
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var ticket = await ReadAsync<Ticket>(response);
         Assert.Equal("Feil", ticket.Category);
-        Assert.Equal("Normal", ticket.Priority);
+        Assert.Equal("normal", ticket.Priority);
         Assert.Null(ticket.ServiceCatalogItemId);
     }
 

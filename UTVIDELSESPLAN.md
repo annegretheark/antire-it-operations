@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 141 tester: tilgang og tenant, og revisjonslogg, tjenestekatalog og tildeling mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 176 tester: tilgang og tenant, SLA-beregning, og revisjonslogg, tjenestekatalog, tildeling og SLA mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -126,10 +126,8 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 
 | Svakhet | Tas i |
 |---|---|
-| Status og prioritet er norske strenger brukt som nøkler | 0.6 (sammen med SLA) |
-| Ansvarsområder og kategorigrupper har ikke noe skjermbilde | 1.3 |
-| Tilgangsbestillinger er fritekst | 1.3 og 2.4 |
-| Revisjonslogg er ikke testet mot PostgreSQL (bare SQLite) | 0.10b |
+| Godkjent tilgang må fortsatt gis manuelt i Entra | 2.4 |
+| Revisjonslogg, katalog og SLA er ikke testet mot PostgreSQL (bare SQLite) | 0.10b |
 | Graph bruker klienthemmelighet | 2.1 |
 | Ingen databasetester (tenant-filteret er bare testet via tilgang) | 0.10b |
 
@@ -164,7 +162,7 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 | 0.8 | API-URL og CORS fra konfigurasjon | Ferdig |
 | 0.10a | Testprosjekt med tilgangstester | Ferdig (71 tester) |
 | T | Tenant-isolasjon (test og prod) | Ferdig |
-| 0.6 | Engelske koder for status og prioritet | Tas med SLA (1.4) |
+| 0.6 | Engelske koder for status og prioritet | Ferdig (steg E) |
 | 0.9 | Fjerne malrester og rydde `.gitignore` | Ferdig |
 | 0.10b | Databasetester (Testcontainers) for tenant-filter | Gjenstår (krever Docker Desktop eller CI) |
 | 0.12–0.13 | Bicep og GitHub Actions | Gjenstår (kan vente til utrulling) |
@@ -288,6 +286,16 @@ public class SlaTarget : ITenantOwned
 **Skjermbilder:** frist og SLA-status per sak, filteret «SLA i fare», og dashboardkortene «Brudd» og «I fare».
 
 **Ferdig når:** en kritisk sak får riktig frist, og brudd vises i dashboard.
+
+**Status (2026-11-17): ferdig.** Migreringen `AddSlaAndTicketCodes` er kjørt i dev-databasen.
+- **Koder (0.6):** saker bruker `new`, `in_progress`, `resolved` og `low` … `critical`, også `DefaultPriority` i tjenestekatalogen. Migreringen konverterer eksisterende rader (og setter tom prioritet til `normal`). Revisjonsloggen beholder de gamle norske verdiene, og frontend viser begge. Tilgangsbestillinger og ansatte beholder norske statuser.
+- **Arbeidstid:** 08:00–16:00 norsk tid på virkedager, uten helligdager (påske, Kristi himmelfart og pinse beregnes per år). Ligger i `Services/Sla.cs` (`NorwegianHolidays`, `SlaCalculator`, `SlaEvaluator`).
+- **Standard SLA-mål** (opprettes per tenant første gang de trengs, kan endres under Innstillinger → SLA): kritisk 30 min / 4 t døgnet rundt, høy 1 t / 1 arbeidsdag, normal 4 t / 3 arbeidsdager, lav 1 / 5 arbeidsdager.
+- **SLA-status** (`ok`, `at_risk`, `breached`, `met`, `none`) beregnes når sakene hentes og lagres ikke. «I fare» betyr at under 25 % av tiden er igjen til en frist som ikke er nådd.
+- **Bakgrunnsjobb:** `SlaMonitorService` markerer brudd hvert 5. minutt i alle tillatte tenanter (`ResponseBreachedAt`, `ResolutionBreachedAt`, to felt i tillegg til planen) og logger `sla_breached` i sakens historikk med aktør `system`. Slås av med `Sla:MonitorEnabled=false`.
+- **Avgrensning:** eksisterende saker får ingen frist (de kan ikke beregnes i ettertid). Endrede SLA-mål gjelder nye saker og saker som får ny prioritet.
+- **Skjermbilder:** SLA-merke og frister per sak, filteret «SLA i fare», dashboardkortene «Brudd» og «I fare», og fanen SLA under Innstillinger.
+- **Tester:** `SlaCalculatorTests` (13: helligdager, arbeidstid, helg, påske, 24/7, status) og `SlaEndpointTests` (13: frister, respons, løst og gjenåpning, prioritetsendring, gamle verdier avvises, bruddjobben, tenant-skille, SLA-mål). Ferdig-kriteriet testes ende til ende: en kritisk sak får frist 30 min / 4 t, og en sak over fristen markeres og vises som brudd.
 
 ### 1.5 IT-utstyr
 
@@ -419,7 +427,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | B | 0.9 opprydding + 1.1 RBAC | Ferdig |
 | C | 1.2 Revisjonslogg | Ferdig |
 | D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | Ferdig |
-| E | 0.6 Engelske koder + 1.4 SLA | 2 uker |
+| E | 0.6 Engelske koder + 1.4 SLA | Ferdig |
 | F | 1.5 IT-utstyr | 1,5 uker |
 | G | Fase 2 (2.1–2.8) | 5–7 uker |
 | H | Fase 3 (3.1–3.3) | 2–3 uker |

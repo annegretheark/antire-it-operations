@@ -35,16 +35,19 @@ public record UpdateTicketPriorityRequest(
 [Route("api/[controller]")]
 public class TicketsController : ControllerBase
 {
-   private readonly AppDbContext _db;
-private readonly TicketAssignmentService _assignmentService;
+    private readonly AppDbContext _db;
+    private readonly TicketAssignmentService _assignmentService;
+    private readonly SlaService _sla;
 
-public TicketsController(
-    AppDbContext db,
-    TicketAssignmentService assignmentService)
-{
-    _db = db;
-    _assignmentService = assignmentService;
-}
+    public TicketsController(
+        AppDbContext db,
+        TicketAssignmentService assignmentService,
+        SlaService sla)
+    {
+        _db = db;
+        _assignmentService = assignmentService;
+        _sla = sla;
+    }
     // Agent og admin ser alle saker i tenanten, andre ser bare saker de selv har meldt inn
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Ticket>>> GetTickets()
@@ -123,7 +126,7 @@ public TicketsController(
             return BadRequest("Beskrivelse er påkrevd.");
 
         var category = request.Category?.Trim();
-        var priority = "Normal";
+        var priority = TicketPriorities.Normal;
 
         if (request.ServiceCatalogItemId is int itemId)
         {
@@ -147,19 +150,24 @@ public TicketsController(
             ? request.ReportedByEmployeeId
             : await GetCallerEmployeeIdAsync();
 
+        await _sla.EnsureSeededAsync();
+
         var ticket = new Ticket
         {
             Category = category,
             Description = request.Description,
             ReportedByEmployeeId = reportedByEmployeeId,
             ServiceCatalogItemId = request.ServiceCatalogItemId,
-            Status = "Ny",
+            Status = TicketStatuses.New,
             Priority = priority,
             CreatedAt = DateTime.UtcNow
         };
+
+        await _sla.ApplyDeadlinesAsync(ticket);
+
         // Finn ansvarlig basert på rettigheter og ansvarsområde
-ticket.AssignedToEmployeeId =
-    await _assignmentService.FindAssigneeAsync(ticket.Category);
+        ticket.AssignedToEmployeeId =
+            await _assignmentService.FindAssigneeAsync(ticket.Category);
 
         _db.Tickets.Add(ticket);
         await _db.SaveChangesAsync();
@@ -167,40 +175,41 @@ ticket.AssignedToEmployeeId =
         return StatusCode(201, ticket);
     }
 
-    // Endre status
+    // Endre status. Første endring teller som respons; løst setter ResolvedAt,
+    // og gjenåpning nullstiller den.
     [HttpPatch("{id:int}/status")]
     [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
     public async Task<IActionResult> UpdateStatus(
         int id,
         [FromBody] UpdateTicketStatusRequest request)
     {
-        var allowedStatuses = new[]
-        {
-            "Ny",
-            "Under behandling",
-            "Løst"
-        };
-
-        if (!allowedStatuses.Contains(request.Status))
-        {
+        if (!TicketStatuses.All.Contains(request.Status))
             return BadRequest("Ugyldig status.");
-        }
 
         var ticket = await _db.Tickets.FindAsync(id);
 
         if (ticket == null)
-        {
             return NotFound();
-        }
 
-        ticket.Status = request.Status;
+        if (ticket.Status != request.Status)
+        {
+            var now = DateTime.UtcNow;
+            ticket.FirstRespondedAt ??= now;
+
+            if (request.Status == TicketStatuses.Resolved)
+                ticket.ResolvedAt = now;
+            else if (ticket.Status == TicketStatuses.Resolved)
+                ticket.ResolvedAt = null;
+
+            ticket.Status = request.Status;
+        }
 
         await _db.SaveChangesAsync();
 
         return Ok(ticket);
     }
 
-    // Tildel ansvarlig konsulent
+    // Tildel ansvarlig konsulent. Første endring teller som respons.
     [HttpPatch("{id:int}/assign")]
     [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
     public async Task<IActionResult> AssignTicket(
@@ -210,9 +219,7 @@ ticket.AssignedToEmployeeId =
         var ticket = await _db.Tickets.FindAsync(id);
 
         if (ticket == null)
-        {
             return NotFound();
-        }
 
         // null fjerner ansvarlig; ellers må det være en aktiv ansatt
         if (request.AssignedToEmployeeId is int employeeId)
@@ -221,19 +228,21 @@ ticket.AssignedToEmployeeId =
                 e.Id == employeeId && e.Status == "Aktiv");
 
             if (!isActiveEmployee)
-            {
                 return BadRequest("Ansvarlig må være en aktiv ansatt.");
-            }
         }
 
-        ticket.AssignedToEmployeeId = request.AssignedToEmployeeId;
+        if (ticket.AssignedToEmployeeId != request.AssignedToEmployeeId)
+        {
+            ticket.FirstRespondedAt ??= DateTime.UtcNow;
+            ticket.AssignedToEmployeeId = request.AssignedToEmployeeId;
+        }
 
         await _db.SaveChangesAsync();
 
         return Ok(ticket);
     }
 
-    // Endre prioritet
+    // Endre prioritet. Fristene beregnes på nytt fra opprettelsestidspunktet.
     [HttpPatch("{id:int}/priority")]
     [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
     public async Task<IActionResult> UpdatePriority(
@@ -241,23 +250,26 @@ ticket.AssignedToEmployeeId =
         [FromBody] UpdateTicketPriorityRequest request)
     {
         if (!TicketPriorities.All.Contains(request.Priority))
-        {
             return BadRequest("Ugyldig prioritet.");
-        }
+
+        await _sla.EnsureSeededAsync();
 
         var ticket = await _db.Tickets.FindAsync(id);
 
         if (ticket == null)
-        {
             return NotFound();
-        }
 
-        ticket.Priority = request.Priority;
+        if (ticket.Priority != request.Priority)
+        {
+            ticket.Priority = request.Priority;
+            await _sla.ApplyDeadlinesAsync(ticket);
+        }
 
         await _db.SaveChangesAsync();
 
         return Ok(ticket);
     }
+
     [HttpGet("me")]
 public IActionResult GetCurrentUser(
     [FromServices] Microsoft.Extensions.Options.IOptions<TenantOptions> tenants)
