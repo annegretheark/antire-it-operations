@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiUrl, useAuthHeaders } from '../../apiClient'
 
-type ListState<T> = { items: T[]; loading: boolean; error: string }
+type ResourceState<T> = { data: T | null; loading: boolean; error: string }
 
-// Henter en liste fra API-et; endre reloadKey for å hente på nytt
-export function useList<T>(path: string, reloadKey = 0): ListState<T> {
+// Henter JSON fra API-et; endre reloadKey for å hente på nytt
+export function useResource<T>(path: string, reloadKey = 0): ResourceState<T> {
   const getAuthHeaders = useAuthHeaders()
-  const [state, setState] = useState<ListState<T>>({ items: [], loading: true, error: '' })
+  const [state, setState] = useState<ResourceState<T>>({ data: null, loading: true, error: '' })
 
   useEffect(() => {
     let cancelled = false
@@ -16,10 +16,10 @@ export function useList<T>(path: string, reloadKey = 0): ListState<T> {
         const response = await fetch(apiUrl(path), { headers: await getAuthHeaders() })
         if (!response.ok) throw new Error()
 
-        const items: T[] = await response.json()
-        if (!cancelled) setState({ items, loading: false, error: '' })
+        const data: T = await response.json()
+        if (!cancelled) setState({ data, loading: false, error: '' })
       } catch {
-        if (!cancelled) setState({ items: [], loading: false, error: 'Kunne ikke hente data.' })
+        if (!cancelled) setState({ data: null, loading: false, error: 'Kunne ikke hente data.' })
       }
     }
 
@@ -31,6 +31,14 @@ export function useList<T>(path: string, reloadKey = 0): ListState<T> {
   }, [path, reloadKey, getAuthHeaders])
 
   return state
+}
+
+type ListState<T> = { items: T[]; loading: boolean; error: string }
+
+// Henter en liste fra API-et; endre reloadKey for å hente på nytt
+export function useList<T>(path: string, reloadKey = 0): ListState<T> {
+  const { data, loading, error } = useResource<T[]>(path, reloadKey)
+  return { items: data ?? [], loading, error }
 }
 
 // Sender en endring til API-et. Kaster en feil med backendens melding

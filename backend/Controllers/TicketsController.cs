@@ -16,7 +16,9 @@ public record CreateTicketRequest(
     string? Category,
     string Description,
     int? ReportedByEmployeeId,
-    int? ServiceCatalogItemId = null
+    int? ServiceCatalogItemId = null,
+    // Utstyret saken gjelder. Vanlige brukere kan bare velge eget utstyr.
+    int? AssetId = null
 );
 
 public record UpdateTicketStatusRequest(
@@ -150,6 +152,19 @@ public class TicketsController : ControllerBase
             ? request.ReportedByEmployeeId
             : await GetCallerEmployeeIdAsync();
 
+        if (request.AssetId is int assetId)
+        {
+            var asset = await _db.Assets
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == assetId);
+
+            var isOwnAsset = reportedByEmployeeId != null &&
+                asset?.AssignedToEmployeeId == reportedByEmployeeId;
+
+            if (asset == null || (!User.IsHelpdeskAgent() && !isOwnAsset))
+                return BadRequest("Ukjent utstyr.");
+        }
+
         await _sla.EnsureSeededAsync();
 
         var ticket = new Ticket
@@ -158,6 +173,7 @@ public class TicketsController : ControllerBase
             Description = request.Description,
             ReportedByEmployeeId = reportedByEmployeeId,
             ServiceCatalogItemId = request.ServiceCatalogItemId,
+            AssetId = request.AssetId,
             Status = TicketStatuses.New,
             Priority = priority,
             CreatedAt = DateTime.UtcNow

@@ -1,4 +1,6 @@
 import { PRIORITY_LABELS, STATUS_LABELS } from './tickets'
+import { ASSET_STATUS_LABELS, ASSET_TYPE_LABELS } from './assets'
+import { SERVICE_TYPE_LABELS } from './serviceCatalog'
 
 // Felles typer og visning for revisjonsloggen (sakshistorikk og Innstillinger)
 
@@ -33,6 +35,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   TicketCategoryGroup: 'Kategorigruppe',
   EmployeeSync: 'Synk fra Entra',
   ServiceCatalogItem: 'Tjeneste',
+  Asset: 'Utstyr',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -76,6 +79,16 @@ const FIELD_LABELS: Record<string, string> = {
   ResponseMinutes: 'Responstid (min)',
   ResolutionMinutes: 'Løsningstid (min)',
   TwentyFourSeven: 'Døgnet rundt',
+  AssetId: 'Utstyr',
+  AssetTag: 'Utstyrsnummer',
+  Manufacturer: 'Produsent',
+  Model: 'Modell',
+  SerialNumber: 'Serienummer',
+  PurchaseDate: 'Kjøpsdato',
+  WarrantyEndsAt: 'Garanti til',
+  Notes: 'Notater',
+  Source: 'Kilde',
+  ExternalId: 'Ekstern ID',
   created: 'Nye',
   updated: 'Oppdatert',
   totalFromEntra: 'Totalt i Entra',
@@ -88,7 +101,8 @@ const EMPLOYEE_FIELDS = new Set(['AssignedToEmployeeId', 'ReportedByEmployeeId',
 
 // Koder som vises med norske navn (gamle hendelser kan ha norske verdier, som vises som de er)
 const CODE_LABELS: Record<string, Record<string, string>> = {
-  Status: STATUS_LABELS,
+  Status: { ...STATUS_LABELS, ...ASSET_STATUS_LABELS },
+  Type: { ...SERVICE_TYPE_LABELS, ...ASSET_TYPE_LABELS },
   Priority: PRIORITY_LABELS,
   DefaultPriority: PRIORITY_LABELS,
 }

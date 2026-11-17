@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
+import EmployeeAssets from './EmployeeAssets'
 
 type Employee = {
   id: number
@@ -37,7 +38,7 @@ const toDate = (date: string) =>
 
 export default function Employees() {
   const getAuthHeaders = useAuthHeaders()
-  const { isEmployeeAdmin } = useCurrentUser()
+  const { isEmployeeAdmin, isHelpdeskAgent } = useCurrentUser()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [firstName, setFirstName] = useState('')
   const [employeeNumber, setEmployeeNumber] = useState('')
@@ -364,6 +365,9 @@ if (!response.ok) {
                           <p><strong>Startdato:</strong> {employee.startDate.slice(0, 10)}</p>
                           <p><strong>Status:</strong> {employee.status}</p>
                           {employee.endDate && <p><strong>Sluttdato:</strong> {employee.endDate.slice(0, 10)}</p>}
+                          {isHelpdeskAgent && (
+                            <EmployeeAssets employeeId={employee.id} endDate={employee.endDate} />
+                          )}
                           {isEmployeeAdmin && (
                           <div className="approval-actions">
                             <button type="button" disabled={saving} onClick={() => editEmployee(employee)}>Rediger</button>

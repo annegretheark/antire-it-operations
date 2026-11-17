@@ -41,7 +41,7 @@
 | Database | PostgreSQL via EF Core-migreringer | Alle helpdesk-tabeller har `TenantId` og globalt tenant-filter |
 | Identitet | Entra ID | API-appen *Antire IT Operations API - Dev* med rollene `Helpdesk.Admin` og `EmployeeSync.Admin`; SPA-appen *Antire IT Operations Frontend - Dev*. Begge er foreløpig satt til én tenant. |
 | Graph | `GraphService` | Én klient per tenant, kaller Graph i innlogget tenant |
-| Tester | xUnit + WebApplicationFactory | 176 tester: tilgang og tenant, SLA-beregning, og revisjonslogg, tjenestekatalog, tildeling og SLA mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
+| Tester | xUnit + WebApplicationFactory | 202 tester: tilgang og tenant, SLA-beregning og CSV, og revisjonslogg, tjenestekatalog, tildeling, SLA og IT-utstyr mot SQLite i minnet (også gjennom API-et); ingen PostgreSQL-tester ennå (Docker mangler) |
 
 ### 2.2 Datamodell
 
@@ -327,6 +327,15 @@ public class Asset : ITenantOwned
 
 **Ferdig når:** utstyr kan registreres og tildeles ansatte, og vises på ansatt og sak.
 
+**Status (2026-11-17): ferdig.** Migreringen `AddAssets` er kjørt i dev-databasen.
+- `Asset` (`ITenantOwned`, `IAudited`) med koder for type og status, og `Ticket.AssetId`. Utstyrsnummeret er unikt i tenanten, uten hensyn til store og små bokstaver. Utstyr slettes ikke, men får status `retired`.
+- **Regler** (`AssetService`): tildelt utstyr er `in_use`, og utstyr uten ansatt kan ikke være i bruk. Utstyr kan bare tildeles aktive ansatte, og tildelt utstyr kan ikke kasseres.
+- **Tilgang:** Helpdesk.Agent og Helpdesk.Admin registrerer, endrer, tildeler og importerer. Andre ser bare utstyr tildelt dem selv, og kan bare knytte egne saker til eget utstyr.
+- **API:** `GET /api/assets` (filter på status, type, ansatt og søk), `GET /api/assets/{id}` (med saker), `POST`, `PUT`, `PATCH /api/assets/{id}/assign` (`null` = innlevert) og `POST /api/assets/import`.
+- **CSV-import:** semikolon eller komma, norske eller engelske overskrifter, norske eller engelske verdier for type og status, og datoer som `åååå-mm-dd` eller `dd.mm.åååå`. Ansatt angis med e-post. Eksisterende utstyrsnummer oppdateres med kolonnene i filen. Én feil stopper hele importen, og svaret lister radene som feiler.
+- **Skjermbilder:** siden IT-utstyr (liste med filter, detaljer med saker, skjema og CSV-import med mal), «Gjelder utstyr» når en sak meldes inn, utstyrsnummer på saken, og utstyr på den ansatte. Har den ansatte sluttdato, vises utstyret som sjekkliste med knappen «Mottatt».
+- **Tester:** `AssetTests` (10) og `CsvReaderTests` (2). Ferdig-kriteriet testes ende til ende: utstyr registreres, tildeles en ansatt, vises på den ansatte og på saken det gjelder, og leveres inn.
+
 ---
 
 ## 6. Fase 2: Microsoft 365 (innlogget tenant)
@@ -428,7 +437,7 @@ Tester for deduplisering, gjenåpning, prioritetsmapping, regler, tenant-separas
 | C | 1.2 Revisjonslogg | Ferdig |
 | D | 1.3 Tjenestekatalog og skjermbilder for konfigurasjon | Ferdig |
 | E | 0.6 Engelske koder + 1.4 SLA | Ferdig |
-| F | 1.5 IT-utstyr | 1,5 uker |
+| F | 1.5 IT-utstyr | Ferdig |
 | G | Fase 2 (2.1–2.8) | 5–7 uker |
 | H | Fase 3 (3.1–3.3) | 2–3 uker |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | 2–2,5 uker |

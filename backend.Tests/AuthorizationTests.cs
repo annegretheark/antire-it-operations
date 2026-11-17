@@ -41,6 +41,10 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "PATCH", "/api/tickets/1/priority" },
         { "PATCH", "/api/tickets/1/assign" },
         { "PATCH", "/api/accessrequests/1/complete" },
+        { "POST", "/api/assets" },
+        { "PUT", "/api/assets/1" },
+        { "PATCH", "/api/assets/1/assign" },
+        { "POST", "/api/assets/import" },
     };
 
     // Approver eller Helpdesk.Admin
@@ -68,6 +72,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
     [InlineData("GET", "/api/tickets/1/history")]
     [InlineData("GET", "/api/audit")]
     [InlineData("GET", "/api/servicecatalog")]
+    [InlineData("GET", "/api/assets")]
     public async Task Anonymous_requests_are_rejected(string method, string path)
     {
         var client = factory.CreateClient();

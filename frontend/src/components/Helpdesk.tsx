@@ -16,6 +16,8 @@ import {
   type SlaStatus,
 } from '../tickets'
 import { formatDateTime } from '../audit'
+import { assetName, type Asset } from '../assets'
+import { useList } from './settings/settingsApi'
 
 type Ticket = {
   id: number
@@ -30,6 +32,7 @@ type Ticket = {
   firstRespondedAt: string | null
   resolvedAt: string | null
   slaStatus: SlaStatus
+  assetId: number | null
 }
 
 type Employee = {
@@ -67,6 +70,18 @@ export default function Helpdesk() {
   }
 
   const [description, setDescription] = useState('')
+
+  // Utstyr saken kan gjelde: eget utstyr, eller alt som ikke er kassert for agenter
+  const assets = useList<Asset>('/api/assets')
+  const selectableAssets = useMemo(
+    () => assets.items.filter((a) => a.status !== 'retired'),
+    [assets.items]
+  )
+  const assetTags = useMemo(
+    () => new Map(assets.items.map((a) => [a.id, a.assetTag])),
+    [assets.items]
+  )
+  const [assetId, setAssetId] = useState('')
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [filter, setFilter] = useState('Alle')
@@ -144,6 +159,7 @@ setEmployees(employeeData)
        headers: await getAuthHeaders(),
         body: JSON.stringify({
           serviceCatalogItemId: selectedServiceId,
+          assetId: assetId ? Number(assetId) : null,
           description: description.trim(),
         }),
       })
@@ -154,6 +170,7 @@ setEmployees(employeeData)
 
       setTickets((previous) => [ticket, ...previous])
       setDescription('')
+      setAssetId('')
     } catch {
       setError('Kunne ikke lagre saken.')
     } finally {
@@ -244,6 +261,25 @@ setEmployees(employeeData)
 
           {catalog.error && <p role="alert">{catalog.error}</p>}
 
+          {selectableAssets.length > 0 && (
+            <>
+              <label htmlFor="ticket-asset">Gjelder utstyr (valgfritt)</label>
+              <select
+                id="ticket-asset"
+                value={assetId}
+                onChange={(e) => setAssetId(e.target.value)}
+              >
+                <option value="">Ikke valgt</option>
+                {selectableAssets.map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    {assetName(asset)}
+                    {isHelpdeskAgent && asset.assignedToName ? ` (${asset.assignedToName})` : ''}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
           <label htmlFor="ticket-description">
             Beskrivelse
           </label>
@@ -309,6 +345,12 @@ setEmployees(employeeData)
               </h4>
 
               <TicketSla ticket={ticket} />
+
+              {ticket.assetId && (
+                <p className="service-description">
+                  Utstyr: {assetTags.get(ticket.assetId) ?? `#${ticket.assetId}`}
+                </p>
+              )}
 
               <p>{ticket.description}</p>
 

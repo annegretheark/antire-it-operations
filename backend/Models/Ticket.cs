@@ -31,6 +31,9 @@ public class Ticket : ITenantOwned, IAudited
     // Tjenesten saken ble meldt inn på (valgfri). Category settes fra tjenesten.
     public int? ServiceCatalogItemId { get; set; }
 
+    // Utstyret saken gjelder (valgfri)
+    public int? AssetId { get; set; }
+
     // SLA-frister, beregnet fra CreatedAt ved opprettelse og ved endring av
     // prioritet (SlaService). Null for saker fra før SLA.
     public DateTime? ResponseDueAt { get; set; }

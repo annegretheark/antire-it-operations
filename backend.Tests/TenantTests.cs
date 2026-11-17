@@ -20,6 +20,7 @@ public class TenantTests(TestWebApplicationFactory factory)
     [InlineData("/api/servicecatalog")]
     [InlineData("/api/employeeresponsibilities")]
     [InlineData("/api/slatargets")]
+    [InlineData("/api/assets")]
     [InlineData("/api/tickets/1/history")]
     public async Task User_from_unknown_tenant_is_forbidden(string path)
     {

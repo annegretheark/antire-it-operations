@@ -36,6 +36,7 @@ public class AppDbContext : DbContext
     public DbSet<AuditEvent> AuditEvents { get; set; }
     public DbSet<ServiceCatalogItem> ServiceCatalogItems { get; set; }
     public DbSet<SlaTarget> SlaTargets { get; set; }
+    public DbSet<Asset> Assets { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +51,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AuditEvent>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<ServiceCatalogItem>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<SlaTarget>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<Asset>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
 
         // Revisjonslogg: historikk per entitet og siste hendelser i tenanten
         modelBuilder.Entity<AuditEvent>(audit =>
@@ -90,6 +92,33 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmployeeResponsibility>()
             .HasIndex(r => new { r.EmployeeId, r.Category })
             .IsUnique();
+
+        // IT-utstyr: utstyrsnummeret er unikt i tenanten. Utstyr og ansatte slettes
+        // ikke så lenge noe peker på dem.
+        modelBuilder.Entity<Asset>(asset =>
+        {
+            asset.Property(e => e.TenantId).HasMaxLength(36);
+            asset.Property(e => e.AssetTag).HasMaxLength(50);
+            asset.Property(e => e.Type).HasMaxLength(20);
+            asset.Property(e => e.Manufacturer).HasMaxLength(100);
+            asset.Property(e => e.Model).HasMaxLength(100);
+            asset.Property(e => e.SerialNumber).HasMaxLength(100);
+            asset.Property(e => e.Status).HasMaxLength(20);
+            asset.Property(e => e.Source).HasMaxLength(20);
+            asset.Property(e => e.ExternalId).HasMaxLength(100);
+            asset.Property(e => e.Notes).HasMaxLength(2000);
+            asset.HasIndex(e => new { e.TenantId, e.AssetTag }).IsUnique();
+            asset.HasOne(e => e.AssignedToEmployee)
+                .WithMany()
+                .HasForeignKey(e => e.AssignedToEmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Ticket>()
+            .HasOne<Asset>()
+            .WithMany()
+            .HasForeignKey(t => t.AssetId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // SLA-mål: ett per prioritet i tenanten
         modelBuilder.Entity<SlaTarget>(target =>

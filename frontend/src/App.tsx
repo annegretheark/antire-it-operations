@@ -6,6 +6,7 @@ import AccessRequests from './components/AccessRequests'
 import './components/Helpdesk.css'
 import Employees from './components/Employees'
 import Settings from './components/Settings'
+import Assets from './components/Assets'
 import {
   useMsal,
   useIsAuthenticated
@@ -219,6 +220,8 @@ await instance.logoutPopup({
   <AccessRequests />
 ) : activePage === 'Ansatte' ? (
   <Employees />
+) : activePage === 'IT-utstyr' ? (
+  <Assets />
 ) : activePage === 'Innstillinger' ? (
   <Settings />
 ) : (
