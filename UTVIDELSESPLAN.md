@@ -163,7 +163,7 @@ Alle endepunkter krever innlogging fra en tillatt tenant.
 | 0.6 | Engelske koder for status og prioritet | Ferdig (steg E) |
 | 0.9 | Fjerne malrester og rydde `.gitignore` | Ferdig |
 | 0.10b | Databasetester mot PostgreSQL | Ferdig: `PostgresTests` (8) kjører API-et mot ekte PostgreSQL med de ekte migreringene, i et eget testskjema (`ITOPS_TEST_POSTGRES` med `Search Path=itops_test`; skjemaet må slutte på `_test`, og appens skjema `public` røres aldri). Fant og rettet to feil: ren dato i forespørsler ble ikke lagret (nå UTC for hele API-et, `UtcDateTimeConverter`), og migreringen for ansattnummer laget ikke sekvensen i et nytt skjema ved siden av et eksisterende. Hoppes over uten variabelen. |
-| 0.12–0.13 | Bicep og GitHub Actions | Gjenstår (kan vente til utrulling) |
+| 0.12–0.13 | Infrastruktur som kode og GitHub Actions | Terraform ferdig (steg K6); GitHub Actions gjenstår |
 
 ---
 
@@ -518,14 +518,19 @@ Budsjettvarsel settes på ressursgruppen (f.eks. 500 kr i dev). Dev kan stoppes 
 
 | # | Leveranse |
 |---|---|
-| K6 | Bicep i `infra/` (`main.bicep` og `dev.bicepparam`, senere `prod.bicepparam`) for alle ressursene over, roller (Key Vault, Storage, PostgreSQL-administrator for identiteten) og budsjettvarsel |
+| K6 | Terraform i `infra/terraform` (`dev.tfvars`, senere `prod.tfvars`; state i Azure Storage med Entra-innlogging) for alle ressursene over, roller (Key Vault, Storage, PostgreSQL-administrator for identiteten) og budsjettvarsel. **Ferdig for dev** |
 | K7 | GitHub Actions: bygg og test ved hver PR; ved `main` bygges frontend og backend, migreringsbunten kjøres, og appen rulles ut til dev. Innlogging mot Azure med OIDC (federated credential), uten lagrede hemmeligheter |
-| K8 | Entra: adressen til appen legges til som redirect-URI på SPA-registreringen; federated credential fra identiteten på API-registreringen |
+| K8 | Entra: adressen til appen legges til som redirect-URI på SPA-registreringen; federated credential fra identiteten på API-registreringen. **Ferdig for dev** (i Terraform) |
 | K9 | 4.2 webhook: `POST /api/hooks/azure-monitor` med secure webhook (Entra-token fra action group) og Common Alert Schema. Hentingen hvert 5. minutt beholdes som avstemming |
 
 **Ferdig når:** appen kjører i dev i Azure, du logger inn på adressen dens, bakgrunnsjobbene lager saker fra varsler, og et Azure-varsel kommer inn via webhook innen ett minutt.
 
-**Avklaringer før K6:**
+**Status dev (2026-11-18):** kjører på https://app-itops-dev-8zat00.azurewebsites.net (ressursgruppe `rg-itops-dev-noe`, abonnement Aitrening). Utrulling: `terraform apply` i `infra/terraform`, deretter `scripts/Deploy-App.ps1` (bygg, migreringsbunt, rettigheter til appens identitet, zip-utrulling, venter på `/health`).
+- App Service ligger i **Sweden Central**: abonnementet har kvote 0 for B1 i Norway East. Resten (PostgreSQL, Key Vault, Storage, overvåking) ligger i Norway East. Kan flyttes tilbake (`app_location`) når kvoten er økt.
+- PostgreSQL kutter rollenavn ved 63 tegn, så gjestebrukere med lange UPN-er logger inn med det kuttede navnet (`deployer_db_user`).
+- Gjenstår: K7 (GitHub Actions) og K9 (webhook).
+
+**Avklaringer før K6** (besvart: Aitrening, bare dev nå, budsjettvarsel på ressursgruppen; GitHub venter):
 1. **Abonnement for dev:** «Aitrening» i dev-tenanten (forslag), eller et annet?
 2. **Prod:** prod skal ligge i Antire-tenanten, som ikke skal røres før du sier fra. Planen gjelder derfor bare dev nå.
 3. **Kostnad:** er ca. 375 kr i måneden for dev i orden, og hvor skal budsjettvarselet ligge?
@@ -572,7 +577,7 @@ Budsjettvarsel settes på ressursgruppen (f.eks. 500 kr i dev). Dev kan stoppes 
 | H | Fase 3 (3.1–3.3) | Ferdig |
 | I | 4.1 Varselmottak + 4.3 Defender → sak + 4.4 Teams | Bygget; ekte Teams og Defender venter på lisens |
 | J | 4.2 Azure Alert → sak (henting, deretter webhook når appen kjører i Azure) | Henting ferdig; webhook venter til appen kjører i Azure |
-| K | 8b Drift i Azure (dev): kodeendringer, Bicep, GitHub Actions og webhook for Azure-varsler | K1–K5 (kode) ferdig; K6–K9 venter på avklaringer. Dev koster ca. 375 kr i måneden |
+| K | 8b Drift i Azure (dev): kodeendringer, Terraform, GitHub Actions og webhook for Azure-varsler | K1–K6 og K8 ferdig: dev kjører i Azure (Terraform + `scripts/Deploy-App.ps1`). K7 og K9 gjenstår. Dev koster ca. 375 kr i måneden |
 | L | 8c Onboarding, offboarding og GDPR (innsyn, anonymisering, behandlingsprotokoll) | Ferdig |
 
 **Arbeidsmåte per steg:** én migrering, backend med tester, frontend, test i dev-tenanten (`3af5c92b`), og deretter commit til `main`. Produksjonstenanten tas først i bruk når du sier fra.
