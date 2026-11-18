@@ -110,6 +110,10 @@ public static class AzureHosting
 
         app.UseDefaultFiles();
         app.UseStaticFiles();
+        // Rutingen må komme etter de statiske filene. Ellers velges fallback-ruten
+        // (index.html) også for /assets/*.js, og UseStaticFiles hopper over
+        // forespørsler som allerede har en rute.
+        app.UseRouting();
         app.MapFallbackToFile("{*path:regex(^(?!api/|health).*$)}", "index.html").AllowAnonymous();
     }
 }

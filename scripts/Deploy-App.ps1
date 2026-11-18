@@ -124,6 +124,10 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENC
         az webapp deploy --resource-group $resourceGroup --name $appName --src-path $zip --type zip --track-status false --output none
         if ($LASTEXITCODE -ne 0) { throw 'Utrullingen feilet.' }
 
+        # Uten sporing er det ikke sikkert appen startes på nytt med den nye koden
+        az webapp restart --resource-group $resourceGroup --name $appName --output none
+        Start-Sleep -Seconds 15
+
         Write-Host 'Venter på /health...'
         $healthy = $false
         foreach ($attempt in 1..30) {
