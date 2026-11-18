@@ -47,6 +47,7 @@ public class AppDbContext : DbContext
     public DbSet<LifecycleTask> LifecycleTasks { get; set; }
     public DbSet<ProcessingActivity> ProcessingActivities { get; set; }
     public DbSet<GdprSettings> GdprSettings { get; set; }
+    public DbSet<AppSignIn> AppSignIns { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +73,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<LifecycleTask>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<ProcessingActivity>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<GdprSettings>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<AppSignIn>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+
+        // Hvem som har brukt appen: én rad per Entra-bruker i tenanten
+        modelBuilder.Entity<AppSignIn>(signIn =>
+        {
+            signIn.Property(e => e.TenantId).HasMaxLength(36);
+            signIn.Property(e => e.EntraObjectId).HasMaxLength(64);
+            signIn.Property(e => e.Name).HasMaxLength(256);
+            signIn.Property(e => e.UserPrincipalName).HasMaxLength(256);
+            signIn.HasIndex(e => new { e.TenantId, e.EntraObjectId }).IsUnique();
+        });
 
         // Revisjonslogg: historikk per entitet og siste hendelser i tenanten
         modelBuilder.Entity<AuditEvent>(audit =>

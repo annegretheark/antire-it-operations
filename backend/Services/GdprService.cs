@@ -71,6 +71,13 @@ public class GdprService
             .Take(5000)
             .ToListAsync(cancellationToken);
 
+        var appSignIn = objectId == null
+            ? null
+            : await _db.AppSignIns.AsNoTracking()
+                .Where(s => s.EntraObjectId == objectId)
+                .Select(s => new { s.Name, s.UserPrincipalName, s.FirstSeenAt, s.LastSeenAt, s.Visits })
+                .FirstOrDefaultAsync(cancellationToken);
+
         _db.AddAuditEvent(nameof(Employee), employeeId2, AuditActions.GdprExported);
         await _db.SaveChangesAsync(cancellationToken);
 
@@ -89,6 +96,7 @@ public class GdprService
             accessRequests,
             assets,
             onboardingAndOffboarding = processes,
+            appSignIn,
             auditEvents = auditEvents.Select(e => new
             {
                 e.OccurredAt, e.ActorName, e.EntityType, e.EntityId, e.Action,
@@ -160,6 +168,11 @@ public class GdprService
 
         if (objectId != null)
         {
+            // Når personen brukte appen, trengs ikke lenger
+            await _db.AppSignIns
+                .Where(s => s.EntraObjectId == objectId)
+                .ExecuteDeleteAsync(cancellationToken);
+
             redacted += await _db.AuditEvents
                 .Where(e => e.ActorObjectId == objectId)
                 .ExecuteUpdateAsync(s => s
@@ -185,7 +198,7 @@ public class GdprService
             System = "Antire IT Operations",
             Purpose = "Håndtere saker, tilgangsbestillinger, IT-utstyr, onboarding og offboarding for ansatte, og føre revisjonslogg over endringer.",
             DataSubjects = "Ansatte og innleide",
-            DataCategories = "Navn, e-post, ansattnummer, avdeling, stilling, start- og sluttdato, Entra-ID, saker og beskrivelser, tilganger, utstyr, logg over hvem som har endret hva",
+            DataCategories = "Navn, e-post, ansattnummer, avdeling, stilling, start- og sluttdato, Entra-ID, saker og beskrivelser, tilganger, utstyr, logg over hvem som har endret hva, når hver bruker sist brukte appen",
             LegalBasis = LegalBases.Contract,
             Retention = "Så lenge arbeidsforholdet varer. Ansatte som har sluttet, anonymiseres etter fristen i GDPR-innstillingene. Saker og revisjonslogg beholdes uten personopplysninger.",
             Recipients = "Microsoft (Entra ID, Microsoft 365 og Azure) som databehandler",

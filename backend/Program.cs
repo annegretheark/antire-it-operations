@@ -74,6 +74,8 @@ builder.Services.AddSingleton<AlertMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AlertMonitorService>());
 // Kort cache for Microsoft 365-oversiktene (M365Controller)
 builder.Services.AddMemoryCache();
+// Hvem som bruker appen og når (Innstillinger → Pålogginger)
+builder.Services.AddSingleton<AppSignInService>();
 // Markerer SLA-brudd hvert 5. minutt (Sla:MonitorEnabled, Sla:CheckIntervalSeconds)
 builder.Services.AddSingleton<SlaMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SlaMonitorService>());
@@ -131,6 +133,18 @@ app.UseCors("Frontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Registrer hvem som bruker appen (AppSignInService), bare ved API-kall
+app.Use(async (context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true &&
+        context.Request.Path.StartsWithSegments("/api"))
+    {
+        await context.RequestServices.GetRequiredService<AppSignInService>().RecordAsync(context);
+    }
+
+    await next();
+});
 
 app.MapControllers().RequireAuthorization();
 app.MapHealthChecks("/health").AllowAnonymous();

@@ -67,6 +67,13 @@ public class GdprTests(SqliteWebApplicationFactory factory)
             EntityType = nameof(Ticket), EntityId = "1", Action = AuditActions.Updated,
             ActorObjectId = objectId, ActorName = $"Gunnhild{unique} Personvern", OccurredAt = DateTime.UtcNow,
         });
+
+        // Personen har brukt appen
+        db.AppSignIns.Add(new AppSignIn
+        {
+            EntraObjectId = objectId, Name = $"Gunnhild{unique} Personvern",
+            FirstSeenAt = DateTime.UtcNow.AddYears(-1), LastSeenAt = DateTime.UtcNow.AddMonths(-3), Visits = 12,
+        });
         await db.SaveChangesAsync();
 
         return (employee, objectId);
@@ -86,6 +93,7 @@ public class GdprTests(SqliteWebApplicationFactory factory)
         Assert.Equal(1, export.GetProperty("ticketsReported").GetArrayLength());
         Assert.Equal(1, export.GetProperty("accessRequests").GetArrayLength());
         Assert.True(export.GetProperty("auditEvents").GetArrayLength() >= 2);
+        Assert.Equal(12, export.GetProperty("appSignIn").GetProperty("visits").GetInt32());
 
         await using var db = factory.CreateDbContext(TenantA);
         Assert.True(await db.AuditEvents.AnyAsync(e => e.EntityType == nameof(Employee) &&
@@ -115,6 +123,9 @@ public class GdprTests(SqliteWebApplicationFactory factory)
 
         // Saken finnes fortsatt
         Assert.True(await db.Tickets.AnyAsync(t => t.ReportedByEmployeeId == employee.Id));
+
+        // Når personen brukte appen, er slettet
+        Assert.False(await db.AppSignIns.AnyAsync(s => s.EntraObjectId == objectId));
 
         // Ingen revisjonsrader inneholder navnet eller Entra-ID-en lenger
         var audit = await db.AuditEvents.AsNoTracking().ToListAsync();

@@ -31,7 +31,7 @@ Appen er laget for én organisasjon med egne Entra-tenanter (f.eks. test og prod
 | **Microsoft 365** | Brukere (kontostatus, lisenser, siste pålogging og MFA når lisens finnes), inaktive gjester eller medlemmer (ingen vellykket pålogging siden en valgt dato, med CSV-eksport) og grupper med medlemmer |
 | **Azure** | Abonnementer og ressurser på tvers av abonnementene (Resource Graph) |
 | **Revisjonslogg** | Alle endringer logges automatisk med hvem og når, og kan ikke endres eller slettes |
-| **Innstillinger** | Tjenestekatalog, ansvarsområder, kategorigrupper, SLA, varselregler, Teams, onboarding-maler og revisjonslogg |
+| **Innstillinger** | Tjenestekatalog, ansvarsområder, kategorigrupper, SLA, varselregler, Teams, onboarding-maler, pålogginger (hvem som har brukt appen og når) og revisjonslogg |
 
 ## Arkitektur
 

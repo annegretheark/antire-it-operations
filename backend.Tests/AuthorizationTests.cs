@@ -24,6 +24,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "POST", "/api/ticketcategorygroups" },
         { "DELETE", "/api/ticketcategorygroups/1" },
         { "GET", "/api/audit" },
+        { "GET", "/api/appsignins" },
         { "POST", "/api/servicecatalog" },
         { "PUT", "/api/servicecatalog/1" },
         { "GET", "/api/employeeresponsibilities" },
