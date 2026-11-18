@@ -28,7 +28,7 @@ Appen er laget for én organisasjon med egne Entra-tenanter (f.eks. test og prod
 | **Onboarding / Offboarding** | Sjekklister fra maler som starter automatisk ved startdato og sluttdato. Offboarding viser utstyr som skal leveres inn, og fjerner tilganger fra Entra-grupper |
 | **GDPR** | Innsyn (alt om én person som fil), anonymisering av ansatte som har sluttet (manuelt eller etter frist), og behandlingsprotokoll |
 | **Varsler** | Azure Monitor og Microsoft Defender blir saker med prioritet fra alvorlighetsgraden, deduplisering og gjenåpning, regler per kilde, og varsling i Teams |
-| **Microsoft 365** | Brukere (kontostatus, lisenser, siste pålogging og MFA når lisens finnes) og grupper med medlemmer |
+| **Microsoft 365** | Brukere (kontostatus, lisenser, siste pålogging og MFA når lisens finnes), inaktive gjester eller medlemmer (ingen vellykket pålogging siden en valgt dato, med CSV-eksport) og grupper med medlemmer |
 | **Azure** | Abonnementer og ressurser på tvers av abonnementene (Resource Graph) |
 | **Revisjonslogg** | Alle endringer logges automatisk med hvem og når, og kan ikke endres eller slettes |
 | **Innstillinger** | Tjenestekatalog, ansvarsområder, kategorigrupper, SLA, varselregler, Teams, onboarding-maler og revisjonslogg |

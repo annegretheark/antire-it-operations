@@ -197,7 +197,7 @@ public class GraphService
         }
 
         // Siste pålogging: krever AuditLog.Read.All og Entra ID P1
-        Dictionary<string, DateTimeOffset?>? signIns = null;
+        Dictionary<string, SignInActivity?>? signIns = null;
         string? signInReason = null;
 
         try
@@ -206,13 +206,14 @@ public class GraphService
             var page = await client.Users.GetAsync(request =>
             {
                 request.QueryParameters.Select = ["id", "signInActivity"];
-                request.QueryParameters.Top = 999;
+                // Med signInActivity er største sidestørrelse 120
+                request.QueryParameters.Top = 120;
             }, cancellationToken);
 
             await CollectAsync<User, UserCollectionResponse>(client, page, withSignIn, cancellationToken);
             signIns = withSignIn
                 .Where(u => u.Id != null)
-                .ToDictionary(u => u.Id!, u => u.SignInActivity?.LastSignInDateTime);
+                .ToDictionary(u => u.Id!, u => u.SignInActivity);
         }
         catch (ODataError e)
         {
@@ -256,8 +257,9 @@ public class GraphService
                     .Where(l => l.SkuId != null)
                     .Select(l => skuNames.GetValueOrDefault(l.SkuId!.Value, l.SkuId!.Value.ToString()))
                     .ToList(),
-                signIns?.GetValueOrDefault(u.Id!),
-                mfa?.GetValueOrDefault(u.Id!)))
+                signIns?.GetValueOrDefault(u.Id!)?.LastSignInDateTime,
+                mfa?.GetValueOrDefault(u.Id!),
+                signIns?.GetValueOrDefault(u.Id!)?.LastSuccessfulSignInDateTime))
             .OrderBy(u => u.DisplayName)
             .ToList();
 

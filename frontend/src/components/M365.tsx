@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import './Helpdesk.css'
 import { useCurrentUser } from '../useCurrentUser'
 import { formatDateTime } from '../audit'
+import { formatDate } from '../assets'
 import { useList, useResource } from './settings/settingsApi'
 
 type M365User = {
@@ -17,6 +18,14 @@ type M365User = {
   licenses: string[]
   lastSignInAt: string | null
   mfaRegistered: boolean | null
+  lastSuccessfulSignInAt: string | null
+}
+
+type InactiveUsers = {
+  users: M365User[]
+  totalOfType: number
+  signInUnavailableReason: string | null
+  fetchedAt: string
 }
 
 type UserOverview = {
@@ -60,7 +69,7 @@ const MEMBER_TYPE_LABELS: Record<string, string> = {
 // Microsoft 365 i innlogget tenant (Helpdesk.Admin): brukere og grupper fra Entra ID
 export default function M365() {
   const { isHelpdeskAdmin, tenantName } = useCurrentUser()
-  const [tab, setTab] = useState<'users' | 'groups'>('users')
+  const [tab, setTab] = useState<'users' | 'inactive' | 'groups'>('users')
 
   if (!isHelpdeskAdmin) {
     return (
@@ -83,12 +92,15 @@ export default function M365() {
         <button type="button" role="tab" aria-selected={tab === 'users'} onClick={() => setTab('users')}>
           Brukere
         </button>
+        <button type="button" role="tab" aria-selected={tab === 'inactive'} onClick={() => setTab('inactive')}>
+          Inaktive brukere
+        </button>
         <button type="button" role="tab" aria-selected={tab === 'groups'} onClick={() => setTab('groups')}>
           Grupper
         </button>
       </div>
 
-      {tab === 'users' ? <Users /> : <Groups />}
+      {tab === 'users' ? <Users /> : tab === 'inactive' ? <Inactive /> : <Groups />}
     </section>
   )
 }
@@ -209,6 +221,198 @@ function Users() {
               </tbody>
             </table>
           </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+const INACTIVE_PRESETS = [
+  { label: '90 dager', days: 90 },
+  { label: '180 dager', days: 180 },
+  { label: '1 år', days: 365 },
+  { label: '2 år', days: 730 },
+]
+
+// ÅÅÅÅ-MM-DD for <input type="date">, i lokal tid
+function isoDate(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function daysAgo(days: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() - days)
+  return isoDate(date)
+}
+
+function daysSince(value: string | null): number | null {
+  return value ? Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000) : null
+}
+
+type InactiveQuery = { userType: 'Guest' | 'Member'; before: string; includeNever: boolean }
+
+// Gjester eller medlemmer uten vellykket pålogging siden en dato. Kun lesing og CSV.
+function Inactive() {
+  const [today] = useState(() => isoDate(new Date()))
+  const [userType, setUserType] = useState<'Guest' | 'Member'>('Guest')
+  const [before, setBefore] = useState(daysAgo(180))
+  const [includeNever, setIncludeNever] = useState(true)
+  const [query, setQuery] = useState<InactiveQuery | null>(null)
+  const [count, setCount] = useState(0)
+
+  const url = query
+    ? `/api/m365/inactive-users?userType=${query.userType}&before=${query.before}` +
+      `&includeNeverSignedIn=${query.includeNever}${count > 0 ? `&refresh=true&n=${count}` : ''}`
+    : null
+  const result = useResource<InactiveUsers>(url)
+  const data = result.data
+  const typeText = (t: string) => (t === 'Guest' ? 'gjester' : 'medlemmer')
+
+  function fetchList() {
+    setQuery({ userType, before, includeNever })
+  }
+
+  function downloadCsv() {
+    if (!data || !query) return
+    const columns: [string, (u: M365User) => string][] = [
+      ['Navn', (u) => u.displayName ?? ''],
+      ['Brukernavn', (u) => u.userPrincipalName ?? ''],
+      ['E-post', (u) => u.mail ?? ''],
+      ['Type', (u) => (u.userType === 'Guest' ? 'Gjest' : 'Medlem')],
+      ['Konto', (u) => (u.accountEnabled === false ? 'Deaktivert' : 'Aktiv')],
+      ['Opprettet', (u) => u.createdAt?.slice(0, 10) ?? ''],
+      ['Siste vellykkede pålogging', (u) => u.lastSuccessfulSignInAt?.slice(0, 10) ?? ''],
+      ['Siste interaktive pålogging', (u) => u.lastSignInAt?.slice(0, 10) ?? ''],
+      ['Dager siden', (u) => String(daysSince(u.lastSuccessfulSignInAt) ?? '')],
+      ['Lisenser', (u) => u.licenses.join(', ')],
+      ['Objekt-ID', (u) => u.id],
+    ]
+    const quote = (v: string) => `"${v.replace(/"/g, '""')}"`
+    const csv = [
+      columns.map(([h]) => quote(h)).join(';'),
+      ...data.users.map((u) => columns.map(([, get]) => quote(get(u))).join(';')),
+    ].join('\r\n')
+
+    const link = document.createElement('a')
+    link.href = `data:text/csv;charset=utf-8,${encodeURIComponent('﻿' + csv)}`
+    link.download = `inaktive-${typeText(query.userType)}-${query.before}.csv`
+    link.click()
+  }
+
+  return (
+    <div className="helpdesk-card">
+      <h3>Inaktive brukere</h3>
+      <p className="audit-intro">
+        Finn gjester eller medlemmer som ikke har hatt en vellykket pålogging siden en dato
+        (interaktiv eller ikke-interaktiv). Microsoft registrerer denne datoen fra desember 2023,
+        så «Ingen registrert» betyr ingen vellykket pålogging siden da. Listen er kun til lesing.
+      </p>
+
+      <div className="asset-filters">
+        <label className="settings-check">
+          <input type="radio" name="inactive-type" checked={userType === 'Guest'} onChange={() => setUserType('Guest')} />
+          Gjester
+        </label>
+        <label className="settings-check">
+          <input type="radio" name="inactive-type" checked={userType === 'Member'} onChange={() => setUserType('Member')} />
+          Medlemmer
+        </label>
+        <label>
+          Ingen vellykket pålogging siden{' '}
+          <input
+            type="date"
+            value={before}
+            max={today}
+            onChange={(e) => setBefore(e.target.value)}
+          />
+        </label>
+        {INACTIVE_PRESETS.map((p) => (
+          <button key={p.days} type="button" className="settings-row-action" onClick={() => setBefore(daysAgo(p.days))}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="asset-filters">
+        <label className="settings-check">
+          <input type="checkbox" checked={includeNever} onChange={(e) => setIncludeNever(e.target.checked)} />
+          Ta med brukere uten registrert pålogging (opprettet før datoen)
+        </label>
+        <button type="button" className="asset-primary" onClick={fetchList} disabled={!before || result.loading}>
+          Hent liste
+        </button>
+        {query && (
+          <button type="button" className="settings-row-action" onClick={() => setCount((c) => c + 1)} disabled={result.loading}>
+            Oppdater fra Entra ID
+          </button>
+        )}
+        <button
+          type="button"
+          className="settings-row-action"
+          onClick={downloadCsv}
+          disabled={!data || data.users.length === 0}
+        >
+          Last ned som CSV
+        </button>
+      </div>
+
+      {result.error && <p role="alert" className="settings-error">{result.error}</p>}
+
+      {data?.signInUnavailableReason && (
+        <div className="m365-notice">
+          <strong>Påloggingsdatoene er ikke tilgjengelige:</strong> {data.signInUnavailableReason}
+        </div>
+      )}
+
+      {!query ? (
+        <p className="settings-muted">Velg brukertype og dato, og trykk «Hent liste».</p>
+      ) : result.loading ? (
+        <p>Henter brukere fra Entra ID...</p>
+      ) : data && !data.signInUnavailableReason && (
+        <>
+          <p className="settings-muted">
+            {data.users.length} av {data.totalOfType} {typeText(query.userType)} uten vellykket pålogging
+            siden {formatDate(query.before)} · hentet {formatDateTime(data.fetchedAt)}
+          </p>
+          {data.users.length > 0 && (
+            <div className="audit-table-wrapper">
+              <table className="audit-table">
+                <thead>
+                  <tr>
+                    <th>Navn</th>
+                    <th>Konto</th>
+                    <th>Opprettet</th>
+                    <th>Siste vellykkede pålogging</th>
+                    <th>Dager siden</th>
+                    <th>Lisenser</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <strong>{u.displayName ?? '–'}</strong>
+                        <div className="settings-muted">{u.userPrincipalName}</div>
+                        {u.mail && u.mail !== u.userPrincipalName && (
+                          <div className="settings-muted">{u.mail}</div>
+                        )}
+                      </td>
+                      <td className={u.accountEnabled === false ? 'settings-error' : undefined}>
+                        {u.accountEnabled === false ? 'Deaktivert' : 'Aktiv'}
+                      </td>
+                      <td className="audit-nowrap">{formatDate(u.createdAt)}</td>
+                      <td className="audit-nowrap">
+                        {u.lastSuccessfulSignInAt ? formatDateTime(u.lastSuccessfulSignInAt) : 'Ingen registrert'}
+                      </td>
+                      <td>{daysSince(u.lastSuccessfulSignInAt) ?? '–'}</td>
+                      <td>{u.licenses.length > 0 ? u.licenses.join(', ') : '–'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </div>

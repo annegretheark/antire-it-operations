@@ -44,6 +44,65 @@ public class M365Tests(SqliteWebApplicationFactory factory)
         Assert.Equal(before + 1, factory.Graph.UserOverviewCalls);
     }
 
+    private static M365User User(
+        string id, string type, DateTimeOffset? created, DateTimeOffset? lastSuccess) =>
+        new(id, id, $"{id}@test.no", null, true, type, null, null, created, [], lastSuccess, null, lastSuccess);
+
+    [Fact]
+    public async Task Inactive_users_are_filtered_on_type_and_last_successful_sign_in()
+    {
+        var cutoff = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero);
+        var old = cutoff.AddYears(-2);
+
+        factory.Graph.UserOverview = new M365UserOverview(
+            [
+                User("gjest-gammel", "Guest", old, cutoff.AddDays(-1)),
+                User("gjest-aktiv", "Guest", old, cutoff.AddDays(1)),
+                User("gjest-aldri", "Guest", old, null),
+                User("gjest-ny-aldri", "Guest", cutoff.AddDays(1), null),
+                User("medlem-gammel", "Member", old, cutoff.AddDays(-30)),
+            ],
+            null, null, null, DateTimeOffset.UtcNow);
+
+        var withNever = await ReadAsync<M365InactiveUsers>(await Admin().GetAsync(
+            "/api/m365/inactive-users?userType=Guest&before=2026-05-01&refresh=true"));
+        Assert.Equal(["gjest-aldri", "gjest-gammel"], withNever.Users.Select(u => u.Id));
+        Assert.Equal(4, withNever.TotalOfType);
+
+        var withoutNever = await ReadAsync<M365InactiveUsers>(await Admin().GetAsync(
+            "/api/m365/inactive-users?userType=guest&before=2026-05-01&includeNeverSignedIn=false"));
+        Assert.Equal(["gjest-gammel"], withoutNever.Users.Select(u => u.Id));
+
+        var members = await ReadAsync<M365InactiveUsers>(await Admin().GetAsync(
+            "/api/m365/inactive-users?userType=Member&before=2026-05-01"));
+        Assert.Equal("medlem-gammel", Assert.Single(members.Users).Id);
+    }
+
+    [Fact]
+    public async Task Inactive_users_without_sign_in_data_give_reason_and_empty_list()
+    {
+        factory.Graph.UserOverview = new M365UserOverview(
+            [User("gjest", "Guest", DateTimeOffset.UtcNow.AddYears(-3), null)],
+            "Krever rettigheten AuditLog.Read.All og lisensen Entra ID P1.", null, null, DateTimeOffset.UtcNow);
+
+        var result = await ReadAsync<M365InactiveUsers>(await Admin().GetAsync(
+            "/api/m365/inactive-users?userType=Guest&before=2026-01-01&refresh=true"));
+
+        Assert.Empty(result.Users);
+        Assert.Contains("Entra ID P1", result.SignInUnavailableReason);
+    }
+
+    [Theory]
+    [InlineData("/api/m365/inactive-users?userType=Admin&before=2026-01-01")]
+    [InlineData("/api/m365/inactive-users?userType=Guest")]
+    [InlineData("/api/m365/inactive-users?userType=Guest&before=2999-01-01")]
+    public async Task Inactive_users_reject_invalid_input(string url)
+    {
+        var response = await Admin().GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task Groups_and_members_are_listed()
     {

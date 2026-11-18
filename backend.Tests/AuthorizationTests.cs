@@ -33,6 +33,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "GET", "/api/slatargets" },
         { "PUT", "/api/slatargets/normal" },
         { "GET", "/api/m365/users" },
+        { "GET", "/api/m365/inactive-users?userType=Guest&before=2026-01-01" },
         { "GET", "/api/m365/groups" },
         { "GET", "/api/m365/groups/00000000-0000-0000-0000-000000000001/members" },
         { "GET", "/api/azure/subscriptions" },
