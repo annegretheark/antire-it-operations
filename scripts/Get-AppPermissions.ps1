@@ -22,6 +22,16 @@
              delegert skrivetilgang
     Lav      resten (f.eks. User.Read, openid, profile)
 
+  Siste pålogging per app (samme verdi på alle radene til appen), fra rapporten
+  servicePrincipalSignInActivities i Graph (beta):
+    SistePålogging   siste aktivitet av noe slag, også når andre apper kaller den
+    SisteMedBruker   siste gang appen logget inn på vegne av en bruker (delegert)
+    SisteSomApp      siste gang appen logget inn som seg selv (applikasjonsrettigheter)
+    DagerSiden       dager siden SistePålogging
+  «Ingen registrert» betyr at appen ikke har logget inn så lenge Entra har målt det.
+  Rapporten krever Entra ID P1 og en rolle som kan lese påloggingsdata (f.eks.
+  Global Reader eller Reports Reader). Uten det står kolonnene som «Ukjent».
+
   Microsofts egne apper er utelatt som standard, unntatt de som har fått delegert
   samtykke i tenanten (f.eks. Microsoft Graph Command Line Tools). Ta med alle med
   -IncludeMicrosoftApps.
@@ -135,6 +145,10 @@ function Get-Row($appId, $kind, $resourceSp, $resourceAppId, $permission) {
             Samtykke     = ''
             Status       = ''
             Risiko       = ''
+            SistePålogging = ''
+            SisteMedBruker = ''
+            SisteSomApp    = ''
+            DagerSiden     = ''
         }
     }
     $rows[$key]
@@ -208,6 +222,47 @@ foreach ($row in $rows.Values) {
     }
 }
 
+# Siste pålogging per app (krever Entra ID P1 og rolle som kan lese påloggingsdata)
+Write-Host 'Henter siste pålogging per app...'
+$signIns = $null
+try {
+    $signIns = @{}
+    foreach ($s in (Get-GraphAll "https://graph.microsoft.com/beta/reports/servicePrincipalSignInActivities?`$top=999")) {
+        $signIns[$s.appId] = $s
+    }
+    # Helt tom rapport betyr nesten alltid at data mangler (f.eks. uten Entra ID P1),
+    # ikke at ingen apper har logget inn
+    if ($signIns.Count -eq 0) {
+        $signIns = $null
+        Write-Warning 'Påloggingsrapporten er tom (mangler tenanten Entra ID P1?). Kolonnene blir «Ukjent».'
+    }
+}
+catch {
+    $signIns = $null
+    $message = if ($_.ErrorDetails.Message) { ($_.ErrorDetails.Message | ConvertFrom-Json).error.message } else { $_.Exception.Message }
+    Write-Warning "Fikk ikke lest påloggingsrapporten, kolonnene blir «Ukjent»: $message"
+}
+
+function Format-SignIn($activity) {
+    $time = $activity.lastSignInDateTime
+    if ($time) { ([datetime]$time).ToLocalTime().ToString('yyyy-MM-dd HH:mm') } else { '' }
+}
+
+$now = Get-Date
+foreach ($row in $rows.Values) {
+    if ($null -eq $signIns) {
+        $row.SistePålogging = 'Ukjent'; $row.SisteMedBruker = 'Ukjent'; $row.SisteSomApp = 'Ukjent'
+        continue
+    }
+    $s = $signIns[$row.AppId]
+    $last = $s.lastSignInActivity.lastSignInDateTime
+    if (-not $last) { $row.SistePålogging = 'Ingen registrert'; continue }
+    $row.SistePålogging = Format-SignIn $s.lastSignInActivity
+    $row.SisteMedBruker = Format-SignIn $s.delegatedClientSignInActivity
+    $row.SisteSomApp = Format-SignIn $s.applicationAuthenticationClientSignInActivity
+    $row.DagerSiden = [int]($now - ([datetime]$last).ToLocalTime()).TotalDays
+}
+
 $result = $rows.Values | Sort-Object App, Type, Ressurs, Rettighet
 
 if (-not $CsvPath) {
@@ -225,6 +280,12 @@ Write-Host ("  Høy risiko: {0}   Mangler samtykke: {1}   Gitt, ikke konfig.: {2
     @($result | Where-Object Risiko -eq 'Høy').Count,
     @($result | Where-Object Status -eq 'Mangler samtykke').Count,
     @($result | Where-Object Status -eq 'Gitt, ikke konfig.').Count)
+if ($null -ne $signIns) {
+    $appRows = $result | Group-Object AppId | ForEach-Object { $_.Group[0] }
+    $unused = @($appRows | Where-Object { $_.SistePålogging -eq 'Ingen registrert' -or ($_.DagerSiden -ne '' -and [int]$_.DagerSiden -gt 90) })
+    $unusedHigh = @($unused | Where-Object { $id = $_.AppId; $result | Where-Object { $_.AppId -eq $id -and $_.Risiko -eq 'Høy' } })
+    Write-Host ("  Apper uten pålogging siste 90 dager: {0} (av dem med høy risiko: {1})" -f $unused.Count, $unusedHigh.Count)
+}
 if (-not $IncludeMicrosoftApps) { Write-Host '  (Microsofts egne apper uten samtykke i tenanten er utelatt; bruk -IncludeMicrosoftApps for å ta dem med)' }
 Write-Host ''
 Write-Host "Lagret: $CsvPath"
