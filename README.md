@@ -133,6 +133,8 @@ Løsningen bruker to app-registreringer i hver tenant:
 | `scripts/Set-AppRoles.ps1` | Legger app-rollene på API-registreringen |
 | `scripts/New-AppCertificate.ps1` | Sertifikat for appens innlogging mot Graph og Azure (i stedet for klienthemmelighet) |
 | `scripts/Grant-AzureReader.ps1` | Gir appen rollen Reader på Azure-abonnementer |
+| `scripts/Get-AppPermissions.ps1` | Revisjon: alle rettigheter på alle app-registreringer og enterprise apps i tenanten (delegert/applikasjon, samtykke, risiko), med CSV-eksport. Endrer ingenting |
+| `scripts/Grant-GraphPermissions.ps1` | Gir API-appen Graph-rettighetene under, med admin-samtykke (`-SkipOptional` for bare de påkrevde) |
 
 **Graph-rettigheter (applikasjon, med admin-samtykke):**
 
@@ -141,6 +143,7 @@ Løsningen bruker to app-registreringer i hver tenant:
 | `User.Read.All` | Synk av ansatte og brukeroversikten |
 | `GroupMember.Read.All` | Grupper, medlemmer og automatisk tildeling |
 | `GroupMember.ReadWrite.All` | Tilgang via gruppe (legge til og fjerne medlemmer) |
+| `Organization.Read.All` *(valgfri)* | Lisensoversikten |
 | `AuditLog.Read.All` *(valgfri)* | Siste pålogging og MFA-status (krever Entra ID P1) |
 | `SecurityAlert.Read.All` *(valgfri)* | Defender-varsler (krever Defender-lisens) |
 

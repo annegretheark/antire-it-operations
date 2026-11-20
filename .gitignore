@@ -3,3 +3,6 @@ bin/
 obj/
 node_modules/
 *.zip
+
+# Rapporter fra scripts/Get-AppPermissions.ps1 (tenantdata)
+app-rettigheter-*.csv
