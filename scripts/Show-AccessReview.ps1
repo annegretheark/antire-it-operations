@@ -31,20 +31,24 @@
   siste pålogging krever i tillegg Entra ID P1.
 
 .PARAMETER TenantId
-  Tenanten som sjekkes. Standard: Antire (94f56205-4854-45cd-b54c-3383e8abfb3f).
+  Tenanten som sjekkes. Uten denne spør vinduet ved oppstart: Antire
+  (94f56205-4854-45cd-b54c-3383e8abfb3f) eller AGK, som er dev
+  (3af5c92b-38f9-48ce-8746-82bb4c113032). Alt annet enn Antire gir AGK.
 
 .PARAMETER InactiveUsersScript
   Stien til Rydd-InaktiveBrukere.ps1. Standard: ..\..\antire-entra-admin-scripts\ fra denne mappen.
 
 .EXAMPLE
+  # Spør om Antire eller AGK
   ./scripts/Show-AccessReview.ps1
 
 .EXAMPLE
+  # Rett mot AGK (dev), uten spørsmål
   ./scripts/Show-AccessReview.ps1 -TenantId 3af5c92b-38f9-48ce-8746-82bb4c113032
 #>
 [CmdletBinding()]
 param(
-    [string] $TenantId = '94f56205-4854-45cd-b54c-3383e8abfb3f',
+    [string] $TenantId,
     [string] $InactiveUsersScript = (Join-Path $PSScriptRoot '..\..\antire-entra-admin-scripts\Rydd-InaktiveBrukere.ps1'),
     [string] $LogFolder = (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Antire tilgangssjekk')
 )
@@ -54,6 +58,55 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
+
+# Kjente tenanter: navn -> tenant-ID
+$knownTenants = [ordered]@{
+    'Antire' = '94f56205-4854-45cd-b54c-3383e8abfb3f'
+    'AGK'    = '3af5c92b-38f9-48ce-8746-82bb4c113032'   # dev
+}
+
+# Uten -TenantId: spør om Antire eller AGK. Alt annet enn Antire (også å lukke) gir AGK.
+function Select-Tenant {
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = 'Tilgangssjekk – velg tenant'
+    $dialog.Size = New-Object System.Drawing.Size(420, 190)
+    $dialog.StartPosition = 'CenterScreen'
+    $dialog.FormBorderStyle = 'FixedDialog'
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.Font = New-Object System.Drawing.Font('Segoe UI', 9)
+
+    $label = New-Object System.Windows.Forms.Label
+    $label.Text = 'Hvilken tenant skal sjekkes?'
+    $label.Location = New-Object System.Drawing.Point(20, 20)
+    $label.AutoSize = $true
+    $label.Font = New-Object System.Drawing.Font('Segoe UI', 11)
+
+    $btnAntire = New-Object System.Windows.Forms.Button
+    $btnAntire.Text = 'Antire'
+    $btnAntire.Location = New-Object System.Drawing.Point(20, 65)
+    $btnAntire.Size = New-Object System.Drawing.Size(170, 40)
+    $btnAntire.DialogResult = 'Yes'
+
+    $btnAgk = New-Object System.Windows.Forms.Button
+    $btnAgk.Text = 'AGK (dev)'
+    $btnAgk.Location = New-Object System.Drawing.Point(210, 65)
+    $btnAgk.Size = New-Object System.Drawing.Size(170, 40)
+    $btnAgk.DialogResult = 'No'
+
+    $dialog.Controls.AddRange(@($label, $btnAntire, $btnAgk))
+    $dialog.AcceptButton = $btnAgk
+    $dialog.CancelButton = $btnAgk
+    $answer = $dialog.ShowDialog()
+    $dialog.Dispose()
+    if ($answer -eq 'Yes') { 'Antire' } else { 'AGK' }
+}
+
+if (-not $TenantId) {
+    $TenantId = $knownTenants[(Select-Tenant)]
+}
+$tenantName = ($knownTenants.GetEnumerator() | Where-Object Value -eq $TenantId | Select-Object -First 1).Key
+$tenantLabel = if ($tenantName) { "$tenantName ($TenantId)" } else { $TenantId }
 
 # Entra-roller (roleTemplateId) som kan deaktivere og slette apper og fjerne rettigheter
 $writeRoles = @{
@@ -281,7 +334,7 @@ function New-Control([string] $Type, [int] $X, [int] $Y, [int] $W = 0, [int] $H 
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Tilgangssjekk – $TenantId"
+$form.Text = "Tilgangssjekk – $tenantLabel"
 $form.Size = New-Object System.Drawing.Size(1400, 860)
 $form.StartPosition = 'CenterScreen'
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
@@ -292,7 +345,7 @@ $startPanel.Dock = 'Fill'
 
 $lblTitle = New-Control Label 40 30 -Text 'Tilgangssjekk'
 $lblTitle.Font = New-Object System.Drawing.Font('Segoe UI', 20, [System.Drawing.FontStyle]::Bold)
-$lblTenant = New-Control Label 42 82 -Text "Tenant: $TenantId"
+$lblTenant = New-Control Label 42 82 -Text "Tenant: $tenantLabel"
 $lblUser = New-Control Label 42 104 -Text 'Kobler til...'
 $lblUser.ForeColor = [System.Drawing.Color]::DimGray
 $btnLogin = New-Control Button 42 130 220 32 'Logg inn med Azure CLI'
