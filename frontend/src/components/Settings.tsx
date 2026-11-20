@@ -17,6 +17,7 @@ import {
   type AuditEvent,
   type EmployeeNames,
 } from '../audit'
+import { t } from '../i18n'
 
 type Employee = {
   id: number
@@ -49,8 +50,8 @@ export default function Settings() {
     return (
       <section className="helpdesk">
         <div className="helpdesk-card">
-          <h3>Innstillinger</h3>
-          <p>Du trenger rollen Helpdesk.Admin for å se innstillingene.</p>
+          <h3>{t('Innstillinger')}</h3>
+          <p>{t('Du trenger rollen Helpdesk.Admin for å se innstillingene.')}</p>
         </div>
       </section>
     )
@@ -58,16 +59,16 @@ export default function Settings() {
 
   return (
     <section className="helpdesk">
-      <div className="settings-tabs" role="tablist" aria-label="Innstillinger">
-        {TABS.map((t) => (
+      <div className="settings-tabs" role="tablist" aria-label={t('Innstillinger')}>
+        {TABS.map((item) => (
           <button
-            key={t.key}
+            key={item.key}
             type="button"
             role="tab"
-            aria-selected={tab === t.key}
-            onClick={() => setTab(t.key)}
+            aria-selected={tab === item.key}
+            onClick={() => setTab(item.key)}
           >
-            {t.label}
+            {t(item.label)}
           </button>
         ))}
       </div>
@@ -127,7 +128,7 @@ function AuditLog() {
         setEvents(page)
         setHasMore(page.length === PAGE_SIZE)
       } catch {
-        if (!cancelled) setError('Kunne ikke hente revisjonsloggen.')
+        if (!cancelled) setError(t('Kunne ikke hente revisjonsloggen.'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -149,7 +150,7 @@ function AuditLog() {
       setEvents((previous) => [...previous, ...page])
       setHasMore(page.length === PAGE_SIZE)
     } catch {
-      setError('Kunne ikke hente revisjonsloggen.')
+      setError(t('Kunne ikke hente revisjonsloggen.'))
     } finally {
       setLoading(false)
     }
@@ -173,14 +174,13 @@ function AuditLog() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Revisjonslogg</h3>
+      <h3>{t('Revisjonslogg')}</h3>
       <p className="audit-intro">
-        Alle endringer på saker, tilgangsbestillinger, ansatte og konfigurasjon i denne
-        tenanten, med hvem og når. Loggen kan ikke endres eller slettes.
+        {t('Alle endringer på saker, tilgangsbestillinger, ansatte og konfigurasjon i denne tenanten, med hvem og når. Loggen kan ikke endres eller slettes.')}
       </p>
 
       <div className="ticket-filter">
-        <label htmlFor="audit-entity">Vis:</label>
+        <label htmlFor="audit-entity">{t('Vis:')}</label>
         <select
           id="audit-entity"
           value={entityType}
@@ -190,10 +190,10 @@ function AuditLog() {
             setEntityType(e.target.value)
           }}
         >
-          <option value="">Alt</option>
+          <option value="">{t('Alt')}</option>
           {Object.entries(ENTITY_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
-              {label}
+              {t(label)}
             </option>
           ))}
         </select>
@@ -202,17 +202,17 @@ function AuditLog() {
       {error && <p role="alert" style={{ color: '#dc2626' }}>{error}</p>}
 
       {!loading && events.length === 0 && !error ? (
-        <p>Ingen hendelser registrert.</p>
+        <p>{t('Ingen hendelser registrert.')}</p>
       ) : (
         <div className="audit-table-wrapper">
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Tidspunkt</th>
-                <th>Hvem</th>
-                <th>Hva</th>
-                <th>Hendelse</th>
-                <th>Endringer</th>
+                <th>{t('Tidspunkt')}</th>
+                <th>{t('Hvem')}</th>
+                <th>{t('Hva')}</th>
+                <th>{t('Hendelse')}</th>
+                <th>{t('Endringer')}</th>
               </tr>
             </thead>
             <tbody>
@@ -221,7 +221,7 @@ function AuditLog() {
                   <td className="audit-nowrap">{formatDateTime(event.occurredAt)}</td>
                   <td>{event.actorName}</td>
                   <td className="audit-nowrap">
-                    {ENTITY_LABELS[event.entityType] ?? event.entityType}
+                    {ENTITY_LABELS[event.entityType] ? t(ENTITY_LABELS[event.entityType]) : event.entityType}
                     {event.entityType !== 'EmployeeSync' && ` #${event.entityId}`}
                   </td>
                   <td>{actionLabel(event.action)}</td>
@@ -237,7 +237,7 @@ function AuditLog() {
         </div>
       )}
 
-      {loading && <p>Henter hendelser...</p>}
+      {loading && <p>{t('Henter hendelser...')}</p>}
 
       {hasMore && !loading && (
         <button
@@ -245,7 +245,7 @@ function AuditLog() {
           className="audit-more"
           onClick={() => void loadMore()}
         >
-          Vis eldre hendelser
+          {t('Vis eldre hendelser')}
         </button>
       )}
     </div>

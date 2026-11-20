@@ -8,6 +8,7 @@ import {
 } from '../../serviceCatalog'
 import { errorText, useEntraGroups, useSend } from './settingsApi'
 import { priorityLabel } from '../../tickets'
+import { t } from '../../i18n'
 
 type Draft = {
   name: string
@@ -94,7 +95,7 @@ export default function ServiceCatalogSettings() {
       if (editingId === null) await send('POST', '/api/servicecatalog', body)
       else await send('PUT', `/api/servicecatalog/${editingId}`, body)
 
-      setMessage(editingId === null ? 'Tjenesten er lagt til.' : 'Tjenesten er oppdatert.')
+      setMessage(editingId === null ? t('Tjenesten er lagt til.') : t('Tjenesten er oppdatert.'))
       reset()
       setReloadKey((k) => k + 1)
     } catch (e) {
@@ -118,10 +119,9 @@ export default function ServiceCatalogSettings() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Tjenestekatalog</h3>
+      <h3>{t('Tjenestekatalog')}</h3>
       <p className="audit-intro">
-        Tjenestene brukerne velger når de melder inn en sak eller bestiller tilgang. Kategorien
-        styrer automatisk tildeling sammen med ansvarsområder og kategorigrupper.
+        {t('Tjenestene brukerne velger når de melder inn en sak eller bestiller tilgang. Kategorien styrer automatisk tildeling sammen med ansvarsområder og kategorigrupper.')}
       </p>
 
       <form
@@ -131,11 +131,11 @@ export default function ServiceCatalogSettings() {
           void save()
         }}
       >
-        <h4>{editingId === null ? 'Ny tjeneste' : `Endre «${draft.name}»`}</h4>
+        <h4>{editingId === null ? t('Ny tjeneste') : t('Endre «{name}»', { name: draft.name })}</h4>
 
         <div className="settings-form-grid">
           <div>
-            <label htmlFor="sc-name">Navn</label>
+            <label htmlFor="sc-name">{t('Navn')}</label>
             <input
               id="sc-name"
               value={draft.name}
@@ -146,7 +146,7 @@ export default function ServiceCatalogSettings() {
           </div>
 
           <div>
-            <label htmlFor="sc-category">Kategori</label>
+            <label htmlFor="sc-category">{t('Kategori')}</label>
             <input
               id="sc-category"
               list="sc-categories"
@@ -163,7 +163,7 @@ export default function ServiceCatalogSettings() {
           </div>
 
           <div>
-            <label htmlFor="sc-type">Type</label>
+            <label htmlFor="sc-type">{t('Type')}</label>
             <select
               id="sc-type"
               value={draft.type}
@@ -171,14 +171,14 @@ export default function ServiceCatalogSettings() {
             >
               {Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(label)}
                 </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label htmlFor="sc-priority">Standard prioritet</label>
+            <label htmlFor="sc-priority">{t('Standard prioritet')}</label>
             <select
               id="sc-priority"
               value={draft.defaultPriority}
@@ -194,13 +194,13 @@ export default function ServiceCatalogSettings() {
 
           {draft.type === 'access' && (
             <div>
-              <label htmlFor="sc-group">Entra-gruppe-ID (gir tilgangen)</label>
+              <label htmlFor="sc-group">{t('Entra-gruppe-ID (gir tilgangen)')}</label>
               <input
                 id="sc-group"
                 value={draft.entraGroupId}
                 onChange={(e) => update('entraGroupId', e.target.value)}
                 list="sc-entra-groups"
-                placeholder="Velg gruppe eller lim inn gruppe-ID"
+                placeholder={t('Velg gruppe eller lim inn gruppe-ID')}
               />
               <datalist id="sc-entra-groups">
                 {entra.groups.map((g) => (
@@ -217,7 +217,7 @@ export default function ServiceCatalogSettings() {
         </div>
 
         <div>
-          <label htmlFor="sc-description">Beskrivelse</label>
+          <label htmlFor="sc-description">{t('Beskrivelse')}</label>
           <textarea
             id="sc-description"
             value={draft.description}
@@ -233,7 +233,7 @@ export default function ServiceCatalogSettings() {
             checked={draft.requiresApproval}
             onChange={(e) => update('requiresApproval', e.target.checked)}
           />
-          Krever godkjenning
+          {t('Krever godkjenning')}
         </label>
 
         <label className="settings-check">
@@ -242,16 +242,16 @@ export default function ServiceCatalogSettings() {
             checked={draft.isActive}
             onChange={(e) => update('isActive', e.target.checked)}
           />
-          Aktiv (vises for brukerne)
+          {t('Aktiv (vises for brukerne)')}
         </label>
 
         <div className="settings-form-actions">
           <button type="submit" disabled={saving}>
-            {saving ? 'Lagrer...' : editingId === null ? 'Legg til' : 'Lagre endringer'}
+            {saving ? t('Lagrer...') : editingId === null ? t('Legg til') : t('Lagre endringer')}
           </button>
           {editingId !== null && (
             <button type="button" className="secondary" onClick={reset}>
-              Avbryt
+              {t('Avbryt')}
             </button>
           )}
         </div>
@@ -262,18 +262,18 @@ export default function ServiceCatalogSettings() {
       {catalog.error && <p role="alert" className="settings-error">{catalog.error}</p>}
 
       {catalog.loading ? (
-        <p>Henter tjenester...</p>
+        <p>{t('Henter tjenester...')}</p>
       ) : (
         <div className="audit-table-wrapper">
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Navn</th>
-                <th>Kategori</th>
-                <th>Type</th>
-                <th>Prioritet</th>
-                <th>Godkjenning</th>
-                <th>Status</th>
+                <th>{t('Navn')}</th>
+                <th>{t('Kategori')}</th>
+                <th>{t('Type')}</th>
+                <th>{t('Prioritet')}</th>
+                <th>{t('Godkjenning')}</th>
+                <th>{t('Status')}</th>
                 <th />
               </tr>
             </thead>
@@ -285,24 +285,24 @@ export default function ServiceCatalogSettings() {
                     {item.description && <div>{item.description}</div>}
                   </td>
                   <td>{item.category}</td>
-                  <td className="audit-nowrap">{SERVICE_TYPE_LABELS[item.type] ?? item.type}</td>
+                  <td className="audit-nowrap">{SERVICE_TYPE_LABELS[item.type] ? t(SERVICE_TYPE_LABELS[item.type]) : item.type}</td>
                   <td>{priorityLabel(item.defaultPriority)}</td>
-                  <td>{item.requiresApproval ? 'Ja' : 'Nei'}</td>
-                  <td>{item.isActive ? 'Aktiv' : 'Deaktivert'}</td>
+                  <td>{item.requiresApproval ? t('Ja') : t('Nei')}</td>
+                  <td>{item.isActive ? t('Aktiv') : t('Deaktivert')}</td>
                   <td className="audit-nowrap">
                     <button
                       type="button"
                       className="settings-row-action"
                       onClick={() => startEdit(item)}
                     >
-                      Endre
+                      {t('Endre')}
                     </button>
                     <button
                       type="button"
                       className="settings-row-action"
                       onClick={() => void setActive(item, !item.isActive)}
                     >
-                      {item.isActive ? 'Deaktiver' : 'Aktiver'}
+                      {item.isActive ? t('Deaktiver') : t('Aktiver')}
                     </button>
                   </td>
                 </tr>

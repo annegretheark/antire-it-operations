@@ -3,6 +3,7 @@ import './Helpdesk.css'
 import { useCurrentUser } from '../useCurrentUser'
 import { formatDateTime } from '../audit'
 import { formatDate } from '../assets'
+import { t } from '../i18n'
 import { useList, useResource } from './settings/settingsApi'
 
 type M365User = {
@@ -76,7 +77,7 @@ export default function M365() {
       <section className="helpdesk">
         <div className="helpdesk-card">
           <h3>Microsoft 365</h3>
-          <p>Du trenger rollen Helpdesk.Admin for å se Microsoft 365-oversikten.</p>
+          <p>{t('Du trenger rollen Helpdesk.Admin for å se Microsoft 365-oversikten.')}</p>
         </div>
       </section>
     )
@@ -85,18 +86,18 @@ export default function M365() {
   return (
     <section className="helpdesk">
       <p className="audit-intro">
-        Data hentes fra Entra ID i tenanten du er logget inn i{tenantName ? ` (${tenantName})` : ''}.
+        {t('Data hentes fra Entra ID i tenanten du er logget inn i')}{tenantName ? ` (${tenantName})` : ''}.
       </p>
 
       <div className="settings-tabs" role="tablist" aria-label="Microsoft 365">
         <button type="button" role="tab" aria-selected={tab === 'users'} onClick={() => setTab('users')}>
-          Brukere
+          {t('Brukere')}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'inactive'} onClick={() => setTab('inactive')}>
-          Inaktive brukere
+          {t('Inaktive brukere')}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'groups'} onClick={() => setTab('groups')}>
-          Grupper
+          {t('Grupper')}
         </button>
       </div>
 
@@ -131,35 +132,35 @@ function Users() {
 
   const data = overview.data
   const notices = [
-    data?.signInUnavailableReason && `Siste pålogging: ${data.signInUnavailableReason}`,
-    data?.mfaUnavailableReason && `MFA: ${data.mfaUnavailableReason}`,
-    data?.licensesUnavailableReason && `Lisensnavn: ${data.licensesUnavailableReason}`,
+    data?.signInUnavailableReason && t('Siste pålogging: {reason}', { reason: data.signInUnavailableReason }),
+    data?.mfaUnavailableReason && t('MFA: {reason}', { reason: data.mfaUnavailableReason }),
+    data?.licensesUnavailableReason && t('Lisensnavn: {reason}', { reason: data.licensesUnavailableReason }),
   ].filter(Boolean) as string[]
 
   return (
     <div className="helpdesk-card">
-      <h3>Brukere</h3>
+      <h3>{t('Brukere')}</h3>
 
       <div className="asset-filters">
         <input
           type="search"
-          aria-label="Søk"
-          placeholder="Søk på navn, e-post, avdeling eller stilling"
+          aria-label={t('Søk')}
+          placeholder={t('Søk på navn, e-post, avdeling eller stilling')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <label className="settings-check">
           <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
-          Bare deaktiverte eller uten MFA
+          {t('Bare deaktiverte eller uten MFA')}
         </label>
         <button type="button" className="settings-row-action" onClick={refresh} disabled={overview.loading}>
-          Oppdater
+          {t('Oppdater')}
         </button>
       </div>
 
       {notices.length > 0 && (
         <div className="m365-notice">
-          <strong>Noe data er ikke tilgjengelig:</strong>
+          <strong>{t('Noe data er ikke tilgjengelig:')}</strong>
           <ul>
             {notices.map((n) => <li key={n}>{n}</li>)}
           </ul>
@@ -169,21 +170,25 @@ function Users() {
       {overview.error && <p role="alert" className="settings-error">{overview.error}</p>}
 
       {overview.loading ? (
-        <p>Henter brukere fra Entra ID...</p>
+        <p>{t('Henter brukere fra Entra ID...')}</p>
       ) : data && (
         <>
           <p className="settings-muted">
-            {users.length} av {data.users.length} brukere · hentet {formatDateTime(data.fetchedAt)}
+            {t('{shown} av {total} brukere · hentet {time}', {
+              shown: users.length,
+              total: data.users.length,
+              time: formatDateTime(data.fetchedAt),
+            })}
           </p>
           <div className="audit-table-wrapper">
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Navn</th>
-                  <th>Type</th>
-                  <th>Konto</th>
-                  <th>Lisenser</th>
-                  <th>Siste pålogging</th>
+                  <th>{t('Navn')}</th>
+                  <th>{t('Type')}</th>
+                  <th>{t('Konto')}</th>
+                  <th>{t('Lisenser')}</th>
+                  <th>{t('Siste pålogging')}</th>
                   <th>MFA</th>
                 </tr>
               </thead>
@@ -199,22 +204,22 @@ function Users() {
                         </div>
                       )}
                     </td>
-                    <td>{u.userType === 'Guest' ? 'Gjest' : 'Medlem'}</td>
+                    <td>{u.userType === 'Guest' ? t('Gjest') : t('Medlem')}</td>
                     <td className={u.accountEnabled === false ? 'settings-error' : undefined}>
-                      {u.accountEnabled === false ? 'Deaktivert' : 'Aktiv'}
+                      {u.accountEnabled === false ? t('Deaktivert') : t('Aktiv')}
                     </td>
                     <td>{u.licenses.length > 0 ? u.licenses.join(', ') : '–'}</td>
                     <td className="audit-nowrap">
                       {data.signInUnavailableReason
-                        ? <span className="settings-muted">Krever lisens</span>
-                        : u.lastSignInAt ? formatDateTime(u.lastSignInAt) : 'Aldri'}
+                        ? <span className="settings-muted">{t('Krever lisens')}</span>
+                        : u.lastSignInAt ? formatDateTime(u.lastSignInAt) : t('Aldri')}
                     </td>
                     <td>
                       {data.mfaUnavailableReason
-                        ? <span className="settings-muted">Krever lisens</span>
+                        ? <span className="settings-muted">{t('Krever lisens')}</span>
                         : u.mfaRegistered === false
-                          ? <span className="settings-error">Ikke registrert</span>
-                          : u.mfaRegistered ? 'Registrert' : '–'}
+                          ? <span className="settings-error">{t('Ikke registrert')}</span>
+                          : u.mfaRegistered ? t('Registrert') : '–'}
                     </td>
                   </tr>
                 ))}
@@ -267,7 +272,7 @@ function Inactive() {
     : null
   const result = useResource<InactiveUsers>(url)
   const data = result.data
-  const typeText = (t: string) => (t === 'Guest' ? 'gjester' : 'medlemmer')
+  const typeText = (type: string) => (type === 'Guest' ? t('gjester') : t('medlemmer'))
 
   function fetchList() {
     setQuery({ userType, before, includeNever })
@@ -276,17 +281,17 @@ function Inactive() {
   function downloadCsv() {
     if (!data || !query) return
     const columns: [string, (u: M365User) => string][] = [
-      ['Navn', (u) => u.displayName ?? ''],
-      ['Brukernavn', (u) => u.userPrincipalName ?? ''],
-      ['E-post', (u) => u.mail ?? ''],
-      ['Type', (u) => (u.userType === 'Guest' ? 'Gjest' : 'Medlem')],
-      ['Konto', (u) => (u.accountEnabled === false ? 'Deaktivert' : 'Aktiv')],
-      ['Opprettet', (u) => u.createdAt?.slice(0, 10) ?? ''],
-      ['Siste vellykkede pålogging', (u) => u.lastSuccessfulSignInAt?.slice(0, 10) ?? ''],
-      ['Siste interaktive pålogging', (u) => u.lastSignInAt?.slice(0, 10) ?? ''],
-      ['Dager siden', (u) => String(daysSince(u.lastSuccessfulSignInAt) ?? '')],
-      ['Lisenser', (u) => u.licenses.join(', ')],
-      ['Objekt-ID', (u) => u.id],
+      [t('Navn'), (u) => u.displayName ?? ''],
+      [t('Brukernavn'), (u) => u.userPrincipalName ?? ''],
+      [t('E-post'), (u) => u.mail ?? ''],
+      [t('Type'), (u) => (u.userType === 'Guest' ? t('Gjest') : t('Medlem'))],
+      [t('Konto'), (u) => (u.accountEnabled === false ? t('Deaktivert') : t('Aktiv'))],
+      [t('Opprettet'), (u) => u.createdAt?.slice(0, 10) ?? ''],
+      [t('Siste vellykkede pålogging'), (u) => u.lastSuccessfulSignInAt?.slice(0, 10) ?? ''],
+      [t('Siste interaktive pålogging'), (u) => u.lastSignInAt?.slice(0, 10) ?? ''],
+      [t('Dager siden'), (u) => String(daysSince(u.lastSuccessfulSignInAt) ?? '')],
+      [t('Lisenser'), (u) => u.licenses.join(', ')],
+      [t('Objekt-ID'), (u) => u.id],
     ]
     const quote = (v: string) => `"${v.replace(/"/g, '""')}"`
     const csv = [
@@ -296,30 +301,28 @@ function Inactive() {
 
     const link = document.createElement('a')
     link.href = `data:text/csv;charset=utf-8,${encodeURIComponent('﻿' + csv)}`
-    link.download = `inaktive-${typeText(query.userType)}-${query.before}.csv`
+    link.download = t('inaktive-{type}-{date}.csv', { type: typeText(query.userType), date: query.before })
     link.click()
   }
 
   return (
     <div className="helpdesk-card">
-      <h3>Inaktive brukere</h3>
+      <h3>{t('Inaktive brukere')}</h3>
       <p className="audit-intro">
-        Finn gjester eller medlemmer som ikke har hatt en vellykket pålogging siden en dato
-        (interaktiv eller ikke-interaktiv). Microsoft registrerer denne datoen fra desember 2023,
-        så «Ingen registrert» betyr ingen vellykket pålogging siden da. Listen er kun til lesing.
+        {t('Finn gjester eller medlemmer som ikke har hatt en vellykket pålogging siden en dato (interaktiv eller ikke-interaktiv). Microsoft registrerer denne datoen fra desember 2023, så «Ingen registrert» betyr ingen vellykket pålogging siden da. Listen er kun til lesing.')}
       </p>
 
       <div className="asset-filters">
         <label className="settings-check">
           <input type="radio" name="inactive-type" checked={userType === 'Guest'} onChange={() => setUserType('Guest')} />
-          Gjester
+          {t('Gjester')}
         </label>
         <label className="settings-check">
           <input type="radio" name="inactive-type" checked={userType === 'Member'} onChange={() => setUserType('Member')} />
-          Medlemmer
+          {t('Medlemmer')}
         </label>
         <label>
-          Ingen vellykket pålogging siden{' '}
+          {t('Ingen vellykket pålogging siden')}{' '}
           <input
             type="date"
             value={before}
@@ -329,7 +332,7 @@ function Inactive() {
         </label>
         {INACTIVE_PRESETS.map((p) => (
           <button key={p.days} type="button" className="settings-row-action" onClick={() => setBefore(daysAgo(p.days))}>
-            {p.label}
+            {t(p.label)}
           </button>
         ))}
       </div>
@@ -337,14 +340,14 @@ function Inactive() {
       <div className="asset-filters">
         <label className="settings-check">
           <input type="checkbox" checked={includeNever} onChange={(e) => setIncludeNever(e.target.checked)} />
-          Ta med brukere uten registrert pålogging (opprettet før datoen)
+          {t('Ta med brukere uten registrert pålogging (opprettet før datoen)')}
         </label>
         <button type="button" className="asset-primary" onClick={fetchList} disabled={!before || result.loading}>
-          Hent liste
+          {t('Hent liste')}
         </button>
         {query && (
           <button type="button" className="settings-row-action" onClick={() => setCount((c) => c + 1)} disabled={result.loading}>
-            Oppdater fra Entra ID
+            {t('Oppdater fra Entra ID')}
           </button>
         )}
         <button
@@ -353,7 +356,7 @@ function Inactive() {
           onClick={downloadCsv}
           disabled={!data || data.users.length === 0}
         >
-          Last ned som CSV
+          {t('Last ned som CSV')}
         </button>
       </div>
 
@@ -361,31 +364,36 @@ function Inactive() {
 
       {data?.signInUnavailableReason && (
         <div className="m365-notice">
-          <strong>Påloggingsdatoene er ikke tilgjengelige:</strong> {data.signInUnavailableReason}
+          <strong>{t('Påloggingsdatoene er ikke tilgjengelige:')}</strong> {data.signInUnavailableReason}
         </div>
       )}
 
       {!query ? (
-        <p className="settings-muted">Velg brukertype og dato, og trykk «Hent liste».</p>
+        <p className="settings-muted">{t('Velg brukertype og dato, og trykk «Hent liste».')}</p>
       ) : result.loading ? (
-        <p>Henter brukere fra Entra ID...</p>
+        <p>{t('Henter brukere fra Entra ID...')}</p>
       ) : data && !data.signInUnavailableReason && (
         <>
           <p className="settings-muted">
-            {data.users.length} av {data.totalOfType} {typeText(query.userType)} uten vellykket pålogging
-            siden {formatDate(query.before)} · hentet {formatDateTime(data.fetchedAt)}
+            {t('{shown} av {total} {type} uten vellykket pålogging siden {date} · hentet {time}', {
+              shown: data.users.length,
+              total: data.totalOfType,
+              type: typeText(query.userType),
+              date: formatDate(query.before),
+              time: formatDateTime(data.fetchedAt),
+            })}
           </p>
           {data.users.length > 0 && (
             <div className="audit-table-wrapper">
               <table className="audit-table">
                 <thead>
                   <tr>
-                    <th>Navn</th>
-                    <th>Konto</th>
-                    <th>Opprettet</th>
-                    <th>Siste vellykkede pålogging</th>
-                    <th>Dager siden</th>
-                    <th>Lisenser</th>
+                    <th>{t('Navn')}</th>
+                    <th>{t('Konto')}</th>
+                    <th>{t('Opprettet')}</th>
+                    <th>{t('Siste vellykkede pålogging')}</th>
+                    <th>{t('Dager siden')}</th>
+                    <th>{t('Lisenser')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -399,11 +407,11 @@ function Inactive() {
                         )}
                       </td>
                       <td className={u.accountEnabled === false ? 'settings-error' : undefined}>
-                        {u.accountEnabled === false ? 'Deaktivert' : 'Aktiv'}
+                        {u.accountEnabled === false ? t('Deaktivert') : t('Aktiv')}
                       </td>
                       <td className="audit-nowrap">{formatDate(u.createdAt)}</td>
                       <td className="audit-nowrap">
-                        {u.lastSuccessfulSignInAt ? formatDateTime(u.lastSuccessfulSignInAt) : 'Ingen registrert'}
+                        {u.lastSuccessfulSignInAt ? formatDateTime(u.lastSuccessfulSignInAt) : t('Ingen registrert')}
                       </td>
                       <td>{daysSince(u.lastSuccessfulSignInAt) ?? '–'}</td>
                       <td>{u.licenses.length > 0 ? u.licenses.join(', ') : '–'}</td>
@@ -432,35 +440,35 @@ function Groups() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Grupper</h3>
+      <h3>{t('Grupper')}</h3>
 
       <div className="asset-filters">
         <input
           type="search"
-          aria-label="Søk"
-          placeholder="Søk på navn, beskrivelse eller e-post"
+          aria-label={t('Søk')}
+          placeholder={t('Søk på navn, beskrivelse eller e-post')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <button type="button" className="settings-row-action" onClick={refresh} disabled={groups.loading}>
-          Oppdater
+          {t('Oppdater')}
         </button>
       </div>
 
       {groups.error && <p role="alert" className="settings-error">{groups.error}</p>}
 
       {groups.loading ? (
-        <p>Henter grupper fra Entra ID...</p>
+        <p>{t('Henter grupper fra Entra ID...')}</p>
       ) : !groups.error && filtered.length === 0 ? (
-        <p>Ingen grupper funnet.</p>
+        <p>{t('Ingen grupper funnet.')}</p>
       ) : (
         <div className="audit-table-wrapper">
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Gruppe</th>
-                <th>Type</th>
-                <th>Gruppe-ID</th>
+                <th>{t('Gruppe')}</th>
+                <th>{t('Type')}</th>
+                <th>{t('Gruppe-ID')}</th>
               </tr>
             </thead>
             <tbody>
@@ -486,13 +494,13 @@ function GroupRow({ group, open, onToggle }: { group: M365Group; open: boolean; 
       <tr>
         <td>
           <button type="button" className="asset-link" aria-expanded={open} onClick={onToggle}>
-            {open ? '▾' : '▸'} {group.displayName ?? '(uten navn)'}
+            {open ? '▾' : '▸'} {group.displayName ?? t('(uten navn)')}
           </button>
           {group.description && <div className="settings-muted">{group.description}</div>}
         </td>
         <td>
-          {GROUP_KIND_LABELS[group.kind] ?? group.kind}
-          {group.isDynamic && <div className="settings-muted">Dynamisk medlemskap</div>}
+          {GROUP_KIND_LABELS[group.kind] ? t(GROUP_KIND_LABELS[group.kind]) : group.kind}
+          {group.isDynamic && <div className="settings-muted">{t('Dynamisk medlemskap')}</div>}
         </td>
         <td><code>{group.id}</code></td>
       </tr>
@@ -510,9 +518,9 @@ function GroupRow({ group, open, onToggle }: { group: M365Group; open: boolean; 
 function GroupMembers({ groupId }: { groupId: string }) {
   const members = useList<GroupMember>(`/api/m365/groups/${groupId}/members`)
 
-  if (members.loading) return <p>Henter medlemmer...</p>
+  if (members.loading) return <p>{t('Henter medlemmer...')}</p>
   if (members.error) return <p className="settings-error">{members.error}</p>
-  if (members.items.length === 0) return <p className="settings-muted">Ingen medlemmer.</p>
+  if (members.items.length === 0) return <p className="settings-muted">{t('Ingen medlemmer.')}</p>
 
   return (
     <ul className="asset-tickets">
@@ -520,7 +528,7 @@ function GroupMembers({ groupId }: { groupId: string }) {
         <li key={m.id}>
           {m.displayName ?? m.id}
           {m.userPrincipalName && <span className="settings-muted"> · {m.userPrincipalName}</span>}
-          {m.type !== 'user' && <span className="settings-muted"> ({MEMBER_TYPE_LABELS[m.type] ?? m.type})</span>}
+          {m.type !== 'user' && <span className="settings-muted"> ({MEMBER_TYPE_LABELS[m.type] ? t(MEMBER_TYPE_LABELS[m.type]) : m.type})</span>}
         </li>
       ))}
     </ul>

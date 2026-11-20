@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { errorText, useList, useSend } from './settingsApi'
+import { t } from '../../i18n'
 
 type TemplateTask = {
   id: number
@@ -26,9 +27,12 @@ const EMPTY: Draft = {
 }
 
 function dayText(days: number, type: string): string {
-  const reference = type === 'onboarding' ? 'startdato' : 'sluttdato'
-  if (days === 0) return `På ${reference}`
-  return days < 0 ? `${-days} dager før ${reference}` : `${days} dager etter ${reference}`
+  if (type === 'onboarding') {
+    if (days === 0) return t('På startdato')
+    return days < 0 ? t('{n} dager før startdato', { n: -days }) : t('{n} dager etter startdato', { n: days })
+  }
+  if (days === 0) return t('På sluttdato')
+  return days < 0 ? t('{n} dager før sluttdato', { n: -days }) : t('{n} dager etter sluttdato', { n: days })
 }
 
 // Maler for onboarding og offboarding. Endringer gjelder nye prosesser.
@@ -41,9 +45,9 @@ export default function LifecycleTemplatesSettings() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  function edit(t: TemplateTask) {
-    setEditingId(t.id)
-    setDraft({ ...t, description: t.description ?? '', category: t.category ?? '' })
+  function edit(tpl: TemplateTask) {
+    setEditingId(tpl.id)
+    setDraft({ ...tpl, description: tpl.description ?? '', category: tpl.category ?? '' })
     setError('')
   }
 
@@ -69,10 +73,9 @@ export default function LifecycleTemplatesSettings() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Onboarding-maler</h3>
+      <h3>{t('Onboarding-maler')}</h3>
       <p className="audit-intro">
-        Oppgavene som legges inn når onboarding eller offboarding starter. Fristen regnes fra
-        startdato (onboarding) eller sluttdato (offboarding). Endringer gjelder nye prosesser.
+        {t('Oppgavene som legges inn når onboarding eller offboarding starter. Fristen regnes fra startdato (onboarding) eller sluttdato (offboarding). Endringer gjelder nye prosesser.')}
       </p>
 
       <form
@@ -82,46 +85,46 @@ export default function LifecycleTemplatesSettings() {
           void save(draft, editingId)
         }}
       >
-        <h4>{editingId === null ? 'Ny oppgave' : `Endre «${draft.title}»`}</h4>
+        <h4>{editingId === null ? t('Ny oppgave') : t('Endre «{name}»', { name: draft.title })}</h4>
         <div className="settings-form-grid">
           <div>
-            <label htmlFor="tpl-type">Type</label>
+            <label htmlFor="tpl-type">{t('Type')}</label>
             <select id="tpl-type" value={draft.type} onChange={(e) => update('type', e.target.value)}>
               <option value="onboarding">Onboarding</option>
               <option value="offboarding">Offboarding</option>
             </select>
           </div>
           <div>
-            <label htmlFor="tpl-title">Oppgave</label>
+            <label htmlFor="tpl-title">{t('Oppgave')}</label>
             <input id="tpl-title" value={draft.title} maxLength={200} required
               onChange={(e) => update('title', e.target.value)} />
           </div>
           <div>
-            <label htmlFor="tpl-offset">Frist (dager, minus = før)</label>
+            <label htmlFor="tpl-offset">{t('Frist (dager, minus = før)')}</label>
             <input id="tpl-offset" type="number" min={-365} max={365} value={draft.offsetDays}
               onChange={(e) => update('offsetDays', Number(e.target.value))} />
           </div>
           <div>
-            <label htmlFor="tpl-category">Ansvarlig område (valgfritt)</label>
+            <label htmlFor="tpl-category">{t('Ansvarlig område (valgfritt)')}</label>
             <input id="tpl-category" value={draft.category} maxLength={100}
               onChange={(e) => update('category', e.target.value)} />
           </div>
           <div>
-            <label htmlFor="tpl-order">Rekkefølge</label>
+            <label htmlFor="tpl-order">{t('Rekkefølge')}</label>
             <input id="tpl-order" type="number" value={draft.sortOrder}
               onChange={(e) => update('sortOrder', Number(e.target.value))} />
           </div>
         </div>
         <div>
-          <label htmlFor="tpl-description">Beskrivelse</label>
+          <label htmlFor="tpl-description">{t('Beskrivelse')}</label>
           <textarea id="tpl-description" rows={2} maxLength={1000} value={draft.description}
             onChange={(e) => update('description', e.target.value)} />
         </div>
         <div className="settings-form-actions">
-          <button type="submit" disabled={busy}>{editingId === null ? 'Legg til' : 'Lagre'}</button>
+          <button type="submit" disabled={busy}>{editingId === null ? t('Legg til') : t('Lagre')}</button>
           {editingId !== null && (
             <button type="button" className="secondary" onClick={() => { setEditingId(null); setDraft(EMPTY) }}>
-              Avbryt
+              {t('Avbryt')}
             </button>
           )}
         </div>
@@ -136,27 +139,27 @@ export default function LifecycleTemplatesSettings() {
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Oppgave</th>
-                  <th>Frist</th>
-                  <th>Område</th>
+                  <th>{t('Oppgave')}</th>
+                  <th>{t('Frist')}</th>
+                  <th>{t('Område')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {templates.items
-                  .filter((t) => t.type === type)
-                  .map((t) => (
-                    <tr key={t.id} className={t.isActive ? undefined : 'settings-muted'}>
+                  .filter((tpl) => tpl.type === type)
+                  .map((tpl) => (
+                    <tr key={tpl.id} className={tpl.isActive ? undefined : 'settings-muted'}>
                       <td>
-                        <strong>{t.title}</strong>
-                        {!t.isActive && ' (av)'}
-                        {t.description && <div className="settings-muted">{t.description}</div>}
+                        <strong>{tpl.title}</strong>
+                        {!tpl.isActive && ` (${t('av')})`}
+                        {tpl.description && <div className="settings-muted">{tpl.description}</div>}
                       </td>
-                      <td className="audit-nowrap">{dayText(t.offsetDays, t.type)}</td>
-                      <td>{t.category ?? '–'}</td>
+                      <td className="audit-nowrap">{dayText(tpl.offsetDays, tpl.type)}</td>
+                      <td>{tpl.category ?? '–'}</td>
                       <td className="audit-nowrap">
-                        <button type="button" className="settings-row-action" onClick={() => edit(t)}>
-                          Endre
+                        <button type="button" className="settings-row-action" onClick={() => edit(tpl)}>
+                          {t('Endre')}
                         </button>
                         <button
                           type="button"
@@ -164,12 +167,12 @@ export default function LifecycleTemplatesSettings() {
                           disabled={busy}
                           onClick={() =>
                             void save(
-                              { ...t, description: t.description ?? '', category: t.category ?? '', isActive: !t.isActive },
-                              t.id
+                              { ...tpl, description: tpl.description ?? '', category: tpl.category ?? '', isActive: !tpl.isActive },
+                              tpl.id
                             )
                           }
                         >
-                          {t.isActive ? 'Slå av' : 'Slå på'}
+                          {tpl.isActive ? t('Slå av') : t('Slå på')}
                         </button>
                       </td>
                     </tr>

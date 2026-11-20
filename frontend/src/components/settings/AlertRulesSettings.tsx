@@ -3,6 +3,7 @@ import { ALERT_SOURCE_LABELS, SEVERITIES, severityLabel, type AlertRule } from '
 import { PRIORITIES, priorityLabel } from '../../tickets'
 import { useServiceCatalog } from '../../serviceCatalog'
 import { errorText, useList, useSend } from './settingsApi'
+import { t } from '../../i18n'
 
 // Hvilke varsler som blir saker, per kilde
 export default function AlertRulesSettings() {
@@ -43,7 +44,7 @@ export default function AlertRulesSettings() {
         notifyTeams: draft.notifyTeams,
         createTickets: draft.createTickets,
       })
-      setMessage(`Regelen for ${ALERT_SOURCE_LABELS[source] ?? source} er lagret.`)
+      setMessage(t('Regelen for {source} er lagret.', { source: ALERT_SOURCE_LABELS[source] ?? source }))
       setDrafts(({ [source]: _saved, ...rest }) => rest)
       setReloadKey((k) => k + 1)
     } catch (e) {
@@ -55,12 +56,9 @@ export default function AlertRulesSettings() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Varselregler</h3>
+      <h3>{t('Varselregler')}</h3>
       <p className="audit-intro">
-        Varsler som er minst så alvorlige som terskelen, blir saker. Mindre alvorlige lagres under
-        Varsler uten sak. Kategorien styrer automatisk tildeling. Prioriteten følger
-        alvorlighetsgraden (Azure Sev0 kritisk, Sev1 høy, Sev2 normal; Defender høy → høy, middels →
-        normal), med mindre du velger en fast prioritet.
+        {t('Varsler som er minst så alvorlige som terskelen, blir saker. Mindre alvorlige lagres under Varsler uten sak. Kategorien styrer automatisk tildeling. Prioriteten følger alvorlighetsgraden (Azure Sev0 kritisk, Sev1 høy, Sev2 normal; Defender høy → høy, middels → normal), med mindre du velger en fast prioritet.')}
       </p>
 
       {error && <p role="alert" className="settings-error">{error}</p>}
@@ -68,7 +66,7 @@ export default function AlertRulesSettings() {
       {rules.error && <p role="alert" className="settings-error">{rules.error}</p>}
 
       {rules.loading ? (
-        <p>Henter regler...</p>
+        <p>{t('Henter regler...')}</p>
       ) : (
         rules.items.map((rule) => {
           const draft = drafts[rule.source] ?? rule
@@ -79,7 +77,7 @@ export default function AlertRulesSettings() {
 
               <div className="settings-form-grid">
                 <div>
-                  <label htmlFor={`rule-severity-${rule.source}`}>Sak fra og med</label>
+                  <label htmlFor={`rule-severity-${rule.source}`}>{t('Sak fra og med')}</label>
                   <select
                     id={`rule-severity-${rule.source}`}
                     value={draft.minSeverity}
@@ -91,7 +89,7 @@ export default function AlertRulesSettings() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor={`rule-category-${rule.source}`}>Kategori</label>
+                  <label htmlFor={`rule-category-${rule.source}`}>{t('Kategori')}</label>
                   <input
                     id={`rule-category-${rule.source}`}
                     list="rule-categories"
@@ -101,15 +99,15 @@ export default function AlertRulesSettings() {
                   />
                 </div>
                 <div>
-                  <label htmlFor={`rule-priority-${rule.source}`}>Prioritet</label>
+                  <label htmlFor={`rule-priority-${rule.source}`}>{t('Prioritet')}</label>
                   <select
                     id={`rule-priority-${rule.source}`}
                     value={draft.priorityOverride ?? ''}
                     onChange={(e) => update(rule, { priorityOverride: e.target.value || null })}
                   >
-                    <option value="">Etter alvorlighetsgrad</option>
+                    <option value="">{t('Etter alvorlighetsgrad')}</option>
                     {PRIORITIES.map((p) => (
-                      <option key={p} value={p}>Alltid {priorityLabel(p).toLowerCase()}</option>
+                      <option key={p} value={p}>{t('Alltid {priority}', { priority: priorityLabel(p).toLowerCase() })}</option>
                     ))}
                   </select>
                 </div>
@@ -121,7 +119,7 @@ export default function AlertRulesSettings() {
                   checked={draft.createTickets}
                   onChange={(e) => update(rule, { createTickets: e.target.checked })}
                 />
-                Lag saker fra varsler
+                {t('Lag saker fra varsler')}
               </label>
 
               <label className="settings-check">
@@ -130,7 +128,7 @@ export default function AlertRulesSettings() {
                   checked={draft.notifyTeams}
                   onChange={(e) => update(rule, { notifyTeams: e.target.checked })}
                 />
-                Varsle Teams om nye og gjenåpnede saker
+                {t('Varsle Teams om nye og gjenåpnede saker')}
               </label>
 
               <div className="settings-form-actions">
@@ -139,7 +137,7 @@ export default function AlertRulesSettings() {
                   disabled={!drafts[rule.source] || saving !== null}
                   onClick={() => void save(rule.source)}
                 >
-                  {saving === rule.source ? 'Lagrer...' : 'Lagre'}
+                  {saving === rule.source ? t('Lagrer...') : t('Lagre')}
                 </button>
               </div>
             </div>

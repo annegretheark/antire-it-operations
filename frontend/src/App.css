@@ -162,3 +162,25 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+.language-switcher {
+  display: inline-flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.language-switcher button {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.language-switcher button.active {
+  background: #17263c;
+  color: white;
+}

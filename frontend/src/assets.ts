@@ -1,3 +1,5 @@
+import { locale } from './i18n'
+
 // IT-utstyr: typer og norske visningsnavn for kodene fra /api/assets
 
 export type Asset = {
@@ -53,5 +55,5 @@ export function assetName(asset: Pick<Asset, 'assetTag' | 'manufacturer' | 'mode
 }
 
 export function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString('nb-NO') : '–'
+  return value ? new Date(value).toLocaleDateString(locale()) : '–'
 }

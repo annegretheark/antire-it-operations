@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 // Koder for status, prioritet og SLA på saker, med norske visningsnavn.
 // Backend bruker kodene; revisjonsloggen kan inneholde de gamle norske verdiene.
 
@@ -30,11 +32,11 @@ export const SLA_LABELS: Record<SlaStatus, string> = {
 }
 
 export function statusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status
+  return STATUS_LABELS[status] ? t(STATUS_LABELS[status]) : status
 }
 
 export function priorityLabel(priority: string): string {
-  return PRIORITY_LABELS[priority] ?? priority
+  return PRIORITY_LABELS[priority] ? t(PRIORITY_LABELS[priority]) : priority
 }
 
 // Brudd eller i fare: det som trenger oppmerksomhet
@@ -51,8 +53,8 @@ export function formatRelative(iso: string, now = Date.now()): string {
     abs < 60
       ? `${abs} min`
       : abs < 48 * 60
-        ? `${Math.floor(abs / 60)} t${abs % 60 ? ` ${abs % 60} min` : ''}`
-        : `${Math.round(abs / (24 * 60))} døgn`
+        ? `${Math.floor(abs / 60)} ${t('t')}${abs % 60 ? ` ${abs % 60} min` : ''}`
+        : t('{n} døgn', { n: Math.round(abs / (24 * 60)) })
 
-  return minutes >= 0 ? `om ${text}` : `for ${text} siden`
+  return minutes >= 0 ? t('om {time}', { time: text }) : t('for {time} siden', { time: text })
 }

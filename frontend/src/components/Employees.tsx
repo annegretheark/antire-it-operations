@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 import EmployeeAssets from './EmployeeAssets'
+import { t } from '../i18n'
 
 type Employee = {
   id: number
@@ -83,8 +84,8 @@ export default function Employees() {
     if (!cancelled) {
       setError(
         err instanceof Error
-          ? `Kunne ikke hente ansatte: ${err.message}`
-          : 'Kunne ikke hente ansatte.'
+          ? t('Kunne ikke hente ansatte: {error}', { error: err.message })
+          : t('Kunne ikke hente ansatte.')
       )
     }
   } finally {
@@ -131,13 +132,17 @@ export default function Employees() {
       }
 
       setMessage(
-        `Synkronisert fra Entra: ${result.created} nye, ${result.updated} oppdatert (${result.totalFromEntra} brukere med avdeling og stilling).`
+        t('Synkronisert fra Entra: {created} nye, {updated} oppdatert ({total} brukere med avdeling og stilling).', {
+          created: result.created,
+          updated: result.updated,
+          total: result.totalFromEntra,
+        })
       )
     } catch (err) {
       setError(
         err instanceof Error
-          ? `Kunne ikke synkronisere fra Entra: ${err.message}`
-          : 'Kunne ikke synkronisere fra Entra.'
+          ? t('Kunne ikke synkronisere fra Entra: {error}', { error: err.message })
+          : t('Kunne ikke synkronisere fra Entra.')
       )
     } finally {
       setSyncing(false)
@@ -213,9 +218,9 @@ export default function Employees() {
 
       if (!response.ok) {
   if (response.status === 409) {
-    throw new Error('Ansattnummeret er allerede i bruk.')
+    throw new Error(t('Ansattnummeret er allerede i bruk.'))
   }
-  throw new Error('Kunne ikke lagre ansattinformasjonen.')
+  throw new Error(t('Kunne ikke lagre ansattinformasjonen.'))
 }
 
       const saved: Employee = await response.json()
@@ -230,15 +235,15 @@ export default function Employees() {
 
       setMessage(
         editingId === null
-          ? 'Ansatt er registrert.'
-          : 'Ansattinformasjonen er oppdatert.'
+          ? t('Ansatt er registrert.')
+          : t('Ansattinformasjonen er oppdatert.')
       )
          clearForm()
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : 'Kunne ikke lagre ansattinformasjonen.'
+          : t('Kunne ikke lagre ansattinformasjonen.')
       )
     } finally {
       setSaving(false)
@@ -252,12 +257,12 @@ export default function Employees() {
     if (!employee) return
 
     if (endDate < employee.startDate.slice(0, 10)) {
-      setError('Sluttdato kan ikke være før startdato.')
+      setError(t('Sluttdato kan ikke være før startdato.'))
       return
     }
 
     if (!window.confirm(
-      `Registrere ${employee.firstName} ${employee.lastName} som sluttet?`
+      t('Registrere {name} som sluttet?', { name: `${employee.firstName} ${employee.lastName}` })
     )) return
 
     setSaving(true)
@@ -272,7 +277,7 @@ export default function Employees() {
       })
 
 if (!response.ok) {
-  throw new Error('Kunne ikke avslutte arbeidsforholdet.')
+  throw new Error(t('Kunne ikke avslutte arbeidsforholdet.'))
 }
 
       const updated: Employee = await response.json()
@@ -283,9 +288,9 @@ if (!response.ok) {
 
       setTerminatingId(null)
       setEndDate('')
-      setMessage('Ansatt er registrert som sluttet.')
+      setMessage(t('Ansatt er registrert som sluttet.'))
     } catch {
-      setError('Kunne ikke registrere sluttdato.')
+      setError(t('Kunne ikke registrere sluttdato.'))
     } finally {
       setSaving(false)
     }
@@ -302,19 +307,19 @@ if (!response.ok) {
     <section className="helpdesk">
       <div className="helpdesk-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <h3>Ansatte ({employees.length})</h3>
+          <h3>{t('Ansatte ({n})', { n: employees.length })}</h3>
           {isEmployeeAdmin && (
           <button type="button" disabled={syncing} onClick={() => void syncFromEntra()}>
-            {syncing ? 'Synkroniserer...' : 'Synkroniser fra Entra'}
+            {syncing ? t('Synkroniserer...') : t('Synkroniser fra Entra')}
           </button>
           )}
         </div>
 
-        <label htmlFor="employee-search">Søk etter ansatt</label>
+        <label htmlFor="employee-search">{t('Søk etter ansatt')}</label>
         <input
           id="employee-search"
           type="search"
-          placeholder="Navn, e-post, avdeling eller ansattnummer"
+          placeholder={t('Navn, e-post, avdeling eller ansattnummer')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ width: '100%', maxWidth: 480, marginBottom: 16 }}
@@ -324,18 +329,18 @@ if (!response.ok) {
         {message && <p role="status">{message}</p>}
 
         {loading ? (
-          <p>Henter ansatte...</p>
+          <p>{t('Henter ansatte...')}</p>
         ) : filteredEmployees.length === 0 ? (
-          <p>{employees.length === 0 ? 'Ingen ansatte registrert.' : 'Ingen treff på søket.'}</p>
+          <p>{employees.length === 0 ? t('Ingen ansatte registrert.') : t('Ingen treff på søket.')}</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: 10 }}>Navn</th>
-                  <th style={{ padding: 10 }}>Avdeling</th>
-                  <th style={{ padding: 10 }}>Stilling</th>
-                  <th style={{ padding: 10 }}>Status</th>
+                  <th style={{ padding: 10 }}>{t('Navn')}</th>
+                  <th style={{ padding: 10 }}>{t('Avdeling')}</th>
+                  <th style={{ padding: 10 }}>{t('Stilling')}</th>
+                  <th style={{ padding: 10 }}>{t('Status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -354,44 +359,44 @@ if (!response.ok) {
                         <span>{selectedId === employee.id ? '▾' : '▸'} {employee.firstName} {employee.lastName}</span>
                         <span>{employee.department || '–'}</span>
                         <span>{employee.jobTitle || '–'}</span>
-                        <span>{employee.status}</span>
+                        <span>{t(employee.status)}</span>
                       </button>
                       {selectedId === employee.id && (
                         <div style={{ padding: '12px 16px 20px', borderTop: '1px solid #8883' }}>
-                          <p><strong>Ansattnummer:</strong> {employee.employeeNumber ?? 'Ikke tildelt'}</p>
-                          <p><strong>E-post:</strong> {employee.email}</p>
-                          <p><strong>Avdeling:</strong> {employee.department}</p>
-                          <p><strong>Stilling:</strong> {employee.jobTitle}</p>
-                          <p><strong>Startdato:</strong> {employee.startDate.slice(0, 10)}</p>
-                          <p><strong>Status:</strong> {employee.status}</p>
-                          {employee.endDate && <p><strong>Sluttdato:</strong> {employee.endDate.slice(0, 10)}</p>}
+                          <p><strong>{t('Ansattnummer')}:</strong> {employee.employeeNumber ?? t('Ikke tildelt')}</p>
+                          <p><strong>{t('E-post')}:</strong> {employee.email}</p>
+                          <p><strong>{t('Avdeling')}:</strong> {employee.department}</p>
+                          <p><strong>{t('Stilling')}:</strong> {employee.jobTitle}</p>
+                          <p><strong>{t('Startdato')}:</strong> {employee.startDate.slice(0, 10)}</p>
+                          <p><strong>{t('Status')}:</strong> {t(employee.status)}</p>
+                          {employee.endDate && <p><strong>{t('Sluttdato')}:</strong> {employee.endDate.slice(0, 10)}</p>}
                           {isHelpdeskAgent && (
                             <EmployeeAssets employeeId={employee.id} endDate={employee.endDate} />
                           )}
                           {isEmployeeAdmin && (
                           <div className="approval-actions">
-                            <button type="button" disabled={saving} onClick={() => editEmployee(employee)}>Rediger</button>
+                            <button type="button" disabled={saving} onClick={() => editEmployee(employee)}>{t('Rediger')}</button>
                             {employee.status === 'Aktiv' && (
                               <button type="button" disabled={saving} onClick={() => {
                                 setTerminatingId(employee.id)
                                 setEndDate('')
                                 setError('')
                                 setMessage('')
-                              }}>Registrer slutt</button>
+                              }}>{t('Registrer slutt')}</button>
                             )}
                           </div>
                           )}
                           {terminatingId === employee.id && (
                             <div className="helpdesk-form">
-                              <label htmlFor={`enddate-${employee.id}`}>Sluttdato</label>
+                              <label htmlFor={`enddate-${employee.id}`}>{t('Sluttdato')}</label>
                               <input id={`enddate-${employee.id}`} type="date"
                                 min={employee.startDate.slice(0, 10)} value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)} />
                               <div className="approval-actions">
                                 <button type="button" disabled={saving || !endDate}
-                                  onClick={() => void terminateEmployee(employee.id)}>Bekreft slutt</button>
+                                  onClick={() => void terminateEmployee(employee.id)}>{t('Bekreft slutt')}</button>
                                 <button type="button" disabled={saving}
-                                  onClick={() => setTerminatingId(null)}>Avbryt</button>
+                                  onClick={() => setTerminatingId(null)}>{t('Avbryt')}</button>
                               </div>
                             </div>
                           )}
@@ -408,35 +413,35 @@ if (!response.ok) {
 
       {isEmployeeAdmin && showForm && (
         <div className="helpdesk-card">
-          <h3>{editingId === null ? 'Registrer ansatt' : 'Rediger ansatt'}</h3>
+          <h3>{editingId === null ? t('Registrer ansatt') : t('Rediger ansatt')}</h3>
           <form className="helpdesk-form" onSubmit={(e) => {
             e.preventDefault()
             void saveEmployee()
           }}>
             {editingId !== null && (
               <>
-                <label htmlFor="employee-number">Ansattnummer</label>
+                <label htmlFor="employee-number">{t('Ansattnummer')}</label>
                 <input id="employee-number" type="text" value={employeeNumber}
-                  onChange={(e) => setEmployeeNumber(e.target.value)} placeholder="Ansattnummer" />
+                  onChange={(e) => setEmployeeNumber(e.target.value)} placeholder={t('Ansattnummer')} />
               </>
             )}
-            <label htmlFor="employee-firstname">Fornavn</label>
+            <label htmlFor="employee-firstname">{t('Fornavn')}</label>
             <input id="employee-firstname" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-            <label htmlFor="employee-lastname">Etternavn</label>
+            <label htmlFor="employee-lastname">{t('Etternavn')}</label>
             <input id="employee-lastname" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-            <label htmlFor="employee-email">E-post</label>
+            <label htmlFor="employee-email">{t('E-post')}</label>
             <input id="employee-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <label htmlFor="employee-department">Avdeling</label>
+            <label htmlFor="employee-department">{t('Avdeling')}</label>
             <input id="employee-department" value={department} onChange={(e) => setDepartment(e.target.value)} />
-            <label htmlFor="employee-jobtitle">Stilling</label>
+            <label htmlFor="employee-jobtitle">{t('Stilling')}</label>
             <input id="employee-jobtitle" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
-            <label htmlFor="employee-startdate">Startdato</label>
+            <label htmlFor="employee-startdate">{t('Startdato')}</label>
             <input id="employee-startdate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
             <div className="approval-actions">
               <button type="submit" disabled={saving}>
-                {saving ? 'Lagrer...' : editingId === null ? 'Registrer ansatt' : 'Lagre endringer'}
+                {saving ? t('Lagrer...') : editingId === null ? t('Registrer ansatt') : t('Lagre endringer')}
               </button>
-              <button type="button" disabled={saving} onClick={clearForm}>Avbryt</button>
+              <button type="button" disabled={saving} onClick={clearForm}>{t('Avbryt')}</button>
             </div>
           </form>
         </div>

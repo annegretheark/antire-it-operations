@@ -21,6 +21,8 @@ import { loginRequest } from './msalConfig'
 import { apiUrl, useAuthHeaders } from './apiClient'
 import { useCurrentUser } from './useCurrentUser'
 import type { SlaStatus } from './tickets'
+import { t, useLanguage } from './i18n'
+import LanguageSwitcher from './components/LanguageSwitcher'
 
 
 type Ticket = {
@@ -37,6 +39,8 @@ function App() {
   const isAuthenticated = useIsAuthenticated()
   const getAuthHeaders = useAuthHeaders()
   const { tenantName } = useCurrentUser()
+  // Tegner hele appen på nytt når språket byttes
+  useLanguage()
 
   const login = async () => {
   try {
@@ -106,7 +110,7 @@ await instance.logoutPopup({
         }
       } catch {
         if (!cancelled) {
-          setError('Kunne ikke hente saker fra backend.')
+          setError(t('Kunne ikke hente saker fra backend.'))
         }
       } finally {
         if (!cancelled) {
@@ -148,7 +152,7 @@ await instance.logoutPopup({
               className={activePage === item ? 'active' : ''}
               onClick={() => setActivePage(item)}
             >
-              {item}
+              {t(item)}
             </button>
           ))}
         </nav>
@@ -157,12 +161,14 @@ await instance.logoutPopup({
       <main className="main">
         
 <header>
-  <h1>{activePage}</h1>
+  <h1>{t(activePage)}</h1>
 
   <div className="auth-controls">
+    <LanguageSwitcher />
+
     {/* Tenanten du er logget inn i (navn fra Tenants:Allowed i backend) */}
     <span className="tenant-badge">
-      {isAuthenticated && tenantName ? `Tenant: ${tenantName}` : 'Ikke innlogget'}
+      {isAuthenticated && tenantName ? t('Tenant: {name}', { name: tenantName }) : t('Ikke innlogget')}
     </span>
 
     {isAuthenticated ? (
@@ -171,12 +177,12 @@ await instance.logoutPopup({
           {accounts[0]?.name || accounts[0]?.username}
         </span>
         <button type="button" onClick={logout}>
-          Logg ut
+          {t('Logg ut')}
         </button>
       </>
     ) : (
       <button type="button" onClick={login}>
-        Logg inn med Microsoft
+        {t('Logg inn med Microsoft')}
       </button>
     )}
   </div>
@@ -185,41 +191,41 @@ await instance.logoutPopup({
 
         {activePage === 'Dashboard' ? (
           <section className="card">
-            <h3>IT Operations – Dashboard</h3>
+            <h3>{t('IT Operations – Dashboard')}</h3>
 
             {loading ? (
-              <p>Henter saker...</p>
+              <p>{t('Henter saker...')}</p>
             ) : error ? (
               <p role="alert">{error}</p>
             ) : (
               <div className="dashboard-grid">
                 <div className="dashboard-stat">
-                  <h4>Nye saker</h4>
+                  <h4>{t('Nye saker')}</h4>
                   <strong>{stats.new}</strong>
                 </div>
 
                 <div className="dashboard-stat">
-                  <h4>Under behandling</h4>
+                  <h4>{t('Under behandling')}</h4>
                   <strong>{stats.inProgress}</strong>
                 </div>
 
                 <div className="dashboard-stat">
-                  <h4>Løste saker</h4>
+                  <h4>{t('Løste saker')}</h4>
                   <strong>{stats.resolved}</strong>
                 </div>
 
                 <div className="dashboard-stat">
-                  <h4>Kritiske åpne saker</h4>
+                  <h4>{t('Kritiske åpne saker')}</h4>
                   <strong>{stats.critical}</strong>
                 </div>
 
                 <div className="dashboard-stat dashboard-alert">
-                  <h4>Brudd</h4>
+                  <h4>{t('Brudd')}</h4>
                   <strong>{stats.breached}</strong>
                 </div>
 
                 <div className="dashboard-stat dashboard-warning">
-                  <h4>I fare</h4>
+                  <h4>{t('I fare')}</h4>
                   <strong>{stats.atRisk}</strong>
                 </div>
               </div>
@@ -247,8 +253,8 @@ await instance.logoutPopup({
   <Settings />
 ) : (
           <section className="card">
-            <h3>{activePage}</h3>
-            <p>Denne modulen kommer snart.</p>
+            <h3>{t(activePage)}</h3>
+            <p>{t('Denne modulen kommer snart.')}</p>
           </section>
         )}
       </main>

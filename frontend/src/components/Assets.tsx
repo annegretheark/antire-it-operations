@@ -13,6 +13,7 @@ import {
 import { priorityLabel, statusLabel } from '../tickets'
 import { errorText, useList, useResource, useSend } from './settings/settingsApi'
 import { apiUrl, useAuthHeaders } from '../apiClient'
+import { t } from '../i18n'
 
 type Employee = {
   id: number
@@ -129,7 +130,7 @@ export default function Assets() {
       if (editingId === null) await send('POST', '/api/assets', body)
       else await send('PUT', `/api/assets/${editingId}`, body)
 
-      setMessage(editingId === null ? 'Utstyret er registrert.' : 'Utstyret er oppdatert.')
+      setMessage(editingId === null ? t('Utstyret er registrert.') : t('Utstyret er oppdatert.'))
       setShowForm(false)
       reload()
     } catch (e) {
@@ -146,35 +147,35 @@ export default function Assets() {
   return (
     <section className="helpdesk">
       <div className="helpdesk-card">
-        <h3>IT-utstyr</h3>
+        <h3>{t('IT-utstyr')}</h3>
 
         {!isHelpdeskAgent && (
-          <p className="audit-intro">Her ser du utstyret som er registrert på deg.</p>
+          <p className="audit-intro">{t('Her ser du utstyret som er registrert på deg.')}</p>
         )}
 
         <div className="asset-filters">
           <input
             type="search"
-            aria-label="Søk"
-            placeholder="Søk på utstyrsnummer, serienummer eller modell"
+            aria-label={t('Søk')}
+            placeholder={t('Søk på utstyrsnummer, serienummer eller modell')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">Alle statuser</option>
+          <select aria-label={t('Status')} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">{t('Alle statuser')}</option>
             {Object.entries(ASSET_STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>{t(label)}</option>
             ))}
           </select>
-          <select aria-label="Type" value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="">Alle typer</option>
+          <select aria-label={t('Type')} value={type} onChange={(e) => setType(e.target.value)}>
+            <option value="">{t('Alle typer')}</option>
             {Object.entries(ASSET_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>{t(label)}</option>
             ))}
           </select>
           {isHelpdeskAgent && (
             <button type="button" className="asset-primary" onClick={startCreate}>
-              Registrer utstyr
+              {t('Registrer utstyr')}
             </button>
           )}
         </div>
@@ -190,83 +191,83 @@ export default function Assets() {
               void save()
             }}
           >
-            <h4>{editingId === null ? 'Nytt utstyr' : `Endre ${draft.assetTag}`}</h4>
+            <h4>{editingId === null ? t('Nytt utstyr') : t('Endre {name}', { name: draft.assetTag })}</h4>
 
             <div className="settings-form-grid">
               <div>
-                <label htmlFor="asset-tag">Utstyrsnummer</label>
+                <label htmlFor="asset-tag">{t('Utstyrsnummer')}</label>
                 <input id="asset-tag" value={draft.assetTag} maxLength={50} required
                   onChange={(e) => update('assetTag', e.target.value)} />
               </div>
               <div>
-                <label htmlFor="asset-type">Type</label>
+                <label htmlFor="asset-type">{t('Type')}</label>
                 <select id="asset-type" value={draft.type} onChange={(e) => update('type', e.target.value)}>
                   {Object.entries(ASSET_TYPE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
+                    <option key={value} value={value}>{t(label)}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="asset-manufacturer">Produsent</label>
+                <label htmlFor="asset-manufacturer">{t('Produsent')}</label>
                 <input id="asset-manufacturer" value={draft.manufacturer} maxLength={100}
                   onChange={(e) => update('manufacturer', e.target.value)} />
               </div>
               <div>
-                <label htmlFor="asset-model">Modell</label>
+                <label htmlFor="asset-model">{t('Modell')}</label>
                 <input id="asset-model" value={draft.model} maxLength={100}
                   onChange={(e) => update('model', e.target.value)} />
               </div>
               <div>
-                <label htmlFor="asset-serial">Serienummer</label>
+                <label htmlFor="asset-serial">{t('Serienummer')}</label>
                 <input id="asset-serial" value={draft.serialNumber} maxLength={100}
                   onChange={(e) => update('serialNumber', e.target.value)} />
               </div>
               <div>
-                <label htmlFor="asset-status">Status</label>
+                <label htmlFor="asset-status">{t('Status')}</label>
                 <select id="asset-status" value={draft.status} onChange={(e) => update('status', e.target.value)}>
                   {Object.entries(ASSET_STATUS_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
+                    <option key={value} value={value}>{t(label)}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="asset-assignee">Tildelt</label>
+                <label htmlFor="asset-assignee">{t('Tildelt')}</label>
                 <select id="asset-assignee" value={draft.assignedToEmployeeId}
                   onChange={(e) => update('assignedToEmployeeId', e.target.value)}>
-                  <option value="">Ingen (på lager)</option>
+                  <option value="">{t('Ingen (på lager)')}</option>
                   {activeEmployees.map((e) => (
                     <option key={e.id} value={e.id}>{`${e.firstName} ${e.lastName}`.trim()}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="asset-purchase">Kjøpsdato</label>
+                <label htmlFor="asset-purchase">{t('Kjøpsdato')}</label>
                 <input id="asset-purchase" type="date" value={draft.purchaseDate}
                   onChange={(e) => update('purchaseDate', e.target.value)} />
               </div>
               <div>
-                <label htmlFor="asset-warranty">Garanti til</label>
+                <label htmlFor="asset-warranty">{t('Garanti til')}</label>
                 <input id="asset-warranty" type="date" value={draft.warrantyEndsAt}
                   onChange={(e) => update('warrantyEndsAt', e.target.value)} />
               </div>
             </div>
 
             <div>
-              <label htmlFor="asset-notes">Notater</label>
+              <label htmlFor="asset-notes">{t('Notater')}</label>
               <textarea id="asset-notes" rows={2} maxLength={2000} value={draft.notes}
                 onChange={(e) => update('notes', e.target.value)} />
             </div>
 
             <p className="service-description">
-              Tildelt utstyr settes til «I bruk», og utstyr uten ansatt kan ikke være i bruk.
+              {t('Tildelt utstyr settes til «I bruk», og utstyr uten ansatt kan ikke være i bruk.')}
             </p>
 
             <div className="settings-form-actions">
               <button type="submit" disabled={saving}>
-                {saving ? 'Lagrer...' : editingId === null ? 'Registrer' : 'Lagre endringer'}
+                {saving ? t('Lagrer...') : editingId === null ? t('Registrer') : t('Lagre endringer')}
               </button>
               <button type="button" className="secondary" onClick={() => setShowForm(false)}>
-                Avbryt
+                {t('Avbryt')}
               </button>
             </div>
           </form>
@@ -275,19 +276,19 @@ export default function Assets() {
         {assets.error && <p role="alert" className="settings-error">{assets.error}</p>}
 
         {assets.loading ? (
-          <p>Henter utstyr...</p>
+          <p>{t('Henter utstyr...')}</p>
         ) : assets.items.length === 0 ? (
-          <p>Ingen utstyr funnet.</p>
+          <p>{t('Ingen utstyr funnet.')}</p>
         ) : (
           <div className="audit-table-wrapper">
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Utstyr</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Tildelt</th>
-                  <th>Garanti til</th>
+                  <th>{t('Utstyr')}</th>
+                  <th>{t('Type')}</th>
+                  <th>{t('Status')}</th>
+                  <th>{t('Tildelt')}</th>
+                  <th>{t('Garanti til')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -336,12 +337,12 @@ function AssetRow({
             {open ? '▾' : '▸'} {assetName(asset)}
           </button>
         </td>
-        <td>{ASSET_TYPE_LABELS[asset.type] ?? asset.type}</td>
-        <td>{ASSET_STATUS_LABELS[asset.status] ?? asset.status}</td>
+        <td>{ASSET_TYPE_LABELS[asset.type] ? t(ASSET_TYPE_LABELS[asset.type]) : asset.type}</td>
+        <td>{ASSET_STATUS_LABELS[asset.status] ? t(ASSET_STATUS_LABELS[asset.status]) : asset.status}</td>
         <td>{asset.assignedToName ?? '–'}</td>
         <td className={warrantyExpired ? 'settings-muted' : undefined}>
           {formatDate(asset.warrantyEndsAt)}
-          {warrantyExpired && ' (utløpt)'}
+          {warrantyExpired && ` (${t('utløpt')})`}
         </td>
       </tr>
       {open && (
@@ -359,35 +360,35 @@ function AssetRow({
 function AssetDetails({ id, onEdit }: { id: number; onEdit?: () => void }) {
   const details = useResource<{ asset: Asset; tickets: AssetTicket[] }>(`/api/assets/${id}`)
 
-  if (details.loading) return <p>Henter detaljer...</p>
-  if (!details.data) return <p className="settings-error">Kunne ikke hente utstyret.</p>
+  if (details.loading) return <p>{t('Henter detaljer...')}</p>
+  if (!details.data) return <p className="settings-error">{t('Kunne ikke hente utstyret.')}</p>
 
   const { asset, tickets } = details.data
 
   return (
     <div className="asset-details">
       <dl>
-        <dt>Serienummer</dt><dd>{asset.serialNumber ?? '–'}</dd>
-        <dt>Kjøpsdato</dt><dd>{formatDate(asset.purchaseDate)}</dd>
-        <dt>Kilde</dt><dd>{asset.source === 'intune' ? 'Intune' : 'Registrert manuelt'}</dd>
-        {asset.notes && (<><dt>Notater</dt><dd>{asset.notes}</dd></>)}
+        <dt>{t('Serienummer')}</dt><dd>{asset.serialNumber ?? '–'}</dd>
+        <dt>{t('Kjøpsdato')}</dt><dd>{formatDate(asset.purchaseDate)}</dd>
+        <dt>{t('Kilde')}</dt><dd>{asset.source === 'intune' ? 'Intune' : t('Registrert manuelt')}</dd>
+        {asset.notes && (<><dt>{t('Notater')}</dt><dd>{asset.notes}</dd></>)}
       </dl>
 
       {onEdit && (
         <button type="button" className="settings-row-action" onClick={onEdit}>
-          Endre
+          {t('Endre')}
         </button>
       )}
 
-      <h4>Saker på utstyret</h4>
+      <h4>{t('Saker på utstyret')}</h4>
       {tickets.length === 0 ? (
-        <p className="settings-muted">Ingen saker.</p>
+        <p className="settings-muted">{t('Ingen saker.')}</p>
       ) : (
         <ul className="asset-tickets">
-          {tickets.map((t) => (
-            <li key={t.id}>
-              #{t.id} {t.category} · {statusLabel(t.status)} · {priorityLabel(t.priority)} ·{' '}
-              {formatDate(t.createdAt)} – {t.description}
+          {tickets.map((ticket) => (
+            <li key={ticket.id}>
+              #{ticket.id} {ticket.category} · {statusLabel(ticket.status)} · {priorityLabel(ticket.priority)} ·{' '}
+              {formatDate(ticket.createdAt)} – {ticket.description}
             </li>
           ))}
         </ul>
@@ -425,7 +426,7 @@ function AssetImport({ onImported }: { onImported: () => void }) {
       setResult(data)
       if (data.errors.length === 0) onImported()
     } catch {
-      setError('Importen feilet. Prøv igjen.')
+      setError(t('Importen feilet. Prøv igjen.'))
     } finally {
       setImporting(false)
     }
@@ -433,11 +434,9 @@ function AssetImport({ onImported }: { onImported: () => void }) {
 
   return (
     <div className="helpdesk-card">
-      <h3>Importer fra CSV</h3>
+      <h3>{t('Importer fra CSV')}</h3>
       <p className="audit-intro">
-        Én rad per utstyr, med overskrifter på første rad (norske eller engelske navn). Semikolon og
-        komma fungerer begge, så filer fra Excel kan brukes direkte. Finnes utstyrsnummeret fra før,
-        oppdateres utstyret med kolonnene i filen. Er én rad feil, importeres ingenting.
+        {t('Én rad per utstyr, med overskrifter på første rad (norske eller engelske navn). Semikolon og komma fungerer begge, så filer fra Excel kan brukes direkte. Finnes utstyrsnummeret fra før, oppdateres utstyret med kolonnene i filen. Er én rad feil, importeres ingenting.')}
       </p>
 
       <a
@@ -445,11 +444,11 @@ function AssetImport({ onImported }: { onImported: () => void }) {
         download="utstyr-mal.csv"
         href={`data:text/csv;charset=utf-8,${encodeURIComponent('﻿' + CSV_TEMPLATE)}`}
       >
-        Last ned mal
+        {t('Last ned mal')}
       </a>
 
       <div className="helpdesk-form asset-import">
-        <label htmlFor="asset-csv">CSV-fil</label>
+        <label htmlFor="asset-csv">{t('CSV-fil')}</label>
         <input
           id="asset-csv"
           type="file"
@@ -463,18 +462,18 @@ function AssetImport({ onImported }: { onImported: () => void }) {
         />
       </div>
 
-      {importing && <p>Importerer...</p>}
+      {importing && <p>{t('Importerer...')}</p>}
       {error && <p role="alert" className="settings-error">{error}</p>}
 
       {result && result.errors.length === 0 && (
         <p className="settings-message">
-          Ferdig: {result.created} nye og {result.updated} oppdatert.
+          {t('Ferdig: {created} nye og {updated} oppdatert.', { created: result.created, updated: result.updated })}
         </p>
       )}
 
       {result && result.errors.length > 0 && (
         <div role="alert" className="settings-error">
-          <p>Ingenting ble importert. Rett feilene og prøv igjen:</p>
+          <p>{t('Ingenting ble importert. Rett feilene og prøv igjen:')}</p>
           <ul>
             {result.errors.map((line) => (
               <li key={line}>{line}</li>

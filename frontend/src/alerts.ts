@@ -1,3 +1,5 @@
+import { t } from './i18n'
+
 // Varsler (fase 4): typer og norske visningsnavn
 
 export type Alert = {
@@ -59,5 +61,5 @@ const DEFENDER_SEVERITY_LABELS: Record<string, string> = {
 }
 
 export function severityLabel(source: string, severity: string): string {
-  return source === 'defender' ? (DEFENDER_SEVERITY_LABELS[severity] ?? severity) : severity
+  return source === 'defender' ? (DEFENDER_SEVERITY_LABELS[severity] ? t(DEFENDER_SEVERITY_LABELS[severity]) : severity) : severity
 }

@@ -19,6 +19,7 @@ import { formatDateTime } from '../audit'
 import { assetName, type Asset } from '../assets'
 import { useList } from './settings/settingsApi'
 import { ALERT_SOURCE_LABELS, type Alert } from '../alerts'
+import { t } from '../i18n'
 
 type Ticket = {
   id: number
@@ -103,7 +104,7 @@ export default function Helpdesk() {
   })
 
   useEffect(() => {
-    if (focusId !== null && tickets.some((t) => t.id === focusId)) {
+    if (focusId !== null && tickets.some((ticket) => ticket.id === focusId)) {
       document.getElementById(`sak-${focusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [focusId, tickets])
@@ -115,7 +116,7 @@ export default function Helpdesk() {
   function alertInfo(ticket: Ticket): string {
     const alert = ticket.alertId ? alertsById.get(ticket.alertId) : undefined
     if (!alert) return ''
-    const forekomster = alert.occurrences === 1 ? '1 forekomst' : `${alert.occurrences} forekomster`
+    const forekomster = alert.occurrences === 1 ? t('1 forekomst') : t('{n} forekomster', { n: alert.occurrences })
     return ` · ${ALERT_SOURCE_LABELS[alert.source] ?? alert.source} · ${forekomster}`
   }
 
@@ -158,14 +159,14 @@ export default function Helpdesk() {
 )
 
 if (!employeeResponse.ok) {
-  throw new Error('Kunne ikke hente ansatte.')
+  throw new Error(t('Kunne ikke hente ansatte.'))
 }
 
 const employeeData: Employee[] = await employeeResponse.json()
 setEmployees(employeeData)
 
       } catch {
-        setError('Kunne ikke kontakte backend.')
+        setError(t('Kunne ikke kontakte backend.'))
       } finally {
         setLoading(false)
       }
@@ -199,7 +200,7 @@ setEmployees(employeeData)
       setDescription('')
       setAssetId('')
     } catch {
-      setError('Kunne ikke lagre saken.')
+      setError(t('Kunne ikke lagre saken.'))
     } finally {
       setSaving(false)
     }
@@ -235,7 +236,7 @@ setEmployees(employeeData)
         )
       )
     } catch {
-      setError('Kunne ikke oppdatere saken.')
+      setError(t('Kunne ikke oppdatere saken.'))
     } finally {
       setUpdatingId(null)
     }
@@ -245,7 +246,7 @@ setEmployees(employeeData)
     <section className="helpdesk">
 
       <div className="helpdesk-card">
-        <h3>Opprett ny sak</h3>
+        <h3>{t('Opprett ny sak')}</h3>
 
         <form
           className="helpdesk-form"
@@ -255,7 +256,7 @@ setEmployees(employeeData)
           }}
         >
           <label htmlFor="ticket-service">
-            Hva gjelder det?
+            {t('Hva gjelder det?')}
           </label>
 
           <select
@@ -265,13 +266,13 @@ setEmployees(employeeData)
             disabled={catalog.loading || services.length === 0}
             required
           >
-            {catalog.loading && <option value="">Henter tjenester...</option>}
+            {catalog.loading && <option value="">{t('Henter tjenester...')}</option>}
             {(['incident', 'request'] as const).map((type) => {
               const group = services.filter((s) => s.type === type)
               if (group.length === 0) return null
 
               return (
-                <optgroup key={type} label={SERVICE_TYPE_LABELS[type]}>
+                <optgroup key={type} label={t(SERVICE_TYPE_LABELS[type])}>
                   {group.map((service) => (
                     <option key={service.id} value={service.id}>
                       {service.name}
@@ -290,13 +291,13 @@ setEmployees(employeeData)
 
           {selectableAssets.length > 0 && (
             <>
-              <label htmlFor="ticket-asset">Gjelder utstyr (valgfritt)</label>
+              <label htmlFor="ticket-asset">{t('Gjelder utstyr (valgfritt)')}</label>
               <select
                 id="ticket-asset"
                 value={assetId}
                 onChange={(e) => setAssetId(e.target.value)}
               >
-                <option value="">Ikke valgt</option>
+                <option value="">{t('Ikke valgt')}</option>
                 {selectableAssets.map((asset) => (
                   <option key={asset.id} value={asset.id}>
                     {assetName(asset)}
@@ -308,7 +309,7 @@ setEmployees(employeeData)
           )}
 
           <label htmlFor="ticket-description">
-            Beskrivelse
+            {t('Beskrivelse')}
           </label>
 
           <textarea
@@ -316,7 +317,7 @@ setEmployees(employeeData)
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            placeholder="Beskriv saken..."
+            placeholder={t('Beskriv saken...')}
             required
           />
 
@@ -324,7 +325,7 @@ setEmployees(employeeData)
             type="submit"
             disabled={saving || !description.trim() || selectedServiceId === null}
           >
-            {saving ? 'Lagrer...' : 'Opprett sak'}
+            {saving ? t('Lagrer...') : t('Opprett sak')}
           </button>
         </form>
       </div>
@@ -336,11 +337,11 @@ setEmployees(employeeData)
       )}
 
       <div className="helpdesk-card">
-        <h3>Registrerte saker</h3>
+        <h3>{t('Registrerte saker')}</h3>
 
         <div className="ticket-filter">
           <label htmlFor="ticket-filter">
-            Vis saker:
+            {t('Vis saker:')}
           </label>
 
           <select
@@ -348,19 +349,19 @@ setEmployees(employeeData)
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           >
-            <option value="Alle">Alle</option>
-            <option value="Åpne">Åpne</option>
-            <option value="Løste">Løste</option>
-            <option value="SLA i fare">SLA i fare (brudd eller under 25 % igjen)</option>
+            <option value="Alle">{t('Alle')}</option>
+            <option value="Åpne">{t('Åpne')}</option>
+            <option value="Løste">{t('Løste')}</option>
+            <option value="SLA i fare">{t('SLA i fare (brudd eller under 25 % igjen)')}</option>
           </select>
         </div>
 
         {loading ? (
-          <p>Henter saker...</p>
+          <p>{t('Henter saker...')}</p>
         ) : tickets.length === 0 ? (
-          <p>Ingen saker registrert.</p>
+          <p>{t('Ingen saker registrert.')}</p>
         ) : filteredTickets.length === 0 ? (
-          <p>Ingen saker i dette filteret.</p>
+          <p>{t('Ingen saker i dette filteret.')}</p>
         ) : (
           filteredTickets.map((ticket) => (
             <div
@@ -373,14 +374,14 @@ setEmployees(employeeData)
               </h4>
 
               {ticket.source === 'alert' && (
-                <p className="ticket-alert-badge">Fra varsel{alertInfo(ticket)}</p>
+                <p className="ticket-alert-badge">{t('Fra varsel')}{alertInfo(ticket)}</p>
               )}
 
               <TicketSla ticket={ticket} />
 
               {ticket.assetId && (
                 <p className="service-description">
-                  Utstyr: {assetTags.get(ticket.assetId) ?? `#${ticket.assetId}`}
+                  {t('Utstyr:')} {assetTags.get(ticket.assetId) ?? `#${ticket.assetId}`}
                 </p>
               )}
 
@@ -388,7 +389,7 @@ setEmployees(employeeData)
 
               <div className="ticket-status">
                 <label htmlFor={`status-${ticket.id}`}>
-                  <strong>Status: </strong>
+                  <strong>{t('Status')}: </strong>
                 </label>
 
                 <select
@@ -413,7 +414,7 @@ setEmployees(employeeData)
 
               <div className="ticket-priority">
                 <label htmlFor={`priority-${ticket.id}`}>
-                  <strong>Prioritet: </strong>
+                  <strong>{t('Prioritet')}: </strong>
                 </label>
 
                 <select
@@ -439,7 +440,7 @@ setEmployees(employeeData)
 
               <div className="ticket-assigned">
                 <label htmlFor={`assigned-${ticket.id}`}>
-                  <strong>Ansvarlig: </strong>
+                  <strong>{t('Ansvarlig')}: </strong>
                 </label>
 
                 <select
@@ -456,7 +457,7 @@ setEmployees(employeeData)
                     )
                   }}
                 >
-                  <option value="">Ikke tildelt</option>
+                  <option value="">{t('Ikke tildelt')}</option>
                   {employees
                     .filter(
                       (employee) =>
@@ -466,7 +467,7 @@ setEmployees(employeeData)
                     .map((employee) => (
                       <option key={employee.id} value={employee.id}>
                         {employee.firstName} {employee.lastName}
-                        {employee.status !== 'Aktiv' ? ' (sluttet)' : ''}
+                        {employee.status !== 'Aktiv' ? ` (${t('sluttet')})` : ''}
                       </option>
                     ))}
                 </select>
@@ -478,7 +479,7 @@ setEmployees(employeeData)
                 aria-expanded={openHistory.has(ticket.id)}
                 onClick={() => toggleHistory(ticket.id)}
               >
-                {openHistory.has(ticket.id) ? 'Skjul historikk' : 'Vis historikk'}
+                {openHistory.has(ticket.id) ? t('Skjul historikk') : t('Vis historikk')}
               </button>
 
               {openHistory.has(ticket.id) && (
@@ -505,22 +506,22 @@ function TicketSla({ ticket }: { ticket: Ticket }) {
   return (
     <div className="ticket-sla">
       <span className={`sla-badge sla-${ticket.slaStatus}`}>
-        SLA: {SLA_LABELS[ticket.slaStatus]}
+        SLA: {t(SLA_LABELS[ticket.slaStatus])}
       </span>
 
       {ticket.responseDueAt && (
         <span>
-          Respons: {ticket.firstRespondedAt
-            ? `gitt ${formatDateTime(ticket.firstRespondedAt)}`
-            : `frist ${formatDateTime(ticket.responseDueAt)}${open ? ` (${formatRelative(ticket.responseDueAt)})` : ''}`}
+          {t('Respons:')} {ticket.firstRespondedAt
+            ? t('gitt {date}', { date: formatDateTime(ticket.firstRespondedAt) })
+            : t('frist {date}', { date: formatDateTime(ticket.responseDueAt) }) + (open ? ` (${formatRelative(ticket.responseDueAt)})` : '')}
         </span>
       )}
 
       {ticket.resolutionDueAt && (
         <span>
-          Løsning: {ticket.resolvedAt
-            ? `løst ${formatDateTime(ticket.resolvedAt)}`
-            : `frist ${formatDateTime(ticket.resolutionDueAt)} (${formatRelative(ticket.resolutionDueAt)})`}
+          {t('Løsning:')} {ticket.resolvedAt
+            ? t('løst {date}', { date: formatDateTime(ticket.resolvedAt) })
+            : `${t('frist {date}', { date: formatDateTime(ticket.resolutionDueAt) })} (${formatRelative(ticket.resolutionDueAt)})`}
         </span>
       )}
     </div>

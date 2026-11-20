@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { formatDateTime } from '../../audit'
 import { errorText, useResource, useSend } from './settingsApi'
+import { t } from '../../i18n'
 
 type TeamsNotification = {
   id: number
@@ -70,7 +71,7 @@ export default function TeamsSettings() {
         webhookUrl: webhookUrl.trim() || null,
         notifyCriticalManualTickets: critical,
       })
-      return 'Teams-oppsettet er lagret.'
+      return t('Teams-oppsettet er lagret.')
     })
 
   const remove = () =>
@@ -79,7 +80,7 @@ export default function TeamsSettings() {
         removeWebhook: true,
         notifyCriticalManualTickets: critical,
       })
-      return 'Webhook-adressen er fjernet. Teams varsles ikke lenger.'
+      return t('Webhook-adressen er fjernet. Teams varsles ikke lenger.')
     })
 
   const test = () =>
@@ -92,13 +93,12 @@ export default function TeamsSettings() {
     <div className="helpdesk-card">
       <h3>Teams</h3>
       <p className="audit-intro">
-        Lag en arbeidsflyt i Teams-kanalen: <strong>Workflows</strong> → «Post to a channel when a
-        webhook request is received», og lim inn adressen den gir. Adressen er en hemmelighet: den
-        lagres kryptert og vises bare forkortet her.
+        {t('Lag en arbeidsflyt i Teams-kanalen:')} <strong>Workflows</strong> →{' '}
+        {t('«Post to a channel when a webhook request is received», og lim inn adressen den gir. Adressen er en hemmelighet: den lagres kryptert og vises bare forkortet her.')}
       </p>
 
       {settings.loading ? (
-        <p>Henter oppsett...</p>
+        <p>{t('Henter oppsett...')}</p>
       ) : (
         <form
           className="helpdesk-form settings-form"
@@ -108,14 +108,14 @@ export default function TeamsSettings() {
           }}
         >
           <p>
-            <strong>Status:</strong>{' '}
+            <strong>{t('Status')}:</strong>{' '}
             {data?.configured
-              ? <>Satt opp (<code>{data.maskedWebhookUrl}</code>)</>
-              : 'Ikke satt opp. Saker lages som vanlig, men Teams varsles ikke.'}
+              ? <>{t('Satt opp')} (<code>{data.maskedWebhookUrl}</code>)</>
+              : t('Ikke satt opp. Saker lages som vanlig, men Teams varsles ikke.')}
           </p>
 
           <div>
-            <label htmlFor="teams-url">{data?.configured ? 'Ny webhook-adresse' : 'Webhook-adresse'}</label>
+            <label htmlFor="teams-url">{data?.configured ? t('Ny webhook-adresse') : t('Webhook-adresse')}</label>
             <input
               id="teams-url"
               type="url"
@@ -128,18 +128,18 @@ export default function TeamsSettings() {
 
           <label className="settings-check">
             <input type="checkbox" checked={critical} onChange={(e) => setNotifyCritical(e.target.checked)} />
-            Varsle også ved nye manuelle saker med prioritet kritisk
+            {t('Varsle også ved nye manuelle saker med prioritet kritisk')}
           </label>
 
           <div className="settings-form-actions">
-            <button type="submit" disabled={busy}>Lagre</button>
+            <button type="submit" disabled={busy}>{t('Lagre')}</button>
             {data?.configured && (
               <>
                 <button type="button" className="secondary" disabled={busy} onClick={() => void test()}>
-                  Send testmelding
+                  {t('Send testmelding')}
                 </button>
                 <button type="button" className="secondary" disabled={busy} onClick={() => void remove()}>
-                  Fjern adressen
+                  {t('Fjern adressen')}
                 </button>
               </>
             )}
@@ -152,28 +152,28 @@ export default function TeamsSettings() {
 
       {data && data.recentNotifications.length > 0 && (
         <>
-          <h4>Siste meldinger</h4>
+          <h4>{t('Siste meldinger')}</h4>
           <div className="audit-table-wrapper">
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Tidspunkt</th>
-                  <th>Hva</th>
-                  <th>Sak</th>
-                  <th>Status</th>
+                  <th>{t('Tidspunkt')}</th>
+                  <th>{t('Hva')}</th>
+                  <th>{t('Sak')}</th>
+                  <th>{t('Status')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.recentNotifications.map((n) => (
                   <tr key={n.id}>
                     <td className="audit-nowrap">{formatDateTime(n.createdAt)}</td>
-                    <td>{KIND_LABELS[n.kind] ?? n.kind}</td>
+                    <td>{KIND_LABELS[n.kind] ? t(KIND_LABELS[n.kind]) : n.kind}</td>
                     <td>{n.ticketId ? <a href={`?sak=${n.ticketId}`}>#{n.ticketId}</a> : '–'}</td>
                     <td>
                       <span className={n.status === 'sent' ? undefined : 'settings-error'}>
-                        {STATUS_LABELS[n.status] ?? n.status}
+                        {STATUS_LABELS[n.status] ? t(STATUS_LABELS[n.status]) : n.status}
                       </span>
-                      {n.lastError && <div className="settings-muted">{n.lastError} (forsøk {n.attempts})</div>}
+                      {n.lastError && <div className="settings-muted">{n.lastError} ({t('forsøk {n}', { n: n.attempts })})</div>}
                     </td>
                   </tr>
                 ))}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiUrl, useAuthHeaders } from '../../apiClient'
+import { t } from '../../i18n'
 
 type ResourceState<T> = { data: T | null; loading: boolean; error: string }
 
@@ -24,7 +25,7 @@ export function useResource<T>(path: string | null, reloadKey = 0): ResourceStat
         const data: T = await response.json()
         if (!cancelled) setState({ data, loading: false, error: '' })
       } catch (e) {
-        const message = e instanceof Error && e.message ? e.message : 'Kunne ikke hente data.'
+        const message = e instanceof Error && e.message ? e.message : t('Kunne ikke hente data.')
         if (!cancelled) setState({ data: null, loading: false, error: message })
       }
     }
@@ -62,7 +63,7 @@ export function useSend() {
 
       if (!response.ok) {
         const text = await response.text().catch(() => '')
-        throw new Error(readableError(text) ?? 'Lagringen feilet. Prøv igjen.')
+        throw new Error(readableError(text) ?? t('Lagringen feilet. Prøv igjen.'))
       }
 
       return response
@@ -88,7 +89,7 @@ function readableError(text: string): string | null {
 }
 
 export function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : 'Noe gikk galt.'
+  return error instanceof Error ? error.message : t('Noe gikk galt.')
 }
 
 export type EntraGroup = { id: string; displayName: string | null }

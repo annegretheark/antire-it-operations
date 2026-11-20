@@ -3,6 +3,7 @@ import './Helpdesk.css'
 import { useCurrentUser } from '../useCurrentUser'
 import { formatDate } from '../assets'
 import { errorText, useList, useResource, useSend } from './settings/settingsApi'
+import { t } from '../i18n'
 
 type Summary = {
   id: number
@@ -63,8 +64,8 @@ export default function Lifecycle() {
     return (
       <section className="helpdesk">
         <div className="helpdesk-card">
-          <h3>Onboarding / Offboarding</h3>
-          <p>Du trenger rollen Helpdesk.Agent eller Helpdesk.Admin.</p>
+          <h3>{t('Onboarding / Offboarding')}</h3>
+          <p>{t('Du trenger rollen Helpdesk.Agent eller Helpdesk.Admin.')}</p>
         </div>
       </section>
     )
@@ -75,43 +76,41 @@ export default function Lifecycle() {
       <StartProcess onStarted={reload} />
 
       <div className="helpdesk-card">
-        <h3>Prosesser</h3>
+        <h3>{t('Prosesser')}</h3>
         <p className="audit-intro">
-          Onboarding starter automatisk når en ansatt registreres med startdato fram i tid, og
-          offboarding når sluttdato registreres. Oppgavene kommer fra malene under Innstillinger →
-          Onboarding-maler.
+          {t('Onboarding starter automatisk når en ansatt registreres med startdato fram i tid, og offboarding når sluttdato registreres. Oppgavene kommer fra malene under Innstillinger → Onboarding-maler.')}
         </p>
 
         <div className="asset-filters">
-          <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="active">Pågår</option>
-            <option value="completed">Fullført</option>
-            <option value="cancelled">Avbrutt</option>
-            <option value="">Alle</option>
+          <select aria-label={t('Status')} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="active">{t('Pågår')}</option>
+            <option value="completed">{t('Fullført')}</option>
+            <option value="cancelled">{t('Avbrutt')}</option>
+            <option value="">{t('Alle')}</option>
           </select>
-          <select aria-label="Type" value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="">Onboarding og offboarding</option>
-            <option value="onboarding">Onboarding</option>
-            <option value="offboarding">Offboarding</option>
+          <select aria-label={t('Type')} value={type} onChange={(e) => setType(e.target.value)}>
+            <option value="">{t('Onboarding og offboarding')}</option>
+            <option value="onboarding">{t('Onboarding')}</option>
+            <option value="offboarding">{t('Offboarding')}</option>
           </select>
         </div>
 
         {processes.error && <p role="alert" className="settings-error">{processes.error}</p>}
 
         {processes.loading ? (
-          <p>Henter prosesser...</p>
+          <p>{t('Henter prosesser...')}</p>
         ) : processes.items.length === 0 ? (
-          <p>Ingen prosesser.</p>
+          <p>{t('Ingen prosesser.')}</p>
         ) : (
           <div className="audit-table-wrapper">
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Ansatt</th>
-                  <th>Type</th>
-                  <th>Dato</th>
-                  <th>Fremdrift</th>
-                  <th>Status</th>
+                  <th>{t('Ansatt')}</th>
+                  <th>{t('Type')}</th>
+                  <th>{t('Dato')}</th>
+                  <th>{t('Fremdrift')}</th>
+                  <th>{t('Status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -154,18 +153,18 @@ function ProcessRow({
             {open ? '▾' : '▸'} {process.employeeName}
           </button>
         </td>
-        <td>{TYPE_LABELS[process.type] ?? process.type}</td>
+        <td>{TYPE_LABELS[process.type] ? t(TYPE_LABELS[process.type]) : process.type}</td>
         <td className="audit-nowrap">{formatDate(process.referenceDate)}</td>
         <td>
-          <div className="progress" aria-label={`${process.doneCount} av ${process.taskCount} oppgaver`}>
+          <div className="progress" aria-label={t('{done} av {total} oppgaver', { done: process.doneCount, total: process.taskCount })}>
             <div className="progress-bar" style={{ width: `${percent}%` }} />
           </div>
           <span className="settings-muted">
-            {process.doneCount} av {process.taskCount}
-            {process.overdueCount > 0 && <span className="settings-error"> · {process.overdueCount} forfalt</span>}
+            {t('{done} av {total}', { done: process.doneCount, total: process.taskCount })}
+            {process.overdueCount > 0 && <span className="settings-error"> · {t('{n} forfalt', { n: process.overdueCount })}</span>}
           </span>
         </td>
-        <td>{STATUS_LABELS[process.status] ?? process.status}</td>
+        <td>{STATUS_LABELS[process.status] ? t(STATUS_LABELS[process.status]) : process.status}</td>
       </tr>
       {open && (
         <tr>
@@ -201,8 +200,8 @@ function ProcessDetails({ id, onChanged }: { id: number; onChanged: () => void }
     }
   }
 
-  if (details.loading && !details.data) return <p>Henter oppgaver...</p>
-  if (!details.data) return <p className="settings-error">{details.error || 'Kunne ikke hente prosessen.'}</p>
+  if (details.loading && !details.data) return <p>{t('Henter oppgaver...')}</p>
+  if (!details.data) return <p className="settings-error">{details.error || t('Kunne ikke hente prosessen.')}</p>
 
   const { process, tasks, assets, accesses } = details.data
   const editable = process.status !== 'cancelled'
@@ -210,30 +209,30 @@ function ProcessDetails({ id, onChanged }: { id: number; onChanged: () => void }
   return (
     <div className="lifecycle-details">
       <ul className="lifecycle-tasks">
-        {tasks.map((t) => {
-          const overdue = !t.completedAt && t.dueDate.slice(0, 10) < today
+        {tasks.map((task) => {
+          const overdue = !task.completedAt && task.dueDate.slice(0, 10) < today
 
           return (
-            <li key={t.id} className={t.completedAt ? 'done' : undefined}>
+            <li key={task.id} className={task.completedAt ? 'done' : undefined}>
               <label className="settings-check">
                 <input
                   type="checkbox"
-                  checked={Boolean(t.completedAt)}
+                  checked={Boolean(task.completedAt)}
                   disabled={busy || !editable}
                   onChange={(e) =>
-                    void run(() => send('PATCH', `/api/lifecycle/tasks/${t.id}`, { done: e.target.checked }))
+                    void run(() => send('PATCH', `/api/lifecycle/tasks/${task.id}`, { done: e.target.checked }))
                   }
                 />
                 <span>
-                  <strong>{t.title}</strong>
+                  <strong>{task.title}</strong>
                   <span className={overdue ? 'settings-error' : 'settings-muted'}>
-                    {' '}· frist {formatDate(t.dueDate)}{overdue && ' (forfalt)'}
+                    {' '}· {t('frist {date}', { date: formatDate(task.dueDate) })}{overdue && ` (${t('forfalt')})`}
                   </span>
-                  {t.category && <span className="settings-muted"> · {t.category}</span>}
-                  {t.description && <div className="settings-muted">{t.description}</div>}
-                  {t.completedAt && (
+                  {task.category && <span className="settings-muted"> · {task.category}</span>}
+                  {task.description && <div className="settings-muted">{task.description}</div>}
+                  {task.completedAt && (
                     <div className="settings-muted">
-                      Utført {formatDate(t.completedAt)} av {t.completedByName}
+                      {t('Utført {date} av {name}', { date: formatDate(task.completedAt), name: task.completedByName ?? '' })}
                     </div>
                   )}
                 </span>
@@ -245,9 +244,9 @@ function ProcessDetails({ id, onChanged }: { id: number; onChanged: () => void }
 
       {process.type === 'offboarding' && (
         <div className="asset-checklist">
-          <strong>Utstyr som skal leveres inn</strong>
+          <strong>{t('Utstyr som skal leveres inn')}</strong>
           {assets.length === 0 ? (
-            <p>Alt utstyr er levert inn.</p>
+            <p>{t('Alt utstyr er levert inn.')}</p>
           ) : (
             <ul>
               {assets.map((a) => (
@@ -259,24 +258,24 @@ function ProcessDetails({ id, onChanged }: { id: number; onChanged: () => void }
                     disabled={busy}
                     onClick={() => void run(() => send('PATCH', `/api/assets/${a.id}/assign`, { employeeId: null }))}
                   >
-                    Mottatt
+                    {t('Mottatt')}
                   </button>
                 </li>
               ))}
             </ul>
           )}
 
-          <strong className="lifecycle-subheading">Tilganger fra tilgangsbestillinger</strong>
+          <strong className="lifecycle-subheading">{t('Tilganger fra tilgangsbestillinger')}</strong>
           {accesses.length === 0 ? (
-            <p>Ingen tilganger registrert.</p>
+            <p>{t('Ingen tilganger registrert.')}</p>
           ) : (
             <ul>
               {accesses.map((a) => (
                 <li key={a.accessRequestId}>
                   <span>
                     {a.status === 'Tilgang fjernet' ? '☑' : '☐'} {a.systemName}
-                    {!a.groupId && <span className="settings-muted"> (fjernes manuelt)</span>}
-                    {a.status === 'Tilgang fjernet' && <span className="settings-muted"> (fjernet)</span>}
+                    {!a.groupId && <span className="settings-muted"> ({t('fjernes manuelt')})</span>}
+                    {a.status === 'Tilgang fjernet' && <span className="settings-muted"> ({t('fjernet')})</span>}
                   </span>
                   {a.groupId && a.status === 'Fullført' && (
                     <button
@@ -285,7 +284,7 @@ function ProcessDetails({ id, onChanged }: { id: number; onChanged: () => void }
                       disabled={busy}
                       onClick={() => void run(() => send('POST', `/api/lifecycle/${id}/revoke/${a.accessRequestId}`))}
                     >
-                      Fjern fra Entra-gruppen
+                      {t('Fjern fra Entra-gruppen')}
                     </button>
                   )}
                 </li>
@@ -304,12 +303,12 @@ function ProcessDetails({ id, onChanged }: { id: number; onChanged: () => void }
             className="settings-row-action"
             disabled={busy}
             onClick={() => {
-              if (window.confirm('Avbryte prosessen? Oppgavene beholdes, men kan ikke krysses av.')) {
+              if (window.confirm(t('Avbryte prosessen? Oppgavene beholdes, men kan ikke krysses av.'))) {
                 void run(() => send('POST', `/api/lifecycle/${id}/cancel`))
               }
             }}
           >
-            Avbryt prosessen
+            {t('Avbryt prosessen')}
           </button>
         </div>
       )}
@@ -333,7 +332,7 @@ function StartProcess({ onStarted }: { onStarted: () => void }) {
 
     try {
       await send('POST', '/api/lifecycle', { employeeId: Number(employeeId), type })
-      setMessage(`${TYPE_LABELS[type]} er startet.`)
+      setMessage(t('{type} er startet.', { type: t(TYPE_LABELS[type]) }))
       setEmployeeId('')
       onStarted()
     } catch (e) {
@@ -345,22 +344,22 @@ function StartProcess({ onStarted }: { onStarted: () => void }) {
 
   return (
     <div className="helpdesk-card">
-      <h3>Start manuelt</h3>
+      <h3>{t('Start manuelt')}</h3>
       <div className="asset-filters">
-        <select aria-label="Ansatt" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-          <option value="">Velg ansatt</option>
+        <select aria-label={t('Ansatt')} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+          <option value="">{t('Velg ansatt')}</option>
           {employees.items.map((e) => (
             <option key={e.id} value={e.id}>
-              {`${e.firstName} ${e.lastName}`.trim()}{e.status !== 'Aktiv' ? ` (${e.status.toLowerCase()})` : ''}
+              {`${e.firstName} ${e.lastName}`.trim()}{e.status !== 'Aktiv' ? ` (${t(e.status).toLowerCase()})` : ''}
             </option>
           ))}
         </select>
-        <select aria-label="Type" value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="onboarding">Onboarding</option>
-          <option value="offboarding">Offboarding</option>
+        <select aria-label={t('Type')} value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="onboarding">{t('Onboarding')}</option>
+          <option value="offboarding">{t('Offboarding')}</option>
         </select>
         <button type="button" className="asset-primary" disabled={busy || !employeeId} onClick={() => void start()}>
-          Start
+          {t('Start')}
         </button>
       </div>
       {error && <p role="alert" className="settings-error">{error}</p>}

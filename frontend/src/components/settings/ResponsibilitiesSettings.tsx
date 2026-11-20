@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useServiceCatalog } from '../../serviceCatalog'
 import { errorText, useList, useSend } from './settingsApi'
+import { t } from '../../i18n'
 
 type Responsibility = {
   id: number
@@ -72,10 +73,9 @@ export default function ResponsibilitiesSettings() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Ansvarsområder</h3>
+      <h3>{t('Ansvarsområder')}</h3>
       <p className="audit-intro">
-        Ansatte med et ansvarsområde kan få nye saker i kategorien automatisk, så sant de også er
-        medlem av en av kategorigruppene i Entra ID.
+        {t('Ansatte med et ansvarsområde kan få nye saker i kategorien automatisk, så sant de også er medlem av en av kategorigruppene i Entra ID.')}
       </p>
 
       <form
@@ -87,14 +87,14 @@ export default function ResponsibilitiesSettings() {
       >
         <div className="settings-form-grid">
           <div>
-            <label htmlFor="resp-employee">Ansatt</label>
+            <label htmlFor="resp-employee">{t('Ansatt')}</label>
             <select
               id="resp-employee"
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
               required
             >
-              <option value="">Velg ansatt</option>
+              <option value="">{t('Velg ansatt')}</option>
               {activeEmployees.map((e) => (
                 <option key={e.id} value={e.id}>
                   {`${e.firstName} ${e.lastName}`.trim()}
@@ -104,14 +104,14 @@ export default function ResponsibilitiesSettings() {
           </div>
 
           <div>
-            <label htmlFor="resp-category">Kategori</label>
+            <label htmlFor="resp-category">{t('Kategori')}</label>
             <select
               id="resp-category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               required
             >
-              <option value="">Velg kategori</option>
+              <option value="">{t('Velg kategori')}</option>
               {categories.map((c) => (
                 <option key={c}>{c}</option>
               ))}
@@ -121,7 +121,7 @@ export default function ResponsibilitiesSettings() {
 
         <div className="settings-form-actions">
           <button type="submit" disabled={saving || !employeeId || !category}>
-            Legg til
+            {t('Legg til')}
           </button>
         </div>
       </form>
@@ -132,17 +132,17 @@ export default function ResponsibilitiesSettings() {
       )}
 
       {responsibilities.loading ? (
-        <p>Henter ansvarsområder...</p>
+        <p>{t('Henter ansvarsområder...')}</p>
       ) : responsibilities.items.length === 0 ? (
-        <p>Ingen ansvarsområder registrert.</p>
+        <p>{t('Ingen ansvarsområder registrert.')}</p>
       ) : (
         <div className="audit-table-wrapper">
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Kategori</th>
-                <th>Ansatt</th>
-                <th>Automatisk tildeling</th>
+                <th>{t('Kategori')}</th>
+                <th>{t('Ansatt')}</th>
+                <th>{t('Automatisk tildeling')}</th>
                 <th />
               </tr>
             </thead>
@@ -153,7 +153,7 @@ export default function ResponsibilitiesSettings() {
                   <td>
                     {r.employeeName}
                     {r.employeeStatus !== 'Aktiv' && (
-                      <span className="settings-muted"> ({r.employeeStatus.toLowerCase()})</span>
+                      <span className="settings-muted"> ({t(r.employeeStatus).toLowerCase()})</span>
                     )}
                   </td>
                   <td>
@@ -170,7 +170,7 @@ export default function ResponsibilitiesSettings() {
                           )
                         }
                       />
-                      {r.canBeAssigned ? 'På' : 'Av'}
+                      {r.canBeAssigned ? t('På') : t('Av')}
                     </label>
                   </td>
                   <td>
@@ -182,7 +182,7 @@ export default function ResponsibilitiesSettings() {
                         void run(() => send('DELETE', `/api/employeeresponsibilities/${r.id}`))
                       }
                     >
-                      Fjern
+                      {t('Fjern')}
                     </button>
                   </td>
                 </tr>

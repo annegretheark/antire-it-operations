@@ -3,6 +3,7 @@ import './Helpdesk.css'
 import { useCurrentUser } from '../useCurrentUser'
 import { formatDateTime } from '../audit'
 import { errorText, useList, useResource, useSend } from './settings/settingsApi'
+import { t } from '../i18n'
 
 type Subscription = {
   id: number
@@ -61,7 +62,7 @@ export default function Azure() {
       <section className="helpdesk">
         <div className="helpdesk-card">
           <h3>Azure</h3>
-          <p>Du trenger rollen Helpdesk.Admin for å se Azure-oversikten.</p>
+          <p>{t('Du trenger rollen Helpdesk.Admin for å se Azure-oversikten.')}</p>
         </div>
       </section>
     )
@@ -71,10 +72,10 @@ export default function Azure() {
     <section className="helpdesk">
       <div className="settings-tabs" role="tablist" aria-label="Azure">
         <button type="button" role="tab" aria-selected={tab === 'subscriptions'} onClick={() => setTab('subscriptions')}>
-          Abonnementer
+          {t('Abonnementer')}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'resources'} onClick={() => setTab('resources')}>
-          Ressurser
+          {t('Ressurser')}
         </button>
       </div>
 
@@ -100,8 +101,11 @@ function Subscriptions() {
       const response = await send('POST', '/api/azure/subscriptions/sync')
       const result: SyncResult = await response.json()
       setMessage(
-        `Synk ferdig: ${result.total} abonnementer synlige (${result.added} nye, ` +
-        `${result.hidden} ikke lenger synlige).`
+        t('Synk ferdig: {total} abonnementer synlige ({added} nye, {hidden} ikke lenger synlige).', {
+          total: result.total,
+          added: result.added,
+          hidden: result.hidden,
+        })
       )
       setReloadKey((k) => k + 1)
     } catch (e) {
@@ -113,16 +117,16 @@ function Subscriptions() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Abonnementer</h3>
+      <h3>{t('Abonnementer')}</h3>
       <p className="audit-intro">
-        Appen ser bare abonnementer der den har rollen Reader. Rollen gis med skriptet{' '}
-        <code>scripts/Grant-AzureReader.ps1</code> (krever Owner eller User Access Administrator
-        på abonnementet). Trykk deretter Synk.
+        {t('Appen ser bare abonnementer der den har rollen Reader. Rollen gis med skriptet')}{' '}
+        <code>scripts/Grant-AzureReader.ps1</code>{' '}
+        {t('(krever Owner eller User Access Administrator på abonnementet). Trykk deretter Synk.')}
       </p>
 
       <div className="settings-form-actions">
         <button type="button" className="asset-primary" onClick={() => void sync()} disabled={syncing}>
-          {syncing ? 'Synker...' : 'Synk fra Azure'}
+          {syncing ? t('Synker...') : t('Synk fra Azure')}
         </button>
       </div>
 
@@ -131,18 +135,18 @@ function Subscriptions() {
       {subscriptions.error && <p role="alert" className="settings-error">{subscriptions.error}</p>}
 
       {subscriptions.loading ? (
-        <p>Henter abonnementer...</p>
+        <p>{t('Henter abonnementer...')}</p>
       ) : subscriptions.items.length === 0 ? (
-        <p>Ingen abonnementer er synket ennå.</p>
+        <p>{t('Ingen abonnementer er synket ennå.')}</p>
       ) : (
         <div className="audit-table-wrapper">
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Navn</th>
-                <th>Abonnements-ID</th>
-                <th>Tilstand</th>
-                <th>Sist sett</th>
+                <th>{t('Navn')}</th>
+                <th>{t('Abonnements-ID')}</th>
+                <th>{t('Tilstand')}</th>
+                <th>{t('Sist sett')}</th>
               </tr>
             </thead>
             <tbody>
@@ -150,10 +154,10 @@ function Subscriptions() {
                 <tr key={s.id} className={s.isVisible ? undefined : 'settings-muted'}>
                   <td>
                     <strong>{s.displayName}</strong>
-                    {!s.isVisible && <div>Ikke synlig for appen lenger</div>}
+                    {!s.isVisible && <div>{t('Ikke synlig for appen lenger')}</div>}
                   </td>
                   <td><code>{s.subscriptionId}</code></td>
-                  <td>{STATE_LABELS[s.state] ?? s.state}</td>
+                  <td>{STATE_LABELS[s.state] ? t(STATE_LABELS[s.state]) : s.state}</td>
                   <td className="audit-nowrap">{formatDateTime(s.lastSeenAt)}</td>
                 </tr>
               ))}
@@ -194,32 +198,32 @@ function Resources() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Ressurser</h3>
+      <h3>{t('Ressurser')}</h3>
 
       <div className="asset-filters">
         <input
           type="search"
-          aria-label="Søk"
-          placeholder="Søk på navn, ressursgruppe eller tagg"
+          aria-label={t('Søk')}
+          placeholder={t('Søk på navn, ressursgruppe eller tagg')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select aria-label="Abonnement" value={subscriptionId} onChange={(e) => setSubscriptionId(e.target.value)}>
-          <option value="">Alle abonnementer</option>
+        <select aria-label={t('Abonnement')} value={subscriptionId} onChange={(e) => setSubscriptionId(e.target.value)}>
+          <option value="">{t('Alle abonnementer')}</option>
           {subscriptions.items.filter((s) => s.isVisible).map((s) => (
             <option key={s.subscriptionId} value={s.subscriptionId}>{s.displayName}</option>
           ))}
         </select>
-        <select aria-label="Type" value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="">Alle typer</option>
-          {data?.types.map((t) => <option key={t} value={t}>{shortType(t)}</option>)}
+        <select aria-label={t('Type')} value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="">{t('Alle typer')}</option>
+          {data?.types.map((typeName) => <option key={typeName} value={typeName}>{shortType(typeName)}</option>)}
         </select>
-        <select aria-label="Region" value={location} onChange={(e) => setLocation(e.target.value)}>
-          <option value="">Alle regioner</option>
+        <select aria-label={t('Region')} value={location} onChange={(e) => setLocation(e.target.value)}>
+          <option value="">{t('Alle regioner')}</option>
           {data?.locations.map((l) => <option key={l} value={l}>{l}</option>)}
         </select>
-        <select aria-label="Ressursgruppe" value={resourceGroup} onChange={(e) => setResourceGroup(e.target.value)}>
-          <option value="">Alle ressursgrupper</option>
+        <select aria-label={t('Ressursgruppe')} value={resourceGroup} onChange={(e) => setResourceGroup(e.target.value)}>
+          <option value="">{t('Alle ressursgrupper')}</option>
           {data?.resourceGroups.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
         <button
@@ -228,7 +232,7 @@ function Resources() {
           onClick={() => setRefreshCount((c) => c + 1)}
           disabled={result.loading}
         >
-          Oppdater
+          {t('Oppdater')}
         </button>
       </div>
 
@@ -236,22 +240,26 @@ function Resources() {
       {data?.message && <div className="m365-notice">{data.message}</div>}
 
       {result.loading ? (
-        <p>Henter ressurser fra Azure...</p>
+        <p>{t('Henter ressurser fra Azure...')}</p>
       ) : data && data.total > 0 && (
         <>
           <p className="settings-muted">
-            {data.resources.length} av {data.total} ressurser · hentet {formatDateTime(data.fetchedAt)}
+            {t('{shown} av {total} ressurser · hentet {time}', {
+              shown: data.resources.length,
+              total: data.total,
+              time: formatDateTime(data.fetchedAt),
+            })}
           </p>
           <div className="audit-table-wrapper">
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Navn</th>
-                  <th>Type</th>
-                  <th>Ressursgruppe</th>
-                  <th>Region</th>
-                  <th>Abonnement</th>
-                  <th>Tagger</th>
+                  <th>{t('Navn')}</th>
+                  <th>{t('Type')}</th>
+                  <th>{t('Ressursgruppe')}</th>
+                  <th>{t('Region')}</th>
+                  <th>{t('Abonnement')}</th>
+                  <th>{t('Tagger')}</th>
                 </tr>
               </thead>
               <tbody>

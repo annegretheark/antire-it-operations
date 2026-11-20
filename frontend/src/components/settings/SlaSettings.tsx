@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { priorityLabel } from '../../tickets'
 import { errorText, useList, useSend } from './settingsApi'
+import { t } from '../../i18n'
 
 type SlaTarget = {
   id: number
@@ -18,8 +19,10 @@ function describe(minutes: number, twentyFourSeven: boolean): string {
   const rest = minutes % 60
 
   const parts = [
-    days > 0 ? `${days} ${twentyFourSeven ? 'døgn' : days === 1 ? 'arbeidsdag' : 'arbeidsdager'}` : '',
-    hours > 0 ? `${hours} t` : '',
+    days > 0
+      ? t(twentyFourSeven ? '{n} døgn' : days === 1 ? '{n} arbeidsdag' : '{n} arbeidsdager', { n: days })
+      : '',
+    hours > 0 ? `${hours} ${t('t')}` : '',
     rest > 0 ? `${rest} min` : '',
   ].filter(Boolean)
 
@@ -57,7 +60,7 @@ export default function SlaSettings() {
         resolutionMinutes: draft.resolutionMinutes,
         twentyFourSeven: draft.twentyFourSeven,
       })
-      setMessage(`SLA for ${priorityLabel(priority).toLowerCase()} prioritet er lagret.`)
+      setMessage(t('SLA for {priority} prioritet er lagret.', { priority: priorityLabel(priority).toLowerCase() }))
       setDrafts(({ [priority]: _saved, ...rest }) => rest)
       setReloadKey((k) => k + 1)
     } catch (e) {
@@ -71,9 +74,7 @@ export default function SlaSettings() {
     <div className="helpdesk-card">
       <h3>SLA</h3>
       <p className="audit-intro">
-        Frister for første respons og løsning per prioritet. Arbeidstid er 08:00–16:00 på
-        virkedager, uten norske helligdager. Med «døgnet rundt» løper fristen også kveld, helg og
-        helligdag. Endringer gjelder nye saker og saker som får ny prioritet.
+        {t('Frister for første respons og løsning per prioritet. Arbeidstid er 08:00–16:00 på virkedager, uten norske helligdager. Med «døgnet rundt» løper fristen også kveld, helg og helligdag. Endringer gjelder nye saker og saker som får ny prioritet.')}
       </p>
 
       {error && <p role="alert" className="settings-error">{error}</p>}
@@ -81,16 +82,16 @@ export default function SlaSettings() {
       {targets.error && <p role="alert" className="settings-error">{targets.error}</p>}
 
       {targets.loading ? (
-        <p>Henter SLA-mål...</p>
+        <p>{t('Henter SLA-mål...')}</p>
       ) : (
         <div className="audit-table-wrapper">
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Prioritet</th>
-                <th>Respons (minutter)</th>
-                <th>Løsning (minutter)</th>
-                <th>Døgnet rundt</th>
+                <th>{t('Prioritet')}</th>
+                <th>{t('Respons (minutter)')}</th>
+                <th>{t('Løsning (minutter)')}</th>
+                <th>{t('Døgnet rundt')}</th>
                 <th />
               </tr>
             </thead>
@@ -109,7 +110,7 @@ export default function SlaSettings() {
                       <input
                         type="number"
                         min={1}
-                        aria-label={`Responstid for ${priorityLabel(target.priority)}`}
+                        aria-label={t('Responstid for {priority}', { priority: priorityLabel(target.priority) })}
                         className="sla-minutes"
                         value={draft.responseMinutes}
                         onChange={(e) =>
@@ -124,7 +125,7 @@ export default function SlaSettings() {
                       <input
                         type="number"
                         min={1}
-                        aria-label={`Løsningstid for ${priorityLabel(target.priority)}`}
+                        aria-label={t('Løsningstid for {priority}', { priority: priorityLabel(target.priority) })}
                         className="sla-minutes"
                         value={draft.resolutionMinutes}
                         onChange={(e) =>
@@ -138,7 +139,7 @@ export default function SlaSettings() {
                     <td>
                       <input
                         type="checkbox"
-                        aria-label={`Døgnet rundt for ${priorityLabel(target.priority)}`}
+                        aria-label={t('Døgnet rundt for {priority}', { priority: priorityLabel(target.priority) })}
                         checked={draft.twentyFourSeven}
                         onChange={(e) =>
                           update(target, { twentyFourSeven: e.target.checked })
@@ -152,7 +153,7 @@ export default function SlaSettings() {
                         disabled={!changed || savingPriority !== null}
                         onClick={() => void save(target.priority)}
                       >
-                        {savingPriority === target.priority ? 'Lagrer...' : 'Lagre'}
+                        {savingPriority === target.priority ? t('Lagrer...') : t('Lagre')}
                       </button>
                     </td>
                   </tr>

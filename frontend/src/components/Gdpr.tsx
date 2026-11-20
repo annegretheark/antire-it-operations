@@ -4,6 +4,7 @@ import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 import { formatDate } from '../assets'
 import { errorText, useList, useResource, useSend } from './settings/settingsApi'
+import { t } from '../i18n'
 
 type Employee = { id: number; firstName: string; lastName: string; status: string; anonymizedAt: string | null }
 
@@ -53,7 +54,7 @@ export default function Gdpr() {
       <section className="helpdesk">
         <div className="helpdesk-card">
           <h3>GDPR</h3>
-          <p>Du trenger rollen Helpdesk.Admin for å se GDPR-sidene.</p>
+          <p>{t('Du trenger rollen Helpdesk.Admin for å se GDPR-sidene.')}</p>
         </div>
       </section>
     )
@@ -63,10 +64,10 @@ export default function Gdpr() {
     <section className="helpdesk">
       <div className="settings-tabs" role="tablist" aria-label="GDPR">
         <button type="button" role="tab" aria-selected={tab === 'persons'} onClick={() => setTab('persons')}>
-          Innsyn og anonymisering
+          {t('Innsyn og anonymisering')}
         </button>
         <button type="button" role="tab" aria-selected={tab === 'protocol'} onClick={() => setTab('protocol')}>
-          Behandlingsprotokoll
+          {t('Behandlingsprotokoll')}
         </button>
       </div>
 
@@ -108,7 +109,7 @@ function Access() {
       link.click()
       URL.revokeObjectURL(link.href)
     } catch {
-      setError('Kunne ikke hente innsynet.')
+      setError(t('Kunne ikke hente innsynet.'))
     } finally {
       setBusy(false)
     }
@@ -116,23 +117,22 @@ function Access() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Innsyn</h3>
+      <h3>{t('Innsyn')}</h3>
       <p className="audit-intro">
-        Last ned alt appen har om en person (ansattopplysninger, saker, tilgangsbestillinger,
-        utstyr, onboarding og offboarding, og revisjonslogg) som en JSON-fil. Uttrekket logges.
+        {t('Last ned alt appen har om en person (ansattopplysninger, saker, tilgangsbestillinger, utstyr, onboarding og offboarding, og revisjonslogg) som en JSON-fil. Uttrekket logges.')}
       </p>
       <div className="asset-filters">
-        <select aria-label="Ansatt" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-          <option value="">Velg ansatt</option>
+        <select aria-label={t('Ansatt')} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+          <option value="">{t('Velg ansatt')}</option>
           {employees.items.map((e) => (
             <option key={e.id} value={e.id}>
               {`${e.firstName} ${e.lastName}`.trim()}
-              {e.anonymizedAt ? ' (anonymisert)' : e.status !== 'Aktiv' ? ` (${e.status.toLowerCase()})` : ''}
+              {e.anonymizedAt ? ` (${t('anonymisert')})` : e.status !== 'Aktiv' ? ` (${t(e.status).toLowerCase()})` : ''}
             </option>
           ))}
         </select>
         <button type="button" className="asset-primary" disabled={busy || !employeeId} onClick={() => void download()}>
-          {busy ? 'Henter...' : 'Last ned innsyn'}
+          {busy ? t('Henter...') : t('Last ned innsyn')}
         </button>
       </div>
       {error && <p role="alert" className="settings-error">{error}</p>}
@@ -171,22 +171,20 @@ function Anonymization() {
 
   function anonymize(c: Candidate) {
     if (!window.confirm(
-      `Anonymisere ${c.name}? Navn, e-post, ansattnummer og Entra-ID fjernes fra appen og revisjonsloggen. Det kan ikke angres.`
+      t('Anonymisere {name}? Navn, e-post, ansattnummer og Entra-ID fjernes fra appen og revisjonsloggen. Det kan ikke angres.', { name: c.name })
     )) return
 
     void run(async () => {
       await send('POST', `/api/gdpr/employees/${c.employeeId}/anonymize`)
-      return `${c.name} er anonymisert.`
+      return t('{name} er anonymisert.', { name: c.name })
     })
   }
 
   return (
     <div className="helpdesk-card">
-      <h3>Anonymisering</h3>
+      <h3>{t('Anonymisering')}</h3>
       <p className="audit-intro">
-        Ansatte som har sluttet, kan anonymiseres når utstyret er levert inn og offboarding er
-        fullført. Saker, utstyr og revisjonslogg beholdes, men uten navn og identifikatorer.
-        Fritekst i saker (beskrivelser) må vurderes for seg.
+        {t('Ansatte som har sluttet, kan anonymiseres når utstyret er levert inn og offboarding er fullført. Saker, utstyr og revisjonslogg beholdes, men uten navn og identifikatorer. Fritekst i saker (beskrivelser) må vurderes for seg.')}
       </p>
 
       <form
@@ -198,20 +196,20 @@ function Anonymization() {
               anonymizeAfterMonths: currentMonths ? Number(currentMonths) : null,
             })
             return currentMonths
-              ? `Ansatte anonymiseres automatisk ${currentMonths} måneder etter sluttdato.`
-              : 'Automatisk anonymisering er slått av.'
+              ? t('Ansatte anonymiseres automatisk {n} måneder etter sluttdato.', { n: currentMonths })
+              : t('Automatisk anonymisering er slått av.')
           })
         }}
       >
         <div className="settings-form-grid">
           <div>
-            <label htmlFor="gdpr-months">Anonymiser automatisk etter (måneder, tom = av)</label>
+            <label htmlFor="gdpr-months">{t('Anonymiser automatisk etter (måneder, tom = av)')}</label>
             <input id="gdpr-months" type="number" min={1} max={120} value={currentMonths}
               onChange={(e) => setMonths(e.target.value)} />
           </div>
         </div>
         <div className="settings-form-actions">
-          <button type="submit" disabled={busy}>Lagre</button>
+          <button type="submit" disabled={busy}>{t('Lagre')}</button>
         </div>
       </form>
 
@@ -219,26 +217,26 @@ function Anonymization() {
       {message && <p className="settings-message">{message}</p>}
 
       {candidates.loading ? (
-        <p>Henter...</p>
+        <p>{t('Henter...')}</p>
       ) : candidates.items.length === 0 ? (
-        <p>Ingen som har sluttet og ikke er anonymisert.</p>
+        <p>{t('Ingen som har sluttet og ikke er anonymisert.')}</p>
       ) : (
         <div className="audit-table-wrapper">
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Ansatt</th>
-                <th>Sluttdato</th>
-                <th>Gjenstår</th>
-                <th>Automatisk</th>
+                <th>{t('Ansatt')}</th>
+                <th>{t('Sluttdato')}</th>
+                <th>{t('Gjenstår')}</th>
+                <th>{t('Automatisk')}</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {candidates.items.map((c) => {
                 const blockers = [
-                  c.assetCount > 0 && `${c.assetCount} utstyr ikke levert`,
-                  c.activeProcess && 'offboarding pågår',
+                  c.assetCount > 0 && t('{n} utstyr ikke levert', { n: c.assetCount }),
+                  c.activeProcess && t('offboarding pågår'),
                 ].filter(Boolean)
 
                 return (
@@ -246,7 +244,7 @@ function Anonymization() {
                     <td>{c.name}</td>
                     <td>{formatDate(c.endDate)}</td>
                     <td>{blockers.length ? <span className="settings-error">{blockers.join(', ')}</span> : '–'}</td>
-                    <td>{c.automaticAt ? formatDate(c.automaticAt) : 'Av'}</td>
+                    <td>{c.automaticAt ? formatDate(c.automaticAt) : t('Av')}</td>
                     <td>
                       <button
                         type="button"
@@ -254,7 +252,7 @@ function Anonymization() {
                         disabled={busy || blockers.length > 0}
                         onClick={() => anonymize(c)}
                       >
-                        Anonymiser
+                        {t('Anonymiser')}
                       </button>
                     </td>
                   </tr>
@@ -293,7 +291,7 @@ function toCsv(activities: Activity[]): string {
   const columns: [string, (a: Activity) => string][] = [
     ['Behandling', (a) => a.name], ['System', (a) => a.system ?? ''], ['Formål', (a) => a.purpose],
     ['Registrerte', (a) => a.dataSubjects], ['Personopplysninger', (a) => a.dataCategories],
-    ['Behandlingsgrunnlag', (a) => LEGAL_BASIS_LABELS[a.legalBasis] ?? a.legalBasis],
+    ['Behandlingsgrunnlag', (a) => (LEGAL_BASIS_LABELS[a.legalBasis] ? t(LEGAL_BASIS_LABELS[a.legalBasis]) : a.legalBasis)],
     ['Lagringstid', (a) => a.retention], ['Mottakere', (a) => a.recipients ?? ''],
     ['Overføring utenfor EØS', (a) => a.thirdCountryTransfers ?? ''],
     ['Sikkerhetstiltak', (a) => a.securityMeasures ?? ''], ['Ansvarlig', (a) => a.owner ?? ''],
@@ -301,7 +299,7 @@ function toCsv(activities: Activity[]): string {
   ]
   const quote = (v: string) => `"${v.replace(/"/g, '""')}"`
   return [
-    columns.map(([h]) => quote(h)).join(';'),
+    columns.map(([h]) => quote(t(h))).join(';'),
     ...activities.map((a) => columns.map(([, get]) => quote(get(a))).join(';')),
   ].join('\r\n')
 }
@@ -347,22 +345,21 @@ function Protocol() {
   function downloadCsv() {
     const link = document.createElement('a')
     link.href = `data:text/csv;charset=utf-8,${encodeURIComponent('﻿' + toCsv(activities.items))}`
-    link.download = 'behandlingsprotokoll.csv'
+    link.download = t('behandlingsprotokoll.csv')
     link.click()
   }
 
   return (
     <div className="helpdesk-card">
-      <h3>Behandlingsprotokoll</h3>
+      <h3>{t('Behandlingsprotokoll')}</h3>
       <p className="audit-intro">
-        Oversikt over behandlinger av personopplysninger (GDPR art. 30). Behandlingen i denne appen
-        er lagt inn som utgangspunkt; gå gjennom den og legg til de andre systemene dere bruker.
+        {t('Oversikt over behandlinger av personopplysninger (GDPR art. 30). Behandlingen i denne appen er lagt inn som utgangspunkt; gå gjennom den og legg til de andre systemene dere bruker.')}
       </p>
 
       <div className="settings-form-actions">
-        <button type="button" className="asset-primary" onClick={() => edit(null)}>Ny behandling</button>
+        <button type="button" className="asset-primary" onClick={() => edit(null)}>{t('Ny behandling')}</button>
         <button type="button" className="settings-row-action" disabled={activities.items.length === 0} onClick={downloadCsv}>
-          Last ned som CSV
+          {t('Last ned som CSV')}
         </button>
       </div>
 
@@ -377,39 +374,39 @@ function Protocol() {
               : send('PUT', `/api/gdpr/processing/${editingId}`, body))
           }}
         >
-          <h4>{editingId === null ? 'Ny behandling' : `Endre «${draft.name}»`}</h4>
+          <h4>{editingId === null ? t('Ny behandling') : t('Endre «{name}»', { name: draft.name })}</h4>
           <div className="settings-form-grid">
             {ACTIVITY_FIELDS.filter((f) => !f.long).map((f) => (
               <div key={f.key}>
-                <label htmlFor={`pa-${f.key}`}>{f.label}</label>
+                <label htmlFor={`pa-${f.key}`}>{t(f.label)}</label>
                 <input id={`pa-${f.key}`} value={draft[f.key]} required={f.required}
                   onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
               </div>
             ))}
             <div>
-              <label htmlFor="pa-basis">Behandlingsgrunnlag (art. 6)</label>
+              <label htmlFor="pa-basis">{t('Behandlingsgrunnlag (art. 6)')}</label>
               <select id="pa-basis" value={draft.legalBasis}
                 onChange={(e) => setDraft({ ...draft, legalBasis: e.target.value })}>
-                {Object.entries(LEGAL_BASIS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {Object.entries(LEGAL_BASIS_LABELS).map(([v, l]) => <option key={v} value={v}>{t(l)}</option>)}
               </select>
             </div>
             <div>
-              <label htmlFor="pa-reviewed">Sist gjennomgått</label>
+              <label htmlFor="pa-reviewed">{t('Sist gjennomgått')}</label>
               <input id="pa-reviewed" type="date" value={draft.lastReviewedAt}
                 onChange={(e) => setDraft({ ...draft, lastReviewedAt: e.target.value })} />
             </div>
           </div>
           {ACTIVITY_FIELDS.filter((f) => f.long).map((f) => (
             <div key={f.key}>
-              <label htmlFor={`pa-${f.key}`}>{f.label}</label>
+              <label htmlFor={`pa-${f.key}`}>{t(f.label)}</label>
               <textarea id={`pa-${f.key}`} rows={2} value={draft[f.key]} required={f.required}
                 onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })} />
             </div>
           ))}
           <div className="settings-form-actions">
-            <button type="submit" disabled={busy}>Lagre</button>
+            <button type="submit" disabled={busy}>{t('Lagre')}</button>
             <button type="button" className="secondary" onClick={() => { setDraft(null); setEditingId(null) }}>
-              Avbryt
+              {t('Avbryt')}
             </button>
           </div>
         </form>
@@ -418,36 +415,36 @@ function Protocol() {
       {error && <p role="alert" className="settings-error">{error}</p>}
 
       {activities.loading ? (
-        <p>Henter...</p>
+        <p>{t('Henter...')}</p>
       ) : (
         activities.items.map((a) => (
           <div key={a.id} className="helpdesk-ticket">
             <h4>{a.name}{a.system && <span className="settings-muted"> · {a.system}</span>}</h4>
             <dl className="protocol-entry">
-              <dt>Formål</dt><dd>{a.purpose}</dd>
-              <dt>Registrerte</dt><dd>{a.dataSubjects}</dd>
-              <dt>Personopplysninger</dt><dd>{a.dataCategories}</dd>
-              <dt>Grunnlag</dt><dd>{LEGAL_BASIS_LABELS[a.legalBasis] ?? a.legalBasis}</dd>
-              <dt>Lagringstid</dt><dd>{a.retention}</dd>
-              {a.recipients && (<><dt>Mottakere</dt><dd>{a.recipients}</dd></>)}
-              {a.thirdCountryTransfers && (<><dt>Utenfor EØS</dt><dd>{a.thirdCountryTransfers}</dd></>)}
-              {a.securityMeasures && (<><dt>Sikkerhet</dt><dd>{a.securityMeasures}</dd></>)}
-              {a.owner && (<><dt>Ansvarlig</dt><dd>{a.owner}</dd></>)}
-              <dt>Sist gjennomgått</dt><dd>{a.lastReviewedAt ? formatDate(a.lastReviewedAt) : 'Ikke registrert'}</dd>
+              <dt>{t('Formål')}</dt><dd>{a.purpose}</dd>
+              <dt>{t('Registrerte')}</dt><dd>{a.dataSubjects}</dd>
+              <dt>{t('Personopplysninger')}</dt><dd>{a.dataCategories}</dd>
+              <dt>{t('Grunnlag')}</dt><dd>{LEGAL_BASIS_LABELS[a.legalBasis] ? t(LEGAL_BASIS_LABELS[a.legalBasis]) : a.legalBasis}</dd>
+              <dt>{t('Lagringstid')}</dt><dd>{a.retention}</dd>
+              {a.recipients && (<><dt>{t('Mottakere')}</dt><dd>{a.recipients}</dd></>)}
+              {a.thirdCountryTransfers && (<><dt>{t('Utenfor EØS')}</dt><dd>{a.thirdCountryTransfers}</dd></>)}
+              {a.securityMeasures && (<><dt>{t('Sikkerhet')}</dt><dd>{a.securityMeasures}</dd></>)}
+              {a.owner && (<><dt>{t('Ansvarlig')}</dt><dd>{a.owner}</dd></>)}
+              <dt>{t('Sist gjennomgått')}</dt><dd>{a.lastReviewedAt ? formatDate(a.lastReviewedAt) : t('Ikke registrert')}</dd>
             </dl>
             <div className="settings-form-actions">
-              <button type="button" className="settings-row-action" onClick={() => edit(a)}>Endre</button>
+              <button type="button" className="settings-row-action" onClick={() => edit(a)}>{t('Endre')}</button>
               <button
                 type="button"
                 className="settings-row-action"
                 disabled={busy}
                 onClick={() => {
-                  if (window.confirm(`Slette «${a.name}» fra protokollen?`)) {
+                  if (window.confirm(t('Slette «{name}» fra protokollen?', { name: a.name }))) {
                     void run(() => send('DELETE', `/api/gdpr/processing/${a.id}`))
                   }
                 }}
               >
-                Slett
+                {t('Slett')}
               </button>
             </div>
           </div>

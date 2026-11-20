@@ -7,6 +7,7 @@ import {
   type AuditEvent,
   type EmployeeNames,
 } from '../audit'
+import { t } from '../i18n'
 
 type Props = {
   ticketId: number
@@ -36,7 +37,7 @@ export default function TicketHistory({ ticketId, employees, version }: Props) {
         const data: AuditEvent[] = await response.json()
         if (!cancelled) setEvents(data)
       } catch {
-        if (!cancelled) setError('Kunne ikke hente historikk.')
+        if (!cancelled) setError(t('Kunne ikke hente historikk.'))
       }
     }
 
@@ -48,9 +49,9 @@ export default function TicketHistory({ ticketId, employees, version }: Props) {
   }, [ticketId, version, getAuthHeaders])
 
   if (error) return <p role="alert" className="ticket-history-error">{error}</p>
-  if (events === null) return <p className="ticket-history-empty">Henter historikk...</p>
+  if (events === null) return <p className="ticket-history-empty">{t('Henter historikk...')}</p>
   if (events.length === 0) {
-    return <p className="ticket-history-empty">Ingen historikk registrert ennå.</p>
+    return <p className="ticket-history-empty">{t('Ingen historikk registrert ennå.')}</p>
   }
 
   return (

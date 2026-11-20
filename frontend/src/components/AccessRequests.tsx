@@ -3,6 +3,7 @@ import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 import { useServiceCatalog } from '../serviceCatalog'
 import { useList } from './settings/settingsApi'
+import { t } from '../i18n'
 
 type AccessRequest = {
   id: number
@@ -74,7 +75,7 @@ export default function AccessRequests() {
         if (!cancelled) setRequests(data)
       } catch {
         if (!cancelled) {
-          setError('Kunne ikke hente tilgangsbestillinger.')
+          setError(t('Kunne ikke hente tilgangsbestillinger.'))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -123,11 +124,11 @@ export default function AccessRequests() {
       setManagerName('')
       setMessage(
         created.status === 'Fullført'
-          ? 'Systemet krever ikke godkjenning, og tilgangen er gitt.'
-          : 'Tilgangsbestillingen er registrert.'
+          ? t('Systemet krever ikke godkjenning, og tilgangen er gitt.')
+          : t('Tilgangsbestillingen er registrert.')
       )
     } catch {
-      setError('Kunne ikke opprette tilgangsbestillingen.')
+      setError(t('Kunne ikke opprette tilgangsbestillingen.'))
     } finally {
       setSaving(false)
     }
@@ -162,9 +163,9 @@ export default function AccessRequests() {
 
       if (!response.ok) throw new Error()
 
-      showResult(await response.json(), `Bestillingen er ${status.toLowerCase()}.`)
+      showResult(await response.json(), status === 'Godkjent' ? t('Bestillingen er godkjent.') : t('Bestillingen er avslått.'))
     } catch {
-      setError('Kunne ikke oppdatere godkjenningen.')
+      setError(t('Kunne ikke oppdatere godkjenningen.'))
     } finally {
       setUpdatingId(null)
     }
@@ -188,7 +189,7 @@ export default function AccessRequests() {
 
       showResult(await response.json(), '')
     } catch {
-      setError('Kunne ikke gi tilgangen.')
+      setError(t('Kunne ikke gi tilgangen.'))
     } finally {
       setUpdatingId(null)
     }
@@ -217,9 +218,9 @@ export default function AccessRequests() {
         )
       )
 
-      setMessage('Tilgangsbestillingen er fullført.')
+      setMessage(t('Tilgangsbestillingen er fullført.'))
     } catch {
-      setError('Kunne ikke fullføre tilgangsbestillingen.')
+      setError(t('Kunne ikke fullføre tilgangsbestillingen.'))
     } finally {
       setUpdatingId(null)
     }
@@ -235,7 +236,7 @@ export default function AccessRequests() {
   return (
     <section className="helpdesk">
       <div className="helpdesk-card">
-        <h3>Bestill tilgang</h3>
+        <h3>{t('Bestill tilgang')}</h3>
 
         <form
           className="helpdesk-form"
@@ -244,7 +245,7 @@ export default function AccessRequests() {
             void createRequest()
           }}
         >
-          <label htmlFor="access-employee">Ansatt</label>
+          <label htmlFor="access-employee">{t('Ansatt')}</label>
           <select
             id="access-employee"
             value={selectedEmployeeId}
@@ -252,7 +253,7 @@ export default function AccessRequests() {
             disabled={employees.loading}
             required
           >
-            <option value="">{employees.loading ? 'Henter ansatte...' : 'Velg ansatt'}</option>
+            <option value="">{employees.loading ? t('Henter ansatte...') : t('Velg ansatt')}</option>
             {activeEmployees.map((e) => (
               <option key={e.id} value={e.id}>
                 {`${e.firstName} ${e.lastName}`.trim()}
@@ -260,7 +261,7 @@ export default function AccessRequests() {
             ))}
           </select>
 
-          <label htmlFor="access-system">System</label>
+          <label htmlFor="access-system">{t('System')}</label>
           <select
             id="access-system"
             value={selectedSystem?.id ?? ''}
@@ -268,9 +269,9 @@ export default function AccessRequests() {
             disabled={systems.loading || systems.items.length === 0}
             required
           >
-            {systems.loading && <option value="">Henter systemer...</option>}
+            {systems.loading && <option value="">{t('Henter systemer...')}</option>}
             {!systems.loading && systems.items.length === 0 && (
-              <option value="">Ingen systemer i tjenestekatalogen</option>
+              <option value="">{t('Ingen systemer i tjenestekatalogen')}</option>
             )}
             {systems.items.map((system) => (
               <option key={system.id} value={system.id}>
@@ -285,28 +286,28 @@ export default function AccessRequests() {
           {selectedSystem?.entraGroupId && (
             <p className="service-description">
               {selectedSystem.requiresApproval
-                ? 'Tilgangen gis automatisk når bestillingen er godkjent.'
-                : 'Krever ikke godkjenning når du bestiller til deg selv: tilgangen gis med en gang.'}
+                ? t('Tilgangen gis automatisk når bestillingen er godkjent.')
+                : t('Krever ikke godkjenning når du bestiller til deg selv: tilgangen gis med en gang.')}
             </p>
           )}
           {systems.error && <p role="alert">{systems.error}</p>}
 
-          <label htmlFor="access-reason">Begrunnelse</label>
+          <label htmlFor="access-reason">{t('Begrunnelse')}</label>
           <textarea
             id="access-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Hvorfor trengs tilgangen?"
+            placeholder={t('Hvorfor trengs tilgangen?')}
             rows={4}
             required
           />
 
-          <label htmlFor="access-manager">Leder</label>
+          <label htmlFor="access-manager">{t('Leder')}</label>
           <input
             id="access-manager"
             value={managerName}
             onChange={(e) => setManagerName(e.target.value)}
-            placeholder="Navn på leder som skal godkjenne"
+            placeholder={t('Navn på leder som skal godkjenne')}
             required
           />
 
@@ -320,7 +321,7 @@ export default function AccessRequests() {
               !managerName.trim()
             }
           >
-            {saving ? 'Sender...' : 'Send bestilling'}
+            {saving ? t('Sender...') : t('Send bestilling')}
           </button>
         </form>
       </div>
@@ -329,21 +330,21 @@ export default function AccessRequests() {
       {message && <p role="status" className="settings-message">{message}</p>}
 
       <div className="helpdesk-card">
-        <h3>Registrerte tilgangsbestillinger</h3>
+        <h3>{t('Registrerte tilgangsbestillinger')}</h3>
 
         {loading ? (
-          <p>Henter bestillinger...</p>
+          <p>{t('Henter bestillinger...')}</p>
         ) : requests.length === 0 ? (
-          <p>Ingen tilgangsbestillinger registrert.</p>
+          <p>{t('Ingen tilgangsbestillinger registrert.')}</p>
         ) : (
           requests.map((request) => (
             <div className="helpdesk-ticket" key={request.id}>
               <h4>#{request.id} – {request.systemName}</h4>
 
-              <p><strong>Ansatt:</strong> {request.employeeName}</p>
-              <p><strong>Begrunnelse:</strong> {request.reason}</p>
-              <p><strong>Leder:</strong> {request.managerName}</p>
-              <p><strong>Status:</strong> {request.status}</p>
+              <p><strong>{t('Ansatt')}:</strong> {request.employeeName}</p>
+              <p><strong>{t('Begrunnelse')}:</strong> {request.reason}</p>
+              <p><strong>{t('Leder')}:</strong> {request.managerName}</p>
+              <p><strong>{t('Status')}:</strong> {t(request.status)}</p>
 
               {isApprover && request.status === 'Venter på godkjenning' && (
                 <div className="approval-actions">
@@ -354,7 +355,7 @@ export default function AccessRequests() {
                       void updateApproval(request.id, 'Godkjent')
                     }}
                   >
-                    Godkjenn
+                    {t('Godkjenn')}
                   </button>
 
                   <button
@@ -364,7 +365,7 @@ export default function AccessRequests() {
                       void updateApproval(request.id, 'Avslått')
                     }}
                   >
-                    Avslå
+                    {t('Avslå')}
                   </button>
                 </div>
               )}
@@ -379,7 +380,7 @@ export default function AccessRequests() {
                         void grantRequest(request.id)
                       }}
                     >
-                      {updatingId === request.id ? 'Gir tilgang...' : 'Gi tilgang i Entra'}
+                      {updatingId === request.id ? t('Gir tilgang...') : t('Gi tilgang i Entra')}
                     </button>
                   )}
 
@@ -390,7 +391,7 @@ export default function AccessRequests() {
                       void completeRequest(request.id)
                     }}
                   >
-                    {hasGroup(request) ? 'Fullfør (gitt manuelt)' : 'Fullfør'}
+                    {hasGroup(request) ? t('Fullfør (gitt manuelt)') : t('Fullfør')}
                   </button>
                 </div>
               )}

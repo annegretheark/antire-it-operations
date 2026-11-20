@@ -1,6 +1,7 @@
 import { PRIORITY_LABELS, STATUS_LABELS } from './tickets'
 import { ASSET_STATUS_LABELS, ASSET_TYPE_LABELS } from './assets'
 import { SERVICE_TYPE_LABELS } from './serviceCatalog'
+import { locale, t } from './i18n'
 
 // Felles typer og visning for revisjonsloggen (sakshistorikk og Innstillinger)
 
@@ -173,11 +174,11 @@ const CODE_LABELS: Record<string, Record<string, string>> = {
 }
 
 export function actionLabel(action: string): string {
-  return ACTION_LABELS[action] ?? action
+  return ACTION_LABELS[action] ? t(ACTION_LABELS[action]) : action
 }
 
 export function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('nb-NO', {
+  return new Date(value).toLocaleString(locale(), {
     dateStyle: 'short',
     timeStyle: 'short',
   })
@@ -189,13 +190,13 @@ export type EmployeeNames = Map<number, string>
 function formatValue(field: string, value: unknown, employees: EmployeeNames): string {
   if (value === null || value === undefined || value === '') return '–'
 
-  if (typeof value === 'string' && CODE_LABELS[field]?.[value]) return CODE_LABELS[field][value]
+  if (typeof value === 'string' && CODE_LABELS[field]?.[value]) return t(CODE_LABELS[field][value])
 
   if (EMPLOYEE_FIELDS.has(field) && typeof value === 'number') {
     return employees.get(value) ?? `#${value}`
   }
 
-  if (typeof value === 'boolean') return value ? 'ja' : 'nei'
+  if (typeof value === 'boolean') return value ? t('ja') : t('nei')
 
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
     return formatDateTime(value)
@@ -212,7 +213,7 @@ export function describeChanges(event: AuditEvent, employees: EmployeeNames): st
   return Object.entries(event.changes)
     .filter(([field]) => !(event.action === 'created' && HIDDEN_ON_CREATE.has(field)))
     .map(([field, value]) => {
-      const label = FIELD_LABELS[field] ?? field
+      const label = FIELD_LABELS[field] ? t(FIELD_LABELS[field]) : field
 
       if (!Array.isArray(value) || value.length !== 2) {
         return `${label}: ${formatValue(field, value, employees)}`

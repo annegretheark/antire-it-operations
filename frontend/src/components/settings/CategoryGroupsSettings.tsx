@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useServiceCatalog } from '../../serviceCatalog'
 import { errorText, useEntraGroups, useList, useSend } from './settingsApi'
+import { t } from '../../i18n'
 
 type CategoryGroup = {
   id: number
@@ -43,11 +44,9 @@ export default function CategoryGroupsSettings() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Kategorigrupper</h3>
+      <h3>{t('Kategorigrupper')}</h3>
       <p className="audit-intro">
-        En sak i en kategori tildeles bare ansatte som er medlem av en av gruppene for kategorien
-        (direkte eller via en annen gruppe). Uten grupper tildeles ikke saker i kategorien
-        automatisk.
+        {t('En sak i en kategori tildeles bare ansatte som er medlem av en av gruppene for kategorien (direkte eller via en annen gruppe). Uten grupper tildeles ikke saker i kategorien automatisk.')}
       </p>
 
       <form
@@ -65,14 +64,14 @@ export default function CategoryGroupsSettings() {
       >
         <div className="settings-form-grid">
           <div>
-            <label htmlFor="group-category">Kategori</label>
+            <label htmlFor="group-category">{t('Kategori')}</label>
             <select
               id="group-category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               required
             >
-              <option value="">Velg kategori</option>
+              <option value="">{t('Velg kategori')}</option>
               {categories.map((c) => (
                 <option key={c}>{c}</option>
               ))}
@@ -80,13 +79,13 @@ export default function CategoryGroupsSettings() {
           </div>
 
           <div>
-            <label htmlFor="group-id">Entra-gruppe-ID</label>
+            <label htmlFor="group-id">{t('Entra-gruppe-ID')}</label>
             <input
               id="group-id"
               value={groupId}
               onChange={(e) => setGroupId(e.target.value)}
               list="entra-groups"
-              placeholder="Velg gruppe eller lim inn gruppe-ID"
+              placeholder={t('Velg gruppe eller lim inn gruppe-ID')}
               required
             />
           </div>
@@ -102,7 +101,7 @@ export default function CategoryGroupsSettings() {
 
         <div className="settings-form-actions">
           <button type="submit" disabled={saving || !category || !groupId.trim()}>
-            Legg til
+            {t('Legg til')}
           </button>
         </div>
       </form>
@@ -111,16 +110,16 @@ export default function CategoryGroupsSettings() {
       {groups.error && <p role="alert" className="settings-error">{groups.error}</p>}
 
       {groups.loading ? (
-        <p>Henter kategorigrupper...</p>
+        <p>{t('Henter kategorigrupper...')}</p>
       ) : groups.items.length === 0 ? (
-        <p>Ingen kategorigrupper registrert.</p>
+        <p>{t('Ingen kategorigrupper registrert.')}</p>
       ) : (
         <div className="audit-table-wrapper">
           <table className="audit-table">
             <thead>
               <tr>
-                <th>Kategori</th>
-                <th>Entra-gruppe</th>
+                <th>{t('Kategori')}</th>
+                <th>{t('Entra-gruppe')}</th>
                 <th />
               </tr>
             </thead>
@@ -141,7 +140,7 @@ export default function CategoryGroupsSettings() {
                         void run(() => send('DELETE', `/api/ticketcategorygroups/${g.id}`))
                       }
                     >
-                      Fjern
+                      {t('Fjern')}
                     </button>
                   </td>
                 </tr>

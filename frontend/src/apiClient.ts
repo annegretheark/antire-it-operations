@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { loginRequest } from './msalConfig'
+import { t } from './i18n'
 
 // Backend-adresse fra miljøvariabel (se .env.example); localhost som standard i utvikling
 export const API_BASE_URL = (
@@ -21,7 +22,7 @@ export function useAuthHeaders(): () => Promise<HeadersInit> {
     const account = instance.getActiveAccount() ?? accounts[0]
 
     if (!account) {
-      throw new Error('Du må logge inn med Microsoft.')
+      throw new Error(t('Du må logge inn med Microsoft.'))
     }
 
     const tokenResponse = await instance.acquireTokenSilent({

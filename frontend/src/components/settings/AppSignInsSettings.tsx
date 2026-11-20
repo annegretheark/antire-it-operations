@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { formatDateTime } from '../../audit'
 import { useList } from './settingsApi'
+import { t } from '../../i18n'
 
 type AppSignIn = {
   entraObjectId: string
@@ -24,19 +25,16 @@ export default function AppSignInsSettings() {
 
   return (
     <div className="helpdesk-card">
-      <h3>Pålogginger</h3>
+      <h3>{t('Pålogginger')}</h3>
       <p className="audit-intro">
-        Hvem som har brukt appen i denne tenanten, og når. Oppdateres når brukeren åpner appen
-        (høyst hvert 5. minutt). Et nytt besøk regnes når det har gått mer enn 30 minutter siden sist.
-        Personer som blir stoppet før de kommer inn, for eksempel fordi de logger inn fra en annen
-        tenant, vises ikke her; se påloggingsloggen i Entra ID for dem.
+        {t('Hvem som har brukt appen i denne tenanten, og når. Oppdateres når brukeren åpner appen (høyst hvert 5. minutt). Et nytt besøk regnes når det har gått mer enn 30 minutter siden sist. Personer som blir stoppet før de kommer inn, for eksempel fordi de logger inn fra en annen tenant, vises ikke her; se påloggingsloggen i Entra ID for dem.')}
       </p>
 
       <div className="asset-filters">
         <input
           type="search"
-          aria-label="Søk"
-          placeholder="Søk på navn eller brukernavn"
+          aria-label={t('Søk')}
+          placeholder={t('Søk på navn eller brukernavn')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -46,27 +44,27 @@ export default function AppSignInsSettings() {
           onClick={() => setReloadKey((k) => k + 1)}
           disabled={signIns.loading}
         >
-          Oppdater
+          {t('Oppdater')}
         </button>
       </div>
 
       {signIns.error && <p role="alert" className="settings-error">{signIns.error}</p>}
 
       {signIns.loading ? (
-        <p>Henter pålogginger...</p>
+        <p>{t('Henter pålogginger...')}</p>
       ) : !signIns.error && filtered.length === 0 ? (
-        <p>Ingen pålogginger registrert.</p>
+        <p>{t('Ingen pålogginger registrert.')}</p>
       ) : (
         <>
-          <p className="settings-muted">{filtered.length} brukere</p>
+          <p className="settings-muted">{t('{n} brukere', { n: filtered.length })}</p>
           <div className="audit-table-wrapper">
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Bruker</th>
-                  <th>Sist sett</th>
-                  <th>Første gang</th>
-                  <th>Besøk</th>
+                  <th>{t('Bruker')}</th>
+                  <th>{t('Sist sett')}</th>
+                  <th>{t('Første gang')}</th>
+                  <th>{t('Besøk')}</th>
                 </tr>
               </thead>
               <tbody>

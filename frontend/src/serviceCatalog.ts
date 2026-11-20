@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiUrl, useAuthHeaders } from './apiClient'
+import { t } from './i18n'
 
 // Tjenestekatalogen (GET /api/servicecatalog)
 
@@ -52,7 +53,7 @@ export function useServiceCatalog(query = '', reloadKey = 0): CatalogState {
         if (!cancelled) setState({ items, loading: false, error: '' })
       } catch {
         if (!cancelled) {
-          setState({ items: [], loading: false, error: 'Kunne ikke hente tjenestekatalogen.' })
+          setState({ items: [], loading: false, error: t('Kunne ikke hente tjenestekatalogen.') })
         }
       }
     }

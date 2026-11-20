@@ -12,6 +12,7 @@ import {
   type AlertSourceStatus,
 } from '../alerts'
 import { errorText, useList, useSend } from './settings/settingsApi'
+import { t } from '../i18n'
 
 type IngestResult = { alertId: number; ticketId: number | null; outcome: string }
 
@@ -45,8 +46,8 @@ export default function Alerts() {
     return (
       <section className="helpdesk">
         <div className="helpdesk-card">
-          <h3>Varsler</h3>
-          <p>Du trenger rollen Helpdesk.Agent eller Helpdesk.Admin for å se varsler.</p>
+          <h3>{t('Varsler')}</h3>
+          <p>{t('Du trenger rollen Helpdesk.Agent eller Helpdesk.Admin for å se varsler.')}</p>
         </div>
       </section>
     )
@@ -55,7 +56,7 @@ export default function Alerts() {
   return (
     <section className="helpdesk">
       <div className="helpdesk-card">
-        <h3>Kilder</h3>
+        <h3>{t('Kilder')}</h3>
         <ul className="alert-sources">
           {sources.items.map((s) => (
             <li key={s.source}>
@@ -66,52 +67,51 @@ export default function Alerts() {
           ))}
         </ul>
         <p className="service-description">
-          Varsler hentes hvert 5. minutt. Hvilke varsler som blir saker, styres under Innstillinger →
-          Varselregler.
+          {t('Varsler hentes hvert 5. minutt. Hvilke varsler som blir saker, styres under Innstillinger → Varselregler.')}
         </p>
       </div>
 
       {isHelpdeskAdmin && <SimulateAlert onDone={() => setReloadKey((k) => k + 1)} />}
 
       <div className="helpdesk-card">
-        <h3>Mottatte varsler</h3>
+        <h3>{t('Mottatte varsler')}</h3>
 
         <div className="asset-filters">
-          <select aria-label="Kilde" value={source} onChange={(e) => setSource(e.target.value)}>
-            <option value="">Alle kilder</option>
+          <select aria-label={t('Kilde')} value={source} onChange={(e) => setSource(e.target.value)}>
+            <option value="">{t('Alle kilder')}</option>
             {Object.entries(ALERT_SOURCE_LABELS).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-          <select aria-label="Tilstand" value={state} onChange={(e) => setState(e.target.value)}>
-            <option value="">Alle tilstander</option>
+          <select aria-label={t('Tilstand')} value={state} onChange={(e) => setState(e.target.value)}>
+            <option value="">{t('Alle tilstander')}</option>
             {Object.entries(ALERT_STATE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>{t(label)}</option>
             ))}
           </select>
           <button type="button" className="settings-row-action" onClick={() => setReloadKey((k) => k + 1)}>
-            Oppdater
+            {t('Oppdater')}
           </button>
         </div>
 
         {alerts.error && <p role="alert" className="settings-error">{alerts.error}</p>}
 
         {alerts.loading ? (
-          <p>Henter varsler...</p>
+          <p>{t('Henter varsler...')}</p>
         ) : alerts.items.length === 0 ? (
-          <p>Ingen varsler mottatt.</p>
+          <p>{t('Ingen varsler mottatt.')}</p>
         ) : (
           <div className="audit-table-wrapper">
             <table className="audit-table">
               <thead>
                 <tr>
-                  <th>Varsel</th>
-                  <th>Kilde</th>
-                  <th>Alvorlighetsgrad</th>
-                  <th>Tilstand</th>
-                  <th>Forekomster</th>
-                  <th>Sist fyrt</th>
-                  <th>Sak</th>
+                  <th>{t('Varsel')}</th>
+                  <th>{t('Kilde')}</th>
+                  <th>{t('Alvorlighetsgrad')}</th>
+                  <th>{t('Tilstand')}</th>
+                  <th>{t('Forekomster')}</th>
+                  <th>{t('Sist fyrt')}</th>
+                  <th>{t('Sak')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -122,19 +122,19 @@ export default function Alerts() {
                       {a.resourceId && <div className="settings-muted">{a.resourceId}</div>}
                       {a.portalUrl && (
                         <div>
-                          <a href={a.portalUrl} target="_blank" rel="noreferrer">Åpne varselet</a>
+                          <a href={a.portalUrl} target="_blank" rel="noreferrer">{t('Åpne varselet')}</a>
                         </div>
                       )}
                     </td>
                     <td>{ALERT_SOURCE_LABELS[a.source] ?? a.source}</td>
                     <td>{severityLabel(a.source, a.severity)}</td>
-                    <td>{ALERT_STATE_LABELS[a.state] ?? a.state}</td>
+                    <td>{ALERT_STATE_LABELS[a.state] ? t(ALERT_STATE_LABELS[a.state]) : a.state}</td>
                     <td>{a.occurrences}</td>
                     <td className="audit-nowrap">{formatDateTime(a.lastFiredAt)}</td>
                     <td className="audit-nowrap">
                       {a.ticketId
                         ? <a href={`?sak=${a.ticketId}`}>#{a.ticketId}</a>
-                        : <span className="settings-muted">Ingen</span>}
+                        : <span className="settings-muted">{t('Ingen')}</span>}
                       {a.ticketStatus && <div className="settings-muted">{statusLabel(a.ticketStatus)}</div>}
                     </td>
                   </tr>
@@ -170,8 +170,8 @@ function SimulateAlert({ onDone }: { onDone: () => void }) {
       })
       const result: IngestResult = await response.json()
       setMessage(
-        `${OUTCOME_TEXT[result.outcome] ?? result.outcome}` +
-        (result.ticketId ? ` (sak #${result.ticketId}).` : '.')
+        (OUTCOME_TEXT[result.outcome] ? t(OUTCOME_TEXT[result.outcome]) : result.outcome) +
+        (result.ticketId ? ` (${t('sak #{id}', { id: result.ticketId })}).` : '.')
       )
       onDone()
     } catch (e) {
@@ -183,16 +183,15 @@ function SimulateAlert({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="helpdesk-card">
-      <h3>Simuler varsel</h3>
+      <h3>{t('Simuler varsel')}</h3>
       <p className="audit-intro">
-        Sender et testvarsel gjennom hele flyten: varselregler, sak, SLA, tildeling og Teams. Bruk
-        samme varsel-ID flere ganger for å teste ny forekomst, gjenåpning og «løst hos kilden».
+        {t('Sender et testvarsel gjennom hele flyten: varselregler, sak, SLA, tildeling og Teams. Bruk samme varsel-ID flere ganger for å teste ny forekomst, gjenåpning og «løst hos kilden».')}
       </p>
 
       <div className="helpdesk-form">
         <div className="settings-form-grid">
           <div>
-            <label htmlFor="sim-source">Kilde</label>
+            <label htmlFor="sim-source">{t('Kilde')}</label>
             <select
               id="sim-source"
               value={source}
@@ -207,7 +206,7 @@ function SimulateAlert({ onDone }: { onDone: () => void }) {
             </select>
           </div>
           <div>
-            <label htmlFor="sim-severity">Alvorlighetsgrad</label>
+            <label htmlFor="sim-severity">{t('Alvorlighetsgrad')}</label>
             <select id="sim-severity" value={severity} onChange={(e) => setSeverity(e.target.value)}>
               {SEVERITIES[source].map((s) => (
                 <option key={s} value={s}>{severityLabel(source, s)}</option>
@@ -215,15 +214,15 @@ function SimulateAlert({ onDone }: { onDone: () => void }) {
             </select>
           </div>
           <div>
-            <label htmlFor="sim-title">Tittel</label>
+            <label htmlFor="sim-title">{t('Tittel')}</label>
             <input id="sim-title" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div>
-            <label htmlFor="sim-id">Varsel-ID (valgfri)</label>
+            <label htmlFor="sim-id">{t('Varsel-ID (valgfri)')}</label>
             <input
               id="sim-id"
               value={externalId}
-              placeholder="Tom = nytt varsel"
+              placeholder={t('Tom = nytt varsel')}
               onChange={(e) => setExternalId(e.target.value)}
             />
           </div>
@@ -231,7 +230,7 @@ function SimulateAlert({ onDone }: { onDone: () => void }) {
 
         <div className="settings-form-actions">
           <button type="button" disabled={saving} onClick={() => void simulate('fired')}>
-            Send varsel
+            {t('Send varsel')}
           </button>
           <button
             type="button"
@@ -239,7 +238,7 @@ function SimulateAlert({ onDone }: { onDone: () => void }) {
             disabled={saving || !externalId.trim()}
             onClick={() => void simulate('resolved')}
           >
-            Marker som løst hos kilden
+            {t('Marker som løst hos kilden')}
           </button>
         </div>
       </div>

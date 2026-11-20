@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ASSET_STATUS_LABELS, assetName, type Asset } from '../assets'
 import { errorText, useList, useSend } from './settings/settingsApi'
+import { t } from '../i18n'
 
 type Props = {
   employeeId: number
@@ -30,15 +31,15 @@ export default function EmployeeAssets({ employeeId, endDate }: Props) {
     }
   }
 
-  if (assets.loading) return <p>Henter utstyr...</p>
+  if (assets.loading) return <p>{t('Henter utstyr...')}</p>
   if (assets.error) return <p className="settings-error">{assets.error}</p>
 
   if (endDate) {
     return (
       <div className="asset-checklist">
-        <strong>Innlevering av utstyr (sluttdato {endDate.slice(0, 10)})</strong>
+        <strong>{t('Innlevering av utstyr (sluttdato {date})', { date: endDate.slice(0, 10) })}</strong>
         {assets.items.length === 0 ? (
-          <p>Alt utstyr er levert inn.</p>
+          <p>{t('Alt utstyr er levert inn.')}</p>
         ) : (
           <ul>
             {assets.items.map((asset) => (
@@ -50,7 +51,7 @@ export default function EmployeeAssets({ employeeId, endDate }: Props) {
                   disabled={savingId !== null}
                   onClick={() => void markReturned(asset)}
                 >
-                  {savingId === asset.id ? 'Lagrer...' : 'Mottatt'}
+                  {savingId === asset.id ? t('Lagrer...') : t('Mottatt')}
                 </button>
               </li>
             ))}
@@ -63,12 +64,12 @@ export default function EmployeeAssets({ employeeId, endDate }: Props) {
 
   return (
     <div>
-      <p><strong>Utstyr:</strong>{assets.items.length === 0 && ' Ingen'}</p>
+      <p><strong>{t('Utstyr:')}</strong>{assets.items.length === 0 && ` ${t('Ingen')}`}</p>
       {assets.items.length > 0 && (
         <ul className="asset-tickets">
           {assets.items.map((asset) => (
             <li key={asset.id}>
-              {assetName(asset)} · {ASSET_STATUS_LABELS[asset.status] ?? asset.status}
+              {assetName(asset)} · {ASSET_STATUS_LABELS[asset.status] ? t(ASSET_STATUS_LABELS[asset.status]) : asset.status}
             </li>
           ))}
         </ul>
