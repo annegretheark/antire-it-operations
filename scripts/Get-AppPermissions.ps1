@@ -117,7 +117,7 @@ foreach ($grant in $grants) { $consentedClients[$grant.clientId] = $true }
 # Apper som er med i revisjonen (appId -> navn og hva slags app)
 $inScope = @{}
 foreach ($app in $applications) {
-    $inScope[$app.appId] = @{ Name = $app.displayName; Registration = $true; Enterprise = $spByAppId.ContainsKey($app.appId) }
+    $inScope[$app.appId] = @{ Name = $app.displayName; Registration = $true; Enterprise = $spByAppId.ContainsKey($app.appId); ObjectId = $app.id }
 }
 foreach ($sp in $servicePrincipals) {
     if ($sp.servicePrincipalType -ne 'Application') { continue }          # managed identities o.l.
@@ -133,11 +133,14 @@ function Get-Row($appId, $kind, $resourceSp, $resourceAppId, $permission) {
     $key = "$appId|$kind|$resourceAppId|$permission"
     if (-not $rows.ContainsKey($key)) {
         $app = $inScope[$appId]
+        $sp = $spByAppId[$appId]
         $rows[$key] = [pscustomobject]@{
             App          = $app.Name
             AppId        = $appId
-            Apptype      = if ($app.Registration -and $app.Enterprise) { 'Registrering + enterprise' }
+            Apptype      = if (Test-MicrosoftApp $sp) { 'Microsoft' }
+                           elseif ($app.Registration -and $app.Enterprise) { 'Registrering + enterprise' }
                            elseif ($app.Registration) { 'Bare registrering' } else { 'Bare enterprise (ekstern)' }
+            Aktiv        = if (-not $sp) { '' } elseif ($sp.accountEnabled -eq $false) { 'Nei' } else { 'Ja' }
             Type         = $kind
             Ressurs      = if ($resourceSp) { $resourceSp.displayName } else { $resourceAppId }
             Rettighet    = $permission
@@ -149,6 +152,10 @@ function Get-Row($appId, $kind, $resourceSp, $resourceAppId, $permission) {
             SisteMedBruker = ''
             SisteSomApp    = ''
             DagerSiden     = ''
+            # Objekt-ID-er (brukes av Show-AccessReview.ps1 for å deaktivere, slette og fjerne)
+            EnterpriseAppId = if ($sp) { $sp.id } else { '' }
+            RegistreringId  = if ($app.ObjectId) { $app.ObjectId } else { '' }
+            RessursId       = if ($resourceSp) { $resourceSp.id } else { '' }
         }
     }
     $rows[$key]

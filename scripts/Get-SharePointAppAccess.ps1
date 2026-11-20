@@ -44,19 +44,28 @@ param(
     [string] $CsvPath,
     [switch] $IncludeMicrosoftApps,
     # Sender radene videre i pipelinen i tillegg til CSV-filen
-    [switch] $PassThru
+    [switch] $PassThru,
+    # Rader fra Get-AppPermissions.ps1 -PassThru som allerede er hentet (hentes ellers på nytt)
+    [object[]] $AppPermissions,
+    # Ikke skriv CSV-fil (f.eks. når Show-AccessReview.ps1 viser resultatet)
+    [switch] $NoCsv
 )
 
 $ErrorActionPreference = 'Stop'
 
-# Alle app-rettigheter (tenant-sjekken gjøres der). CSV-en derfra trengs ikke.
-$allCsv = Join-Path ([System.IO.Path]::GetTempPath()) "app-rettigheter-$([guid]::NewGuid().ToString('N')).csv"
-try {
-    $all = & (Join-Path $PSScriptRoot 'Get-AppPermissions.ps1') -TenantId $TenantId -CsvPath $allCsv `
-        -IncludeMicrosoftApps:$IncludeMicrosoftApps -PassThru 6>$null
+if ($AppPermissions) {
+    $all = $AppPermissions
 }
-finally {
-    Remove-Item $allCsv -ErrorAction SilentlyContinue
+else {
+    # Alle app-rettigheter (tenant-sjekken gjøres der). CSV-en derfra trengs ikke.
+    $allCsv = Join-Path ([System.IO.Path]::GetTempPath()) "app-rettigheter-$([guid]::NewGuid().ToString('N')).csv"
+    try {
+        $all = & (Join-Path $PSScriptRoot 'Get-AppPermissions.ps1') -TenantId $TenantId -CsvPath $allCsv `
+            -IncludeMicrosoftApps:$IncludeMicrosoftApps -PassThru 6>$null
+    }
+    finally {
+        Remove-Item $allCsv -ErrorAction SilentlyContinue
+    }
 }
 
 $sharePointResources = @('Microsoft Graph', 'Office 365 SharePoint Online')
@@ -96,11 +105,19 @@ $result = foreach ($row in $all) {
         Samtykke       = $row.Samtykke
         SistePålogging = $row.SistePålogging
         DagerSiden     = $row.DagerSiden
+        Apptype        = $row.Apptype
+        Aktiv          = $row.Aktiv
+        Status         = $row.Status
+        EnterpriseAppId = $row.EnterpriseAppId
+        RegistreringId  = $row.RegistreringId
+        RessursId       = $row.RessursId
     }
 }
 
 $severityOrder = @{ 'Høy' = 0; 'Middels' = 1; 'Lav' = 2 }
 $result = @($result | Sort-Object { $severityOrder[$_.Alvor] }, App, Rettighet)
+
+if ($NoCsv) { if ($PassThru) { $result }; return }
 
 if (-not $CsvPath) {
     $CsvPath = Join-Path (Get-Location) "sharepoint-tilgang-$TenantId-$(Get-Date -Format 'yyyyMMdd-HHmm').csv"

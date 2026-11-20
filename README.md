@@ -134,6 +134,7 @@ Løsningen bruker to app-registreringer i hver tenant:
 | `scripts/New-AppCertificate.ps1` | Sertifikat for appens innlogging mot Graph og Azure (i stedet for klienthemmelighet) |
 | `scripts/Grant-AzureReader.ps1` | Gir appen rollen Reader på Azure-abonnementer |
 | `scripts/Get-AppPermissions.ps1` | Revisjon: alle rettigheter på alle app-registreringer og enterprise apps i tenanten (delegert/applikasjon, samtykke, risiko), med CSV-eksport. Endrer ingenting |
+| `scripts/Show-AccessReview.ps1` | Vindu (PowerShell 7) med startside for app-rettigheter, SharePoint-tilgang og inaktive brukere. Anbefaling per rad, filtre og CSV-eksport. Deaktiver app, Slett app og Fjern rettighet vises bare for Global Administrator, Application Administrator og Cloud Application Administrator. Standard tenant: Antire |
 | `scripts/Get-SharePointAppAccess.ps1` | Apper med tilgang til SharePoint og OneDrive: hele tenanten eller utvalgte områder, med eller uten bruker, og siste pålogging. CSV-eksport. Endrer ingenting |
 | `scripts/Grant-GraphPermissions.ps1` | Gir API-appen Graph-rettighetene under, med admin-samtykke (`-SkipOptional` for bare de påkrevde) |
 
