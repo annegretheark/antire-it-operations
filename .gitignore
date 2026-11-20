@@ -6,3 +6,4 @@ node_modules/
 
 # Rapporter fra scripts/Get-AppPermissions.ps1 (tenantdata)
 app-rettigheter-*.csv
+sharepoint-tilgang-*.csv
