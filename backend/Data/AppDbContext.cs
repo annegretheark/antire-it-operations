@@ -48,6 +48,7 @@ public class AppDbContext : DbContext
     public DbSet<ProcessingActivity> ProcessingActivities { get; set; }
     public DbSet<GdprSettings> GdprSettings { get; set; }
     public DbSet<AppSignIn> AppSignIns { get; set; }
+    public DbSet<OpsReport> OpsReports { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,6 +75,18 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ProcessingActivity>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<GdprSettings>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<AppSignIn>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<OpsReport>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+
+        // Driftsrapporter (fase 5): én per tenant og periode
+        modelBuilder.Entity<OpsReport>(report =>
+        {
+            report.Property(e => e.TenantId).HasMaxLength(36);
+            report.Property(e => e.Metrics).HasColumnType("jsonb");
+            report.Property(e => e.AiActions).HasColumnType("jsonb");
+            report.Property(e => e.AiStatus).HasMaxLength(20);
+            report.Property(e => e.CreatedBy).HasMaxLength(256);
+            report.HasIndex(e => new { e.TenantId, e.PeriodStart }).IsUnique();
+        });
 
         // Hvem som har brukt appen: én rad per Entra-bruker i tenanten
         modelBuilder.Entity<AppSignIn>(signIn =>

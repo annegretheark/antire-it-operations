@@ -65,6 +65,8 @@ builder.Services.AddScoped<GdprService>();
 // Anonymiserer ansatte som har sluttet etter fristen (Gdpr:MonitorEnabled)
 builder.Services.AddSingleton<GdprMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GdprMonitorService>());
+// Ukentlig driftsrapport (fase 5): nøkkeltall beregnet av koden
+builder.Services.AddScoped<OpsReportService>();
 // Varsler blir saker (fase 4)
 builder.Services.AddScoped<TeamsNotificationService>();
 builder.Services.AddScoped<AlertRuleService>();
