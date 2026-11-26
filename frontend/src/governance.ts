@@ -311,3 +311,9 @@ export function startOfWeek(date: Date): Date {
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
   return d
 }
+
+// Detaljvisning fra lenke (?endring=12 eller ?risiko=3), ellers null
+export function linkedId(param: 'endring' | 'risiko'): { kind: 'details'; id: number } | null {
+  const id = Number(new URLSearchParams(window.location.search).get(param))
+  return Number.isInteger(id) && id > 0 ? { kind: 'details', id } : null
+}

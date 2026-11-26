@@ -256,7 +256,7 @@ public class RiskRegisterTests(SqliteWebApplicationFactory factory)
             Input(3, 3, owner.EmployeeId, RiskStrategies.Mitigate, actionOwner.EmployeeId,
                 DateTime.UtcNow.AddDays(10), DateTime.UtcNow.AddDays(20))));
 
-        var monitor = factory.Services.GetRequiredService<RiskMonitorService>();
+        var monitor = factory.Services.GetRequiredService<GovernanceMonitorService>();
         var later = DateTime.UtcNow.AddMonths(2);
 
         await monitor.CheckTenantAsync(TenantA, later);

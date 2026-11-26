@@ -121,6 +121,21 @@ public class TeamsNotificationService
 
     public string TicketUrl(int ticketId) => $"{_appUrl}/?sak={ticketId}";
 
+    // Lenker til endringer og risikoer i appen (C5)
+    public string ChangeUrl(int id, bool history = false) => $"{_appUrl}/?endring={id}{(history ? "&historikk=1" : "")}";
+    public string RiskUrl(int id, bool history = false) => $"{_appUrl}/?risiko={id}{(history ? "&historikk=1" : "")}";
+
+    // Kort for endringer og risiko. Sendes bare når tenanten har slått det på (standard på).
+    public async Task NotifyGovernanceAsync(string kind, string payload, CancellationToken cancellationToken = default)
+    {
+        var enabled = await _db.GovernanceSettings
+            .Select(s => (bool?)s.TeamsNotificationsEnabled)
+            .FirstOrDefaultAsync(cancellationToken) ?? true;
+
+        if (enabled)
+            await EnqueueAsync(null, kind, payload, cancellationToken);
+    }
+
     // Ny sak fra varsel, eller sak gjenåpnet av varsel
     public Task NotifyAlertTicketAsync(Ticket ticket, Alert alert, bool reopened, CancellationToken cancellationToken = default) =>
         EnqueueAsync(ticket.Id, reopened ? "reopened" : "new_alert_ticket",
@@ -284,6 +299,15 @@ public static class TeamsCards
             new { type = "TextBlock", text = "Teams-varsling er satt opp riktig.", wrap = true },
             new { type = "FactSet", facts = new List<object> { Fact("Sendt", DateTime.UtcNow.ToString("u")) } },
             [OpenUrl("Åpne appen", appUrl)]);
+
+    // Generelt kort: overskrift, kort tekst, fakta og lenker (alle knapper åpner appen)
+    public static string Card(string heading, string text, IEnumerable<(string Title, string Value)> facts,
+        IEnumerable<(string Title, string Url)> links) =>
+        Message(
+            new { type = "TextBlock", text = heading, weight = "Bolder", size = "Medium", wrap = true },
+            new { type = "TextBlock", text, wrap = true },
+            new { type = "FactSet", facts = facts.Select(f => Fact(f.Title, f.Value)).ToList() },
+            links.Select(l => OpenUrl(l.Title, l.Url)).ToList());
 
     private static object Fact(string title, string value) => new { title, value };
 

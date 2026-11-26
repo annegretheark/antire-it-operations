@@ -4,6 +4,7 @@ import { formatDate } from '../assets'
 import { formatDateTime } from '../audit'
 import {
   RISK_CATEGORIES,
+  linkedId,
   RISK_LEVEL_CODES,
   RISK_STATUS_CODES,
   RISK_STRATEGIES,
@@ -27,7 +28,8 @@ type Filters = { category: string; status: string; level: string; flag: string; 
 
 // Risikoregisteret (ENDRING_OG_RISIKO.md, C4). Aksept og statuser avgjøres på serveren.
 export default function Risks() {
-  const [view, setView] = useState<View>({ kind: 'list' })
+  // ?risiko=<id> (lenke fra Teams) åpner risikoen
+  const [view, setView] = useState<View>(() => linkedId('risiko') ?? { kind: 'list' })
   const [reloadKey, setReloadKey] = useState(0)
   const options = useResource<ChangeOptions>('/api/changes/options')
 
@@ -329,7 +331,7 @@ function RiskDetailsView({ id, options, onChanged }: { id: number; options: Chan
   const [reloadKey, setReloadKey] = useState(0)
   const details = useResource<RiskDetails>(`/api/risks/${id}`, reloadKey)
   const [editing, setEditing] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
+  const [showHistory, setShowHistory] = useState(() => new URLSearchParams(window.location.search).has('historikk'))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [justification, setJustification] = useState('')

@@ -113,19 +113,48 @@ public class ChangeWorkflowService
     private readonly GovernanceNumberService _numbers;
     private readonly GovernanceSetupService _setup;
     private readonly ICurrentUser _currentUser;
+    private readonly GovernanceNotifier _notifier;
+
+    // Hendelser som gir Teams-kort når endringen er lagret (C5)
+    private readonly List<string> _statusEvents = [];
+    private readonly List<string> _infoRequests = [];
 
     public ChangeWorkflowService(
         AppDbContext db,
         GovernanceRoleService roles,
         GovernanceNumberService numbers,
         GovernanceSetupService setup,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        GovernanceNotifier notifier)
     {
         _db = db;
         _roles = roles;
         _numbers = numbers;
         _setup = setup;
         _currentUser = currentUser;
+        _notifier = notifier;
+    }
+
+    // Lagrer, og sender deretter Teams-kort for hendelsene (feil i Teams fanges i køen)
+    private async Task SaveAndNotifyAsync(ChangeRequest change, CancellationToken ct)
+    {
+        await _db.SaveChangesAsync(ct);
+
+        var statuses = _statusEvents.ToList();
+        var infoRoles = _infoRequests.ToList();
+        _statusEvents.Clear();
+        _infoRequests.Clear();
+
+        foreach (var status in statuses.Distinct())
+        {
+            var missing = status == ChangeStatuses.PendingApproval
+                ? (await RequirementsAsync(change, ct)).Where(r => !r.Satisfied).Select(r => r.Role).ToList()
+                : [];
+            await _notifier.ChangeStatusAsync(change, status, missing, ct);
+        }
+
+        foreach (var role in infoRoles)
+            await _notifier.InfoRequestedAsync(change, role, ct);
     }
 
     private string ActorObjectId =>
@@ -200,7 +229,7 @@ public class ChangeWorkflowService
         change.ScopeHash = ChangeScopeHash.Compute(change);
 
         _db.ChangeRequests.Add(change);
-        await _db.SaveChangesAsync(ct);
+        await SaveAndNotifyAsync(change, ct);
         return change;
     }
 
@@ -248,7 +277,7 @@ public class ChangeWorkflowService
             }
         }
 
-        await _db.SaveChangesAsync(ct);
+        await SaveAndNotifyAsync(change, ct);
         return change;
     }
 
@@ -502,7 +531,7 @@ public class ChangeWorkflowService
                 throw GovernanceException.Forbidden("Bare innmelder eller Change Manager kan avbryte.");
 
             SetStatus(change, ChangeStatuses.Cancelled, note);
-            await _db.SaveChangesAsync(ct);
+            await SaveAndNotifyAsync(change, ct);
             return change;
         }
 
@@ -555,7 +584,7 @@ public class ChangeWorkflowService
         else if (to == ChangeStatuses.Submitted && change.Type == ChangeTypes.Emergency)
             SetStatus(change, ChangeStatuses.PendingApproval, "Hasteendring til hurtiggodkjenning.");
 
-        await _db.SaveChangesAsync(ct);
+        await SaveAndNotifyAsync(change, ct);
         return change;
     }
 
@@ -602,6 +631,7 @@ public class ChangeWorkflowService
         var from = change.Status;
         change.Status = to;
         change.UpdatedAt = DateTime.UtcNow;
+        _statusEvents.Add(to);
 
         if (TerminalStatuses.Contains(to))
             change.ClosedAt ??= DateTime.UtcNow;
@@ -776,6 +806,9 @@ public class ChangeWorkflowService
         _db.AddAuditEvent(nameof(ChangeRequest), change.Id.ToString(), action,
             new { change.Number, role, decision, comment });
 
+        if (decision == ApprovalDecisions.InfoRequested)
+            _infoRequests.Add(role);
+
         if (decision == ApprovalDecisions.Rejected)
         {
             SetStatus(change, ChangeStatuses.Rejected, comment);
@@ -786,7 +819,7 @@ public class ChangeWorkflowService
             SetStatus(change, ChangeStatuses.Approved, "Alle påkrevde godkjenninger er gitt.");
         }
 
-        await _db.SaveChangesAsync(ct);
+        await SaveAndNotifyAsync(change, ct);
         return change;
     }
 
@@ -827,7 +860,7 @@ public class ChangeWorkflowService
         change.UpdatedAt = DateTime.UtcNow;
         _db.SetAuditAction(change, AuditActions.ChangePostReviewed);
 
-        await _db.SaveChangesAsync(ct);
+        await SaveAndNotifyAsync(change, ct);
         return change;
     }
 }

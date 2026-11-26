@@ -80,4 +80,9 @@ public static class AuditActions
     public const string RiskActionOverdue = "risk_action_overdue";
     public const string RiskReviewDue = "risk_review_due";
     public const string RiskLinksChanged = "risk_links_changed";
+    // Påminnelser sendt til Teams (C5), logget én gang per hendelse
+    public const string ChangeUpcomingNotified = "change_upcoming_notified";
+    public const string ChangePostReviewReminder = "change_post_review_reminder";
+    public const string RiskUntreatedNotified = "risk_untreated_notified";
+    public const string RiskAcceptanceExpiring = "risk_acceptance_expiring";
 }

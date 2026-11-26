@@ -271,4 +271,9 @@ export const governance: Record<string, string> = {
   'Forhåndsgodkjent': 'Pre-approved',
   'Nei': 'No',
   'Forhåndsgodkjenn (Change Manager)': 'Pre-approve (Change Manager)',
+  'Endringer og risiko i Teams': 'Changes and risk in Teams',
+  'Kort om endringer som venter på godkjenning, statusendringer, kommende produksjonsendringer, risikoer som ikke er behandlet og risikoaksept som utløper. Kortene viser bare nummer, tittel, status og tidspunkt, og lenker til appen.':
+    'Cards about changes awaiting approval, status changes, upcoming production changes, untreated risks and expiring risk acceptance. The cards only show number, title, status and time, and link to the app.',
+  'Send Teams-kort for endringer og risiko': 'Send Teams cards for changes and risk',
+  'Påminnelse om produksjonsendringer (dager før)': 'Reminder for production changes (days before)',
 }

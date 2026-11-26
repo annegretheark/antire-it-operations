@@ -12,6 +12,7 @@ import AppSignInsSettings from './settings/AppSignInsSettings'
 import {
   ApprovalRulesSettings,
   ChangeTemplatesSettings,
+  GovernanceNotificationSettings,
   GovernanceRolesSettings,
   RaciSettings,
 } from './settings/GovernanceSettings'
@@ -88,7 +89,7 @@ export default function Settings() {
       {tab === 'groups' && <CategoryGroupsSettings />}
       {tab === 'sla' && <SlaSettings />}
       {tab === 'alertrules' && <AlertRulesSettings />}
-      {tab === 'teams' && <TeamsSettings />}
+      {tab === 'teams' && <><TeamsSettings /><GovernanceNotificationSettings /></>}
       {tab === 'lifecycle' && <LifecycleTemplatesSettings />}
       {tab === 'govroles' && <GovernanceRolesSettings />}
       {tab === 'raci' && <RaciSettings />}

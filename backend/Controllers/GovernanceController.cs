@@ -11,6 +11,8 @@ public record MyGovernanceRolesDto(int? EmployeeId, IReadOnlyList<GovernanceRole
 
 public record SaveRoleAssignmentRequest(string? Role, int? ServiceCatalogItemId, int? EmployeeId, string? EntraGroupId);
 
+public record SaveGovernanceSettingsRequest(bool TeamsNotificationsEnabled, int ReminderDaysBefore, int? RetentionMonths);
+
 public record SaveRaciRequest(string? Activity, string? Role, string? Raci);
 
 public record SaveApprovalRuleRequest(string? ChangeType, string? Environment, string? RequiredRole, int MinApprovals, int SortOrder);
@@ -182,6 +184,34 @@ public class GovernanceController : ControllerBase
 
         await _db.SaveChangesAsync(Ct);
         return NoContent();
+    }
+
+    // ---------- Innstillinger ----------
+
+    [HttpGet("settings")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    public async Task<IActionResult> GetSettings()
+    {
+        await _setup.EnsureDefaultsAsync(Ct);
+        return Ok(await _db.GovernanceSettings.AsNoTracking().FirstAsync(Ct));
+    }
+
+    [HttpPut("settings")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    public async Task<IActionResult> SaveSettings([FromBody] SaveGovernanceSettingsRequest request)
+    {
+        if (request.ReminderDaysBefore is < 0 or > 60)
+            return BadRequest(new { message = "Påminnelse må være 0–60 dager før." });
+        if (request.RetentionMonths is < 1 or > 240)
+            return BadRequest(new { message = "Oppbevaringstid må være 1–240 måneder (eller tom)." });
+
+        await _setup.EnsureDefaultsAsync(Ct);
+        var settings = await _db.GovernanceSettings.FirstAsync(Ct);
+        settings.TeamsNotificationsEnabled = request.TeamsNotificationsEnabled;
+        settings.ReminderDaysBefore = request.ReminderDaysBefore;
+        settings.RetentionMonths = request.RetentionMonths;
+        await _db.SaveChangesAsync(Ct);
+        return Ok(settings);
     }
 
     // ---------- Godkjenningsregler ----------

@@ -1050,6 +1050,9 @@ namespace backend.Migrations
                     b.Property<bool>("SimulatedDeliveryEnabled")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("TeamsNotificationsEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("TenantId")
                         .IsRequired()
                         .HasMaxLength(36)

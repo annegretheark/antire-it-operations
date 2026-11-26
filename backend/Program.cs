@@ -75,9 +75,10 @@ builder.Services.AddScoped<GovernanceSetupService>();
 builder.Services.AddScoped<GovernanceRoleService>();
 builder.Services.AddScoped<ChangeWorkflowService>();
 builder.Services.AddScoped<RiskRegisterService>();
-// Frister, vurderinger og utløpt aksept i risikoregisteret (Risks:MonitorEnabled)
-builder.Services.AddSingleton<RiskMonitorService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<RiskMonitorService>());
+// Påminnelser for endringer og risiko, og utløpt aksept (Governance:MonitorEnabled)
+builder.Services.AddScoped<GovernanceNotifier>();
+builder.Services.AddSingleton<GovernanceMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<GovernanceMonitorService>());
 // Varsler blir saker (fase 4)
 builder.Services.AddScoped<TeamsNotificationService>();
 builder.Services.AddScoped<AlertRuleService>();

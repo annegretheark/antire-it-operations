@@ -333,3 +333,36 @@ export function ChangeTemplatesSettings() {
     </div>
   )
 }
+
+type GovernanceSettingsDto = { teamsNotificationsEnabled: boolean; reminderDaysBefore: number; retentionMonths: number | null }
+
+// Teams-kort for endringer og risiko (C5), under fanen Teams
+export function GovernanceNotificationSettings() {
+  const [reloadKey, setReloadKey] = useState(0)
+  const settings = useResource<GovernanceSettingsDto>('/api/governance/settings', reloadKey)
+  const { run, error, busy } = useAction(() => setReloadKey((k) => k + 1))
+  const data = settings.data
+
+  if (!data) return null
+
+  return (
+    <div className="helpdesk-card">
+      <h3>{t('Endringer og risiko i Teams')}</h3>
+      <p className="audit-intro">
+        {t('Kort om endringer som venter på godkjenning, statusendringer, kommende produksjonsendringer, risikoer som ikke er behandlet og risikoaksept som utløper. Kortene viser bare nummer, tittel, status og tidspunkt, og lenker til appen.')}
+      </p>
+      <label className="settings-check">
+        <input type="checkbox" checked={data.teamsNotificationsEnabled} disabled={busy}
+          onChange={(e) => void run('PUT', '/api/governance/settings', { ...data, teamsNotificationsEnabled: e.target.checked })} />
+        {t('Send Teams-kort for endringer og risiko')}
+      </label>
+      <div className="helpdesk-form settings-form">
+        <label htmlFor="gov-reminder">{t('Påminnelse om produksjonsendringer (dager før)')}</label>
+        <input id="gov-reminder" type="number" min={0} max={60} defaultValue={data.reminderDaysBefore} disabled={busy}
+          onBlur={(e) => Number(e.target.value) !== data.reminderDaysBefore &&
+            void run('PUT', '/api/governance/settings', { ...data, reminderDaysBefore: Number(e.target.value) })} />
+      </div>
+      {error && <p role="alert" className="settings-error">{error}</p>}
+    </div>
+  )
+}

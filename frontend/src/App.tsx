@@ -75,6 +75,8 @@ await instance.logoutPopup({
     const params = new URLSearchParams(window.location.search)
     if (params.has('sak')) return 'Helpdesk'
     if (params.has('bruker')) return 'Microsoft 365'
+    if (params.has('endring')) return 'Endringer'
+    if (params.has('risiko')) return 'Risiko'
     return 'Dashboard'
   })
   const [tickets, setTickets] = useState<Ticket[]>([])

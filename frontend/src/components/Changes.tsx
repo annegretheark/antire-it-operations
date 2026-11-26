@@ -14,6 +14,7 @@ import {
   environmentLabel,
   fromLocalInput,
   roleLabel,
+  linkedId,
   startOfWeek,
   toLocalInput,
   type AuditEntry,
@@ -30,7 +31,8 @@ type View = { kind: 'list' } | { kind: 'calendar' } | { kind: 'new' } | { kind: 
 // sier at innlogget person kan gjøre; serveren sjekker uansett på nytt.
 export default function Changes() {
   const { isHelpdeskAgent } = useCurrentUser()
-  const [view, setView] = useState<View>({ kind: 'list' })
+  // ?endring=<id> (lenke fra Teams) åpner endringen
+  const [view, setView] = useState<View>(() => linkedId('endring') ?? { kind: 'list' })
   const [reloadKey, setReloadKey] = useState(0)
   const options = useResource<ChangeOptions>('/api/changes/options')
 
@@ -501,7 +503,7 @@ function ChangeDetailsView({ id, options, onChanged }: { id: number; options: Ch
   const [reloadKey, setReloadKey] = useState(0)
   const details = useResource<ChangeDetails>(`/api/changes/${id}`, reloadKey)
   const [editing, setEditing] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
+  const [showHistory, setShowHistory] = useState(() => new URLSearchParams(window.location.search).has('historikk'))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [comment, setComment] = useState('')

@@ -33,7 +33,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting("Sla:MonitorEnabled", "false");
         builder.UseSetting("Alerts:MonitorEnabled", "false");
         builder.UseSetting("Gdpr:MonitorEnabled", "false");
-        builder.UseSetting("Risks:MonitorEnabled", "false");
+        builder.UseSetting("Governance:MonitorEnabled", "false");
 
         builder.ConfigureTestServices(services =>
         {

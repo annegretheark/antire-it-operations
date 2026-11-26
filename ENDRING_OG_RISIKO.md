@@ -358,3 +358,49 @@ To nye sider i menyen etter **Driftsrapport**: **Endringer** og **Risiko**, og n
 - Sidene **Endringer** (`Changes.tsx`: liste, ukekalender, skjema, detaljer med godkjenning og historikk) og **Risiko** (`Risks.tsx`: 5×5-matrise, liste, skjema, aksept, koblinger), og fanene Endringsroller, RACI, Godkjenningsregler og Endringsmaler under Innstillinger (`settings/GovernanceSettings.tsx`). Felles typer og etiketter i `governance.ts`, engelsk i `i18n/en/governance.ts`.
 - `GET /api/changes/options` (Helpdesk.Agent eller endringsrolle) med test.
 - Koblinger til saker, varsler og endringer i risikoskjemaet legges inn som ID-er (enkel første versjon).
+
+---
+
+## C5: Teams-kort og påminnelser (detaljert plan)
+
+Bygger på den eksisterende køen (`TeamsNotificationService`: kø, nye forsøk, kryptert webhook-adresse per tenant). **Ingen knapper som gjør noe i selve kortet**: alle knapper er `Action.OpenUrl` til appen, der serveren sjekker identitet og rolle (avklaring A). Dev-tenanten har ikke Teams-lisens, så kortene testes mot den falske Teams-tjenesten, som i fase 4.
+
+### Kort
+
+| Hendelse | Når | Innhold |
+|---|---|---|
+| Venter på godkjenning | Endringen går til `pending_approval` (også på nytt etter endret innhold) | Nummer, tittel, type, miljø, risikoscore, planlagt tid, hvilke roller som mangler. «Åpne og vurder» |
+| Ber om informasjon | `info_requested` | Nummer, tittel, rollen som spør. «Åpne endringen» |
+| Status endret | `approved`, `rejected`, `implementation`, `completed`, `failed`, `rolled_back`, `closed` | Nummer, tittel, ny status |
+| Kommende endring | Produksjonsendringer som er `approved` eller `scheduled` og starter innen `ReminderDaysBefore` (innstilling, standard 3 dager). Én gang per endring og planlagt start | Nummer, tittel, start og slutt |
+| Etterkontroll mangler | Hasteendring `completed` uten etterkontroll i mer enn ett døgn. Én gang | Nummer, tittel |
+| Risiko ikke behandlet | Høy eller kritisk risiko uten eier, eller `identified` i mer enn 7 dager. Én gang per risiko | Nummer, tittel, nivå, kategori |
+| Tiltak forbi frist | Samme hendelse som jobben allerede logger (`risk_action_overdue`) | Nummer, tittel, frist |
+| Aksept utløper snart / er utløpt | 14 dager før `ValidUntil`, og når den utløper (`risk_acceptance_expired`) | Nummer, tittel, gyldig til |
+| Revisjonshistorikk | Alle kort har lenken «Se historikk» | |
+
+**Innhold:** bare nummer, tittel, kategorier, status, tidspunkt og roller. Ingen beskrivelser, planer, analyser eller begrunnelser i kortene.
+
+### Lenker inn i appen
+
+`?endring=<id>` åpner Endringer med endringen, `?risiko=<id>` åpner Risiko med risikoen (som `?sak=` for saker). Med `&historikk=1` vises historikken med en gang.
+
+### Innstilling og jobb
+
+- Ny innstilling per tenant: **Teams-varsler for endringer og risiko** (på/av, standard på), i `GovernanceSettings`. Liten migrering (`AddGovernanceTeamsSetting`, én kolonne).
+- Fanen Teams under Innstillinger får bryteren.
+- `RiskMonitorService` blir `GovernanceMonitorService` og tar også påminnelsene for endringer (kommende endringer, manglende etterkontroll, aksept som utløper snart). `Risks:*`-innstillingene virker fortsatt.
+- Hver påminnelse logges i revisjonsloggen med en nøkkel, slik at den sendes én gang, også etter omstart.
+
+### Tester
+
+Riktig type kort i køen for hver hendelse, ingen beskrivelser eller planer i kortet, lenkene peker på riktig side, ingen kort når innstillingen er av eller Teams ikke er satt opp, påminnelser sendes én gang (også ved ny kjøring), tenant-skille, og at feil i Teams ikke stopper endringen (som i fase 4).
+
+### Status C5 (2026-11-26): bygget, kort testet mot falsk Teams
+
+- `GovernanceNotifier` lager kortene; arbeidsflyten sender dem etter lagring. `RiskMonitorService` heter nå `GovernanceMonitorService` og tar også påminnelser for endringer (`Governance:*`, med `Risks:*` som reserve).
+- Migreringen `AddGovernanceTeamsSetting` (bryteren er på for eksisterende tenanter) er kjørt i den lokale dev-databasen.
+- `GET/PUT /api/governance/settings` (Helpdesk.Admin), og bryteren under Innstillinger → Teams.
+- Lenker `?endring=`, `?risiko=` og `&historikk=1` åpner riktig side.
+- Ekte Teams-kanal er ikke prøvd (ingen Teams-lisens i dev-tenanten).
+- Tester: `GovernanceTeamsTests` (5).

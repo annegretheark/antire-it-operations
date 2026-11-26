@@ -522,4 +522,7 @@ public class GovernanceSettings : ITenantOwned, IAudited
 
     // Simulert GitHub og Terraform (prototype). Ekte integrasjon finnes ikke ennå.
     public bool SimulatedDeliveryEnabled { get; set; } = true;
+
+    // Teams-kort for endringer og risiko (C5). Krever at Teams er satt opp under Innstillinger.
+    public bool TeamsNotificationsEnabled { get; set; } = true;
 }
