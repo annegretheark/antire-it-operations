@@ -8,6 +8,15 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers;
 
+// Kontostatus i Entra for én ansatt (EntraAccountStatuses)
+public record EmployeeEntraStatusDto(int EmployeeId, string Status, string? EntraObjectId);
+
+public record EmployeeEntraStatusesDto(
+    IReadOnlyList<EmployeeEntraStatusDto> Statuses,
+    // Satt når brukerne i Entra ikke kunne hentes; da er status «unknown» for koblede ansatte
+    string? UnavailableReason
+);
+
 [ApiController]
 [Route("api/employees")]
 public class EmployeesController : ControllerBase
@@ -15,15 +24,41 @@ public class EmployeesController : ControllerBase
     private readonly AppDbContext _context;
     private readonly EmployeeNumberService _employeeNumbers;
     private readonly LifecycleService _lifecycle;
+    private readonly EntraUserService _entraUsers;
 
     public EmployeesController(
         AppDbContext context,
         EmployeeNumberService employeeNumbers,
-        LifecycleService lifecycle)
+        LifecycleService lifecycle,
+        EntraUserService entraUsers)
     {
         _context = context;
         _employeeNumbers = employeeNumbers;
         _lifecycle = lifecycle;
+        _entraUsers = entraUsers;
+    }
+
+    // Kontostatus i Entra for alle ansatte (Helpdesk.Agent og Helpdesk.Admin)
+    [HttpGet("entra-status")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAgent)]
+    public async Task<EmployeeEntraStatusesDto> GetEntraStatuses()
+    {
+        var ct = HttpContext.RequestAborted;
+        var employees = await _context.Employees
+            .Select(e => new { e.Id, e.EntraObjectId })
+            .ToListAsync(ct);
+
+        // Brukerne hentes bare når noen ansatte er koblet til Entra
+        var (usersById, reason) = employees.Any(e => e.EntraObjectId != null)
+            ? await _entraUsers.TryGetUsersByIdAsync(ct)
+            : (null, null);
+
+        return new EmployeeEntraStatusesDto(
+            employees
+                .Select(e => new EmployeeEntraStatusDto(
+                    e.Id, EntraAccountStatuses.For(e.EntraObjectId, usersById), e.EntraObjectId))
+                .ToList(),
+            reason);
     }
 
     // Hent alle ansatte

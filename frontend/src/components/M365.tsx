@@ -130,8 +130,10 @@ function Users() {
   const { url, refresh } = useRefresh('/api/m365/users')
   const overview = useResource<UserOverview>(url)
   const send = useSend()
-  const [search, setSearch] = useState('')
-  const [onlyProblems, setOnlyProblems] = useState(false)
+  // ?bruker=<objekt-ID> (lenke fra Ansatte) viser den brukeren
+  const [search, setSearch] = useState(() => new URLSearchParams(window.location.search).get('bruker') ?? '')
+  const [onlyDisabled, setOnlyDisabled] = useState(false)
+  const [onlyNoMfa, setOnlyNoMfa] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [results, setResults] = useState<UserChangeResult[]>([])
@@ -141,12 +143,15 @@ function Users() {
     const term = search.trim().toLowerCase()
 
     return (overview.data?.users ?? []).filter((u) => {
-      if (onlyProblems && u.accountEnabled !== false && u.mfaRegistered !== false) return false
+      // Begge valgt: brukere som er deaktivert og mangler MFA
+      if (onlyDisabled && u.accountEnabled !== false) return false
+      if (onlyNoMfa && !overview.data?.mfaUnavailableReason && u.mfaRegistered !== false) return false
       if (!term) return true
+      if (u.id.toLowerCase() === term) return true
       return [u.displayName, u.userPrincipalName, u.department, u.jobTitle]
         .some((v) => v?.toLowerCase().includes(term))
     })
-  }, [overview.data, search, onlyProblems])
+  }, [overview.data, search, onlyDisabled, onlyNoMfa])
 
   const self = objectId?.toLowerCase()
   const isSelf = (u: M365User) => u.id.toLowerCase() === self
@@ -237,8 +242,21 @@ function Users() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <label className="settings-check">
-          <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} />
-          {t('Bare deaktiverte eller uten MFA')}
+          <input type="checkbox" checked={onlyDisabled} onChange={(e) => setOnlyDisabled(e.target.checked)} />
+          {t('Bare deaktiverte')}
+        </label>
+        {/* Uten MFA-data (lisens eller rettighet mangler) kan ingen filtreres på MFA */}
+        <label
+          className={`settings-check${overview.data?.mfaUnavailableReason ? ' settings-muted' : ''}`}
+          title={overview.data?.mfaUnavailableReason ?? undefined}
+        >
+          <input
+            type="checkbox"
+            checked={onlyNoMfa && !overview.data?.mfaUnavailableReason}
+            disabled={!!overview.data?.mfaUnavailableReason}
+            onChange={(e) => setOnlyNoMfa(e.target.checked)}
+          />
+          {t('Bare uten MFA')}
         </label>
         <button type="button" className="settings-row-action" onClick={refresh} disabled={overview.loading}>
           {t('Oppdater')}

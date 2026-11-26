@@ -17,7 +17,8 @@ export const directory: Record<string, string> = {
   'MFA: {reason}': 'MFA: {reason}',
   'Lisensnavn: {reason}': 'License names: {reason}',
   'Søk på navn, e-post, avdeling eller stilling': 'Search by name, email, department or job title',
-  'Bare deaktiverte eller uten MFA': 'Only disabled or without MFA',
+  'Bare deaktiverte': 'Only disabled',
+  'Bare uten MFA': 'Only without MFA',
   'Noe data er ikke tilgjengelig:': 'Some data is not available:',
   'Henter brukere fra Entra ID...': 'Loading users from Entra ID...',
   '{shown} av {total} brukere · hentet {time}': '{shown} of {total} users · fetched {time}',
@@ -157,4 +158,14 @@ export const directory: Record<string, string> = {
   'Deaktivere {n} brukere? De kan ikke logge på før kontoen aktiveres igjen.\n\n{list}':
     'Disable {n} users? They cannot sign in until the account is enabled again.\n\n{list}',
   'Aktivere {n} brukere?\n\n{list}': 'Enable {n} users?\n\n{list}',
+
+  // Kontostatus i Entra på Ansatte og i offboarding (entra.ts)
+  'Entra': 'Entra',
+  'Konto i Entra': 'Account in Entra',
+  'Åpne i Microsoft 365': 'Open in Microsoft 365',
+  'Finnes ikke': 'Does not exist',
+  'Ikke koblet': 'Not linked',
+  'Ukjent': 'Unknown',
+  'Har sluttet, men kontoen i Entra er aktiv': 'Has left, but the account in Entra is active',
+  'Er i jobb, men kontoen i Entra er deaktivert': 'Is employed, but the account in Entra is disabled',
 }

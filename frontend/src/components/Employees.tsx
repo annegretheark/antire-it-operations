@@ -3,6 +3,14 @@ import { useEffect, useState } from 'react'
 import { apiUrl, useAuthHeaders } from '../apiClient'
 import { useCurrentUser } from '../useCurrentUser'
 import EmployeeAssets from './EmployeeAssets'
+import { useResource } from './settings/settingsApi'
+import {
+  entraMismatch,
+  entraStatusLabel,
+  m365UserLink,
+  type EmployeeEntraStatus,
+  type EmployeeEntraStatuses,
+} from '../entra'
 import { t } from '../i18n'
 
 type Employee = {
@@ -39,7 +47,7 @@ const toDate = (date: string) =>
 
 export default function Employees() {
   const getAuthHeaders = useAuthHeaders()
-  const { isEmployeeAdmin, isHelpdeskAgent } = useCurrentUser()
+  const { isEmployeeAdmin, isHelpdeskAgent, isHelpdeskAdmin } = useCurrentUser()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [firstName, setFirstName] = useState('')
   const [employeeNumber, setEmployeeNumber] = useState('')
@@ -61,6 +69,19 @@ export default function Employees() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [syncing, setSyncing] = useState(false)
+
+  // Kontostatus i Entra (Helpdesk.Agent og Helpdesk.Admin); hentes på nytt når listen endres
+  const entra = useResource<EmployeeEntraStatuses>(
+    isHelpdeskAgent ? '/api/employees/entra-status' : null,
+    employees.length
+  )
+  const entraById = new Map<number, EmployeeEntraStatus>(
+    (entra.data?.statuses ?? []).map((s) => [s.employeeId, s])
+  )
+  const columns = isHelpdeskAgent ? 5 : 4
+  const gridColumns = isHelpdeskAgent
+    ? 'minmax(160px, 1.5fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(70px, .7fr) minmax(90px, .8fr)'
+    : 'minmax(160px, 1.5fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(70px, .7fr)'
 
   useEffect(() => {
     let cancelled = false
@@ -341,12 +362,16 @@ if (!response.ok) {
                   <th style={{ padding: 10 }}>{t('Avdeling')}</th>
                   <th style={{ padding: 10 }}>{t('Stilling')}</th>
                   <th style={{ padding: 10 }}>{t('Status')}</th>
+                  {isHelpdeskAgent && <th style={{ padding: 10 }}>{t('Entra')}</th>}
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.map((employee) => (
+                {filteredEmployees.map((employee) => {
+                  const account = entraById.get(employee.id)
+                  const mismatch = account ? entraMismatch(employee.status, account.status) : null
+                  return (
                   <tr key={employee.id}>
-                    <td colSpan={4} style={{ padding: 0, borderTop: '1px solid #8885' }}>
+                    <td colSpan={columns} style={{ padding: 0, borderTop: '1px solid #8885' }}>
                       <button
                         type="button"
                         aria-expanded={selectedId === employee.id}
@@ -354,12 +379,21 @@ if (!response.ok) {
                           setSelectedId(selectedId === employee.id ? null : employee.id)
                           setTerminatingId(null)
                         }}
-                        style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(160px, 1.5fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(70px, .7fr)', gap: 8, padding: '12px 10px', textAlign: 'left', background: 'transparent', border: 0, color: 'inherit', cursor: 'pointer', font: 'inherit' }}
+                        style={{ width: '100%', display: 'grid', gridTemplateColumns: gridColumns, gap: 8, padding: '12px 10px', textAlign: 'left', background: 'transparent', border: 0, color: 'inherit', cursor: 'pointer', font: 'inherit' }}
                       >
                         <span>{selectedId === employee.id ? '▾' : '▸'} {employee.firstName} {employee.lastName}</span>
                         <span>{employee.department || '–'}</span>
                         <span>{employee.jobTitle || '–'}</span>
                         <span>{t(employee.status)}</span>
+                        {isHelpdeskAgent && (
+                          <span
+                            className={mismatch ? 'settings-error' : account?.status === 'enabled' ? undefined : 'settings-muted'}
+                            title={mismatch ?? undefined}
+                          >
+                            {account ? entraStatusLabel(account.status) : entra.loading ? '…' : '–'}
+                            {mismatch && ' ⚠'}
+                          </span>
+                        )}
                       </button>
                       {selectedId === employee.id && (
                         <div style={{ padding: '12px 16px 20px', borderTop: '1px solid #8883' }}>
@@ -370,6 +404,19 @@ if (!response.ok) {
                           <p><strong>{t('Startdato')}:</strong> {employee.startDate.slice(0, 10)}</p>
                           <p><strong>{t('Status')}:</strong> {t(employee.status)}</p>
                           {employee.endDate && <p><strong>{t('Sluttdato')}:</strong> {employee.endDate.slice(0, 10)}</p>}
+                          {isHelpdeskAgent && account && (
+                            <p>
+                              <strong>{t('Konto i Entra')}:</strong>{' '}
+                              <span className={mismatch ? 'settings-error' : undefined}>{entraStatusLabel(account.status)}</span>
+                              {mismatch && <span className="settings-error"> – {mismatch}</span>}
+                              {isHelpdeskAdmin && account.entraObjectId && account.status !== 'missing' && (
+                                <> · <a href={m365UserLink(account.entraObjectId)}>{t('Åpne i Microsoft 365')}</a></>
+                              )}
+                            </p>
+                          )}
+                          {isHelpdeskAgent && account?.status === 'unknown' && entra.data?.unavailableReason && (
+                            <p className="settings-muted">{entra.data.unavailableReason}</p>
+                          )}
                           {isHelpdeskAgent && (
                             <EmployeeAssets employeeId={employee.id} endDate={employee.endDate} />
                           )}
@@ -404,7 +451,8 @@ if (!response.ok) {
                       )}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

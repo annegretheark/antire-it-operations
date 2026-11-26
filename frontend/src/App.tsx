@@ -67,10 +67,14 @@ await instance.logoutPopup({
       console.error('Utlogging feilet:', error)
     }
   }
-  // ?sak=123 (fra Teams-meldinger og Varsler) åpner Helpdesk med saken
-  const [activePage, setActivePage] = useState(() =>
-    new URLSearchParams(window.location.search).has('sak') ? 'Helpdesk' : 'Dashboard'
-  )
+  // ?sak=123 (fra Teams-meldinger og Varsler) åpner Helpdesk med saken, og
+  // ?bruker=<objekt-ID> (fra Ansatte) åpner Microsoft 365 med brukeren
+  const [activePage, setActivePage] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('sak')) return 'Helpdesk'
+    if (params.has('bruker')) return 'Microsoft 365'
+    return 'Dashboard'
+  })
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

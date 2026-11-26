@@ -81,6 +81,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "GET", "/api/alerts/sources" },
         { "GET", "/api/opsreports" },
         { "GET", "/api/opsreports/1" },
+        { "GET", "/api/employees/entra-status" },
     };
 
     // Approver eller Helpdesk.Admin

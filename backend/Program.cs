@@ -67,6 +67,8 @@ builder.Services.AddSingleton<GdprMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GdprMonitorService>());
 // Ukentlig driftsrapport (fase 5): nøkkeltall beregnet av koden
 builder.Services.AddScoped<OpsReportService>();
+// Brukerkontoer i Entra: oversikt (cachet) og endringer med personens egne rettigheter
+builder.Services.AddScoped<EntraUserService>();
 // Varsler blir saker (fase 4)
 builder.Services.AddScoped<TeamsNotificationService>();
 builder.Services.AddScoped<AlertRuleService>();
