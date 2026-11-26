@@ -774,3 +774,148 @@
 .lifecycle-task-action .settings-row-action {
   margin-left: 0;
 }
+
+/* Endringer og risiko (ENDRING_OG_RISIKO.md, C4) */
+
+.gov-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e2e8f0;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.gov-production { background: #fee2e2; color: #b91c1c; }
+.gov-test { background: #fef3c7; color: #92400e; }
+.gov-development { background: #dcfce7; color: #166534; }
+.gov-emergency { background: #b91c1c; color: #fff; }
+.gov-standard { background: #e0e7ff; color: #3730a3; }
+
+.gov-level-low, .gov-level-low.gov-badge { background: #dcfce7; color: #166534; }
+.gov-level-medium, .gov-level-medium.gov-badge { background: #fef3c7; color: #92400e; }
+.gov-level-high, .gov-level-high.gov-badge { background: #fed7aa; color: #9a3412; }
+.gov-level-critical, .gov-level-critical.gov-badge { background: #fecaca; color: #991b1b; }
+
+.gov-row { cursor: pointer; }
+.gov-row:hover td { background: #f8fafc; }
+
+.gov-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gov-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.gov-actions .settings-row-action + .settings-row-action { margin-left: 0; }
+
+.gov-decision {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #f8faff;
+}
+
+.gov-decision textarea,
+.gov-decision input:not([type='checkbox']) {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 8px;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.gov-fields {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: 6px 14px;
+  margin: 16px 0;
+}
+
+.gov-fields dt { font-weight: 600; color: #475569; }
+.gov-fields dd { margin: 0; }
+
+.gov-text p { white-space: pre-wrap; margin-top: 4px; }
+
+.gov-checklist {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+
+.gov-scope-row { display: flex; align-items: center; gap: 8px; }
+
+.gov-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.gov-calendar-day {
+  min-height: 120px;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gov-calendar-item {
+  text-align: left;
+  font-size: 12px;
+  padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.gov-calendar-item span { display: block; color: #475569; }
+.gov-production-item { border-color: #fca5a5; background: #fff1f2; }
+
+.gov-matrix { display: inline-flex; flex-direction: column; gap: 4px; margin: 12px 0; }
+.gov-matrix-row { display: flex; gap: 4px; align-items: center; }
+.gov-matrix-label { width: 44px; text-align: center; font-size: 12px; color: #475569; }
+.gov-matrix-axis { font-size: 12px; font-weight: 600; color: #475569; }
+
+.gov-matrix-cell {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #fff;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gov-matrix-cell.selected { outline: 3px solid #1d4ed8; }
+.gov-matrix-cell:disabled { cursor: default; }
+
+.gov-raci select { padding: 2px 4px; }
+.gov-history-changes { font-family: monospace; font-size: 12px; word-break: break-all; }
+
+@media (max-width: 900px) {
+  .gov-calendar { grid-template-columns: 1fr; }
+  .gov-fields { grid-template-columns: 1fr; }
+}

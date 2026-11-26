@@ -482,4 +482,16 @@ public class ChangeWorkflowTests(SqliteWebApplicationFactory factory)
             (await outsider.PostAsJsonAsync("/api/changes", NormalInput(team.ServiceId))).StatusCode);
         Assert.Empty((await outsider.GetFromJsonAsync<List<ChangeSummaryDto>>("/api/changes", Json))!);
     }
+
+    [Fact]
+    public async Task Options_are_for_agents_and_governance_roles_only()
+    {
+        var team = await TeamAsync();
+        var options = await team.Requester.Client.GetFromJsonAsync<ChangeOptionsDto>("/api/changes/options", Json);
+        Assert.Contains(options!.Services, s => s.Id == team.ServiceId);
+        Assert.Contains(options.Employees, e => e.Id == team.Requester.EmployeeId);
+
+        var outsider = ClientFor(Guid.NewGuid().ToString(), "Utenforstående", []);
+        Assert.Equal(HttpStatusCode.Forbidden, (await outsider.GetAsync("/api/changes/options")).StatusCode);
+    }
 }

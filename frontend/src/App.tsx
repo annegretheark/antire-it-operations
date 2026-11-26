@@ -11,6 +11,8 @@ import M365 from './components/M365'
 import Azure from './components/Azure'
 import Alerts from './components/Alerts'
 import OpsReports from './components/OpsReports'
+import Changes from './components/Changes'
+import Risks from './components/Risks'
 import Lifecycle from './components/Lifecycle'
 import Gdpr from './components/Gdpr'
 import {
@@ -86,6 +88,8 @@ await instance.logoutPopup({
     'Ansatte',
     'Varsler',
     'Driftsrapport',
+    'Endringer',
+    'Risiko',
     'IT-utstyr',
     'Microsoft 365',
     'Azure',
@@ -245,6 +249,10 @@ await instance.logoutPopup({
   <Employees />
 ) : activePage === 'Varsler' ? (
   <Alerts />
+) : activePage === 'Endringer' ? (
+  <Changes />
+) : activePage === 'Risiko' ? (
+  <Risks />
 ) : activePage === 'Driftsrapport' ? (
   <OpsReports />
 ) : activePage === 'Azure' ? (

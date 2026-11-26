@@ -29,6 +29,14 @@ public record ChangeDetailsDto(
     IReadOnlyList<int>? LinkedRiskIds = null
 );
 
+public record OptionDto(int Id, string Name);
+
+public record ChangeOptionsDto(
+    IReadOnlyList<OptionDto> Services,
+    IReadOnlyList<OptionDto> Subscriptions,
+    IReadOnlyList<ChangeTemplate> Templates,
+    IReadOnlyList<OptionDto> Employees);
+
 public record ChangeTransitionRequest(string? To, string? Note);
 
 public record ChangeDecisionRequest(string? Role, string? Decision, string? Comment, string? ExpectedScopeHash);
@@ -81,6 +89,28 @@ public class ChangesController : ControllerBase
                 c.PlannedStart, c.PlannedEnd, c.RequestedByName, c.UpdatedAt))
             .ToListAsync(Ct);
     }
+
+    // Valg til skjemaene for endringer og risiko (Helpdesk.Agent eller en endringsrolle)
+    [HttpGet("options")]
+    public Task<IActionResult> Options() => RunAsync(async () =>
+    {
+        var roles = await _workflow.MyRolesAsync(Ct);
+        if (!IsAgent && !roles.HasAny)
+            throw GovernanceException.Forbidden("Krever Helpdesk.Agent eller en rolle i endrings- og risikoprosessen.");
+
+        var now = DateTime.UtcNow;
+        return Ok(new ChangeOptionsDto(
+            await _db.ServiceCatalogItems.AsNoTracking().Where(s => s.IsActive).OrderBy(s => s.Name)
+                .Select(s => new OptionDto(s.Id, s.Name)).ToListAsync(Ct),
+            await _db.AzureSubscriptions.AsNoTracking().Where(s => s.IsVisible).OrderBy(s => s.DisplayName)
+                .Select(s => new OptionDto(s.Id, s.DisplayName)).ToListAsync(Ct),
+            await _db.ChangeTemplates.AsNoTracking()
+                .Where(t => t.IsActive && t.ApprovedAt != null && (t.NextReviewAt == null || t.NextReviewAt > now))
+                .OrderBy(t => t.Name).ToListAsync(Ct),
+            await _db.Employees.AsNoTracking().Where(e => e.AnonymizedAt == null && e.Status == "Aktiv")
+                .OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+                .Select(e => new OptionDto(e.Id, (e.FirstName + " " + e.LastName).Trim())).ToListAsync(Ct)));
+    });
 
     [HttpGet("{id:int}")]
     public Task<IActionResult> Get(int id) => RunAsync(async () =>

@@ -10,6 +10,12 @@ import TeamsSettings from './settings/TeamsSettings'
 import LifecycleTemplatesSettings from './settings/LifecycleTemplatesSettings'
 import AppSignInsSettings from './settings/AppSignInsSettings'
 import {
+  ApprovalRulesSettings,
+  ChangeTemplatesSettings,
+  GovernanceRolesSettings,
+  RaciSettings,
+} from './settings/GovernanceSettings'
+import {
   actionLabel,
   describeChanges,
   ENTITY_LABELS,
@@ -35,6 +41,10 @@ const TABS = [
   { key: 'alertrules', label: 'Varselregler' },
   { key: 'teams', label: 'Teams' },
   { key: 'lifecycle', label: 'Onboarding-maler' },
+  { key: 'govroles', label: 'Endringsroller' },
+  { key: 'raci', label: 'RACI' },
+  { key: 'approvalrules', label: 'Godkjenningsregler' },
+  { key: 'changetemplates', label: 'Endringsmaler' },
   { key: 'signins', label: 'Pålogginger' },
   { key: 'audit', label: 'Revisjonslogg' },
 ] as const
@@ -80,6 +90,10 @@ export default function Settings() {
       {tab === 'alertrules' && <AlertRulesSettings />}
       {tab === 'teams' && <TeamsSettings />}
       {tab === 'lifecycle' && <LifecycleTemplatesSettings />}
+      {tab === 'govroles' && <GovernanceRolesSettings />}
+      {tab === 'raci' && <RaciSettings />}
+      {tab === 'approvalrules' && <ApprovalRulesSettings />}
+      {tab === 'changetemplates' && <ChangeTemplatesSettings />}
       {tab === 'signins' && <AppSignInsSettings />}
       {tab === 'audit' && <AuditLog />}
     </section>

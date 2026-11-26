@@ -317,3 +317,44 @@ Nummer og score, nivåer, statusoverganger og vilkår, tilgang per rolle (403), 
 - De beregnede scorene er merket `[JsonInclude]`, slik at klienter som leser JSON tilbake (testene) får dem med.
 - Ikke testet automatisk: at jobben fortsetter når én tenant feiler (samme `try/catch` per tenant som SLA-jobben).
 - Tester: `RiskRegisterTests` (18).
+
+---
+
+## C4: Frontend (detaljert plan)
+
+To nye sider i menyen etter **Driftsrapport**: **Endringer** og **Risiko**, og nye faner under **Innstillinger**. Samme stil og hjelpefunksjoner som resten av appen (`useList`, `useResource`, `useSend`, `Helpdesk.css`), tekster på norsk med engelsk i `i18n/en`. Alle knapper vises ut fra det API-et sier at **du** kan gjøre (`allowedTransitions`, `canDecideAs`, `canEdit`, `canAccept`); serveren sjekker uansett på nytt.
+
+### Endringer
+
+- **Liste** med filter (status, type, miljø, mine) og fargemerker for type, miljø og status. Produksjon er tydelig merket.
+- **Kalender**: planlagte endringer per uke (enkel ukevisning, ingen nytt bibliotek), med produksjon uthevet.
+- **Ny endring**: velg type. Standard: velg aktiv mal, planene fylles ut og er låst. Skjema delt i seksjoner (beskrivelse, omfang, risiko og konsekvens, GDPR og sikkerhet, kostnad og backup, planer, tidspunkt). Viser hva som mangler før innsending.
+- **Detaljer**: alle felt, godkjenninger (gyldig eller ugyldig, med hvem og når), hvilke regler som mangler, «venter på informasjon», koblede risikoer, og knapper for overganger, godkjenning (med kommentar; hashen sendes automatisk), etterkontroll og avbryting. Varsel når godkjent innhold endres: «Lagring sender endringen tilbake til godkjenning».
+- **Historikk**: revisjonsloggen for endringen.
+
+### Risiko
+
+- **Liste** med filter (kategori, status, nivå, uten eier, forfalte tiltak, venter på aksept) og nivåfarger.
+- **5×5-matrise** (iboende og restrisiko), klikk i en rute filtrerer listen.
+- **Ny risiko** og **detaljer**: vurdering, tiltak, strategi, eier og tiltaksansvarlig, frist og neste vurdering, koblinger, aksept (med begrunnelse og utløpsdato; scoren sendes automatisk), tilbaketrekking, akseptshistorikk og revisjonslogg.
+
+### Innstillinger (Helpdesk.Admin)
+
+- **Endringsroller**: tildel rolle til ansatt eller Entra-gruppe, globalt eller per tjeneste. Du kan ikke velge deg selv.
+- **RACI**: matrise aktivitet × rolle med R, A, C, I.
+- **Godkjenningsregler**: per type og miljø.
+- **Endringsmaler**: maler for standardendringer; Change Manager forhåndsgodkjenner fra samme fane.
+
+### Liten tilføyelse i backend
+
+`GET /api/changes/options` (Helpdesk.Agent eller endringsrolle): tjenester, Azure-abonnementer (id og navn), aktive maler og ansatte (id og navn) til skjemaene. I dag kan bare Helpdesk.Admin liste Azure-abonnementer. Test for tilgang.
+
+### Kontroll
+
+`npm run build` og `npm run lint`, hele `dotnet test`, og at du prøver i nettleseren med testbrukerne (normal, standard og emergency, og aksept av en risiko).
+
+### Status C4 (2026-11-26): ferdig, prøvd i nettleser med testbrukerne
+
+- Sidene **Endringer** (`Changes.tsx`: liste, ukekalender, skjema, detaljer med godkjenning og historikk) og **Risiko** (`Risks.tsx`: 5×5-matrise, liste, skjema, aksept, koblinger), og fanene Endringsroller, RACI, Godkjenningsregler og Endringsmaler under Innstillinger (`settings/GovernanceSettings.tsx`). Felles typer og etiketter i `governance.ts`, engelsk i `i18n/en/governance.ts`.
+- `GET /api/changes/options` (Helpdesk.Agent eller endringsrolle) med test.
+- Koblinger til saker, varsler og endringer i risikoskjemaet legges inn som ID-er (enkel første versjon).

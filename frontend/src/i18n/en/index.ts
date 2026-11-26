@@ -4,6 +4,7 @@ import { helpdesk } from './helpdesk'
 import { operations } from './operations'
 import { directory } from './directory'
 import { settings } from './settings'
+import { governance } from './governance'
 
 export const en: Record<string, string> = {
   ...app,
@@ -11,4 +12,5 @@ export const en: Record<string, string> = {
   ...operations,
   ...directory,
   ...settings,
+  ...governance,
 }
