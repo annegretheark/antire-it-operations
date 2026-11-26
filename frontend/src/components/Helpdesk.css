@@ -695,3 +695,68 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Microsoft 365 → Brukere: kompakte rader og endring av flere brukere */
+
+.m365-compact td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  vertical-align: middle;
+}
+
+/* Maksbredden må ligge på et element inni cellen; tabellceller ignorerer max-width */
+.m365-name {
+  white-space: nowrap;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Avkrysningen står fast til venstre, også når tabellen rulles sidelengs */
+.m365-check {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 1%;
+  background: #fff;
+}
+
+.audit-table th.m365-check {
+  background: #f1f5f9;
+}
+
+.m365-check input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.m365-selected td {
+  background: #eef2ff;
+}
+
+.m365-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.m365-bulk-actions > span:first-child {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.m365-bulk-actions .settings-row-action + .settings-row-action {
+  margin-left: 0;
+}
+
+.m365-danger:not(:disabled) {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.m365-bulk-hint {
+  margin: 0 0 12px;
+}

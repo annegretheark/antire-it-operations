@@ -35,6 +35,9 @@ const ACTION_LABELS: Record<string, string> = {
   access_revoked: 'Tilgang fjernet',
   gdpr_exported: 'Innsyn lastet ned',
   gdpr_anonymized: 'Anonymisert',
+  user_disabled: 'Konto deaktivert',
+  user_enabled: 'Konto aktivert',
+  user_deleted: 'Slettet i Entra',
 }
 
 export const ENTITY_LABELS: Record<string, string> = {
@@ -47,6 +50,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   ServiceCatalogItem: 'Tjeneste',
   AzureSubscription: 'Azure-abonnement',
   AzureSubscriptionSync: 'Synk fra Azure',
+  EntraUser: 'Bruker i Entra',
   Alert: 'Varsel',
   AlertRule: 'Varselregel',
   TeamsSettings: 'Teams-oppsett',

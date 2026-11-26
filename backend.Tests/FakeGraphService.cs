@@ -102,6 +102,29 @@ public class FakeGraphService(IConfiguration configuration) : GraphService(confi
         return Task.FromResult(AddMemberResult.Added);
     }
 
+    // Endringer på brukere med personens rettigheter: (handling, bruker-ID, tokenet som ble brukt)
+    public ConcurrentQueue<(string Action, string UserId, string UserToken)> UserChanges { get; } = new();
+
+    // Bruker-ID-er der Entra svarer «ikke lov» (som 403 for manglende rolle)
+    public HashSet<string> DeniedUsers { get; } = [];
+
+    public override Task SetAccountEnabledAsync(
+        string tenantId, string userToken, string userId, bool enabled, CancellationToken cancellationToken = default) =>
+        RecordUserChange(enabled ? "enable" : "disable", userToken, userId);
+
+    public override Task DeleteUserAsync(
+        string tenantId, string userToken, string userId, CancellationToken cancellationToken = default) =>
+        RecordUserChange("delete", userToken, userId);
+
+    private Task RecordUserChange(string action, string userToken, string userId)
+    {
+        if (DeniedUsers.Contains(userId))
+            throw new GraphUnavailableException("Du har ikke lov til dette i Entra ID.", 403);
+
+        UserChanges.Enqueue((action, userId, userToken));
+        return Task.CompletedTask;
+    }
+
     private void ThrowIfFailing()
     {
         if (Failure is { } failure)

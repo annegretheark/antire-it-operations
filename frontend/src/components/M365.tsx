@@ -4,7 +4,7 @@ import { useCurrentUser } from '../useCurrentUser'
 import { formatDateTime } from '../audit'
 import { formatDate } from '../assets'
 import { t } from '../i18n'
-import { useList, useResource } from './settings/settingsApi'
+import { errorText, useList, useResource, useSend } from './settings/settingsApi'
 
 type M365User = {
   id: string
@@ -113,11 +113,29 @@ function useRefresh(path: string) {
   return { url, refresh: () => setCount((c) => c + 1) }
 }
 
+type UserChangeResult = { userId: string; displayName: string | null; ok: boolean; error: string | null }
+
+type UserAction = 'disable' | 'enable' | 'delete'
+
+// Lisenser kort: første lisens og antallet resten («E3 +2»), hele listen i title
+function shortLicenses(licenses: string[]): string {
+  if (licenses.length === 0) return '–'
+  return licenses.length === 1 ? licenses[0] : `${licenses[0]} +${licenses.length - 1}`
+}
+
+// Brukere i kompakte rader. Valgte brukere kan deaktiveres, aktiveres eller slettes
+// med den innloggede personens egne rettigheter i Entra (backend: on-behalf-of).
 function Users() {
+  const { objectId } = useCurrentUser()
   const { url, refresh } = useRefresh('/api/m365/users')
   const overview = useResource<UserOverview>(url)
+  const send = useSend()
   const [search, setSearch] = useState('')
   const [onlyProblems, setOnlyProblems] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
+  const [results, setResults] = useState<UserChangeResult[]>([])
+  const [error, setError] = useState('')
 
   const users = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -130,12 +148,81 @@ function Users() {
     })
   }, [overview.data, search, onlyProblems])
 
+  const self = objectId?.toLowerCase()
+  const isSelf = (u: M365User) => u.id.toLowerCase() === self
+  const selectable = users.filter((u) => !isSelf(u))
+  // Bare valgte som fortsatt vises (søk og filter kan skjule noen)
+  const chosen = selectable.filter((u) => selected.has(u.id))
+  const allChosen = selectable.length > 0 && chosen.length === selectable.length
+
+  function toggle(id: string) {
+    setSelected((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setSelected(allChosen ? new Set() : new Set(selectable.map((u) => u.id)))
+  }
+
+  async function run(action: UserAction) {
+    if (chosen.length === 0) return
+
+    const names = chosen.map((u) => u.displayName ?? u.userPrincipalName ?? u.id)
+    const list = names.length > 10 ? `${names.slice(0, 10).join('\n')}\n${t('… og {n} til', { n: names.length - 10 })}` : names.join('\n')
+
+    if (action === 'delete') {
+      const answer = window.prompt(
+        t('Slette {n} brukere i Entra ID? De kan gjenopprettes i Entra i 30 dager.\n\n{list}\n\nSkriv SLETT for å bekrefte.', {
+          n: chosen.length,
+          list,
+        })
+      )
+      if (answer?.trim().toUpperCase() !== 'SLETT') return
+    } else if (
+      !window.confirm(
+        action === 'disable'
+          ? t('Deaktivere {n} brukere? De kan ikke logge på før kontoen aktiveres igjen.\n\n{list}', { n: chosen.length, list })
+          : t('Aktivere {n} brukere?\n\n{list}', { n: chosen.length, list })
+      )
+    ) {
+      return
+    }
+
+    setBusy(true)
+    setError('')
+    setResults([])
+
+    try {
+      const userIds = chosen.map((u) => u.id)
+      const response =
+        action === 'delete'
+          ? await send('POST', '/api/m365/users/delete', { userIds })
+          : await send('POST', '/api/m365/users/account-enabled', { userIds, enabled: action === 'enable' })
+      const outcome: UserChangeResult[] = await response.json()
+
+      setResults(outcome)
+      setSelected(new Set(outcome.filter((r) => !r.ok).map((r) => r.userId)))
+      refresh()
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const data = overview.data
   const notices = [
     data?.signInUnavailableReason && t('Siste pålogging: {reason}', { reason: data.signInUnavailableReason }),
     data?.mfaUnavailableReason && t('MFA: {reason}', { reason: data.mfaUnavailableReason }),
     data?.licensesUnavailableReason && t('Lisensnavn: {reason}', { reason: data.licensesUnavailableReason }),
   ].filter(Boolean) as string[]
+
+  const succeeded = results.filter((r) => r.ok)
+  const failed = results.filter((r) => !r.ok)
 
   return (
     <div className="helpdesk-card">
@@ -169,6 +256,38 @@ function Users() {
 
       {overview.error && <p role="alert" className="settings-error">{overview.error}</p>}
 
+      <div className="m365-bulk-actions" aria-live="polite">
+        <span>{chosen.length > 0 ? t('{n} valgt', { n: chosen.length }) : t('Velg brukere for å endre dem')}</span>
+        <button type="button" className="settings-row-action" disabled={busy || chosen.length === 0} onClick={() => void run('disable')}>
+          {t('Deaktiver valgte')}
+        </button>
+        <button type="button" className="settings-row-action" disabled={busy || chosen.length === 0} onClick={() => void run('enable')}>
+          {t('Aktiver valgte')}
+        </button>
+        <button type="button" className="settings-row-action m365-danger" disabled={busy || chosen.length === 0} onClick={() => void run('delete')}>
+          {t('Slett valgte')}
+        </button>
+        {busy && <span className="settings-muted">{t('Endrer...')}</span>}
+      </div>
+      <p className="settings-muted m365-bulk-hint">
+        {t('Endringene gjøres med dine egne rettigheter i Entra ID (f.eks. User Administrator). Du kan ikke endre deg selv.')}
+      </p>
+
+      {error && <p role="alert" className="settings-error">{error}</p>}
+      {succeeded.length > 0 && (
+        <p className="settings-message">
+          {t('Endret: {names}', { names: succeeded.map((r) => r.displayName ?? r.userId).join(', ') })}
+        </p>
+      )}
+      {failed.length > 0 && (
+        <div role="alert" className="settings-error">
+          {t('Ikke endret:')}
+          <ul>
+            {failed.map((r) => <li key={r.userId}>{r.displayName ?? r.userId}: {r.error}</li>)}
+          </ul>
+        </div>
+      )}
+
       {overview.loading ? (
         <p>{t('Henter brukere fra Entra ID...')}</p>
       ) : data && (
@@ -181,9 +300,18 @@ function Users() {
             })}
           </p>
           <div className="audit-table-wrapper">
-            <table className="audit-table">
+            <table className="audit-table m365-compact">
               <thead>
                 <tr>
+                  <th className="m365-check">
+                    <input
+                      type="checkbox"
+                      aria-label={t('Velg alle som vises')}
+                      checked={allChosen}
+                      disabled={selectable.length === 0}
+                      onChange={toggleAll}
+                    />
+                  </th>
                   <th>{t('Navn')}</th>
                   <th>{t('Type')}</th>
                   <th>{t('Konto')}</th>
@@ -194,25 +322,44 @@ function Users() {
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr key={u.id}>
+                  <tr key={u.id} className={selected.has(u.id) ? 'm365-selected' : undefined}>
+                    <td className="m365-check">
+                      <input
+                        type="checkbox"
+                        aria-label={t('Velg {name}', { name: u.displayName ?? u.userPrincipalName ?? u.id })}
+                        checked={selected.has(u.id)}
+                        disabled={isSelf(u)}
+                        title={isSelf(u) ? t('Du kan ikke endre deg selv') : undefined}
+                        onChange={() => toggle(u.id)}
+                      />
+                    </td>
                     <td>
-                      <strong>{u.displayName ?? '–'}</strong>
-                      <div className="settings-muted">{u.userPrincipalName}</div>
-                      {(u.jobTitle || u.department) && (
-                        <div className="settings-muted">
-                          {[u.jobTitle, u.department].filter(Boolean).join(', ')}
-                        </div>
-                      )}
+                      {/* Gjester vises med e-post i stedet for …#EXT#@… */}
+                      <div
+                        className="m365-name"
+                        title={[
+                          u.displayName,
+                          u.userPrincipalName,
+                          [u.jobTitle, u.department].filter(Boolean).join(', '),
+                        ].filter(Boolean).join('\n')}
+                      >
+                        <strong>{u.displayName ?? '–'}</strong>{' '}
+                        <span className="settings-muted">
+                          {u.userType === 'Guest' ? (u.mail ?? u.userPrincipalName) : u.userPrincipalName}
+                        </span>
+                      </div>
                     </td>
                     <td>{u.userType === 'Guest' ? t('Gjest') : t('Medlem')}</td>
                     <td className={u.accountEnabled === false ? 'settings-error' : undefined}>
                       {u.accountEnabled === false ? t('Deaktivert') : t('Aktiv')}
                     </td>
-                    <td>{u.licenses.length > 0 ? u.licenses.join(', ') : '–'}</td>
+                    <td className="audit-nowrap" title={u.licenses.join(', ') || undefined}>
+                      {shortLicenses(u.licenses)}
+                    </td>
                     <td className="audit-nowrap">
                       {data.signInUnavailableReason
                         ? <span className="settings-muted">{t('Krever lisens')}</span>
-                        : u.lastSignInAt ? formatDateTime(u.lastSignInAt) : t('Aldri')}
+                        : u.lastSignInAt ? formatDate(u.lastSignInAt) : t('Aldri')}
                     </td>
                     <td>
                       {data.mfaUnavailableReason

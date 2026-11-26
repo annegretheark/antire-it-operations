@@ -405,6 +405,73 @@ public class GraphService
         }
     }
 
+    // ---------- Handlinger med innlogget persons rettigheter (on-behalf-of) ----------
+    //
+    // Appen bruker personens token, så Entra sjekker personens egne roller (f.eks.
+    // User Administrator). Appen trenger bare de delegerte rettighetene med admin-samtykke.
+
+    // Graph-klient for én forespørsel på vegne av personen
+    private GraphServiceClient DelegatedClient(string tenantId, string userToken) =>
+        new(_credentials.OnBehalfOf(tenantId, userToken), ["https://graph.microsoft.com/.default"]);
+
+    // Deaktiverer eller aktiverer kontoen (delegert User.EnableDisableAccount.All)
+    public virtual async Task SetAccountEnabledAsync(
+        string tenantId,
+        string userToken,
+        string userId,
+        bool enabled,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await DelegatedClient(tenantId, userToken).Users[userId]
+                .PatchAsync(new User { AccountEnabled = enabled }, cancellationToken: cancellationToken);
+        }
+        catch (ODataError e)
+        {
+            throw Denied(e);
+        }
+        catch (AuthenticationFailedException e)
+        {
+            throw NoConsent(e, "User.EnableDisableAccount.All");
+        }
+    }
+
+    // Sletter brukeren (delegert User.DeleteRestore.All). Kan gjenopprettes i Entra i 30 dager.
+    public virtual async Task DeleteUserAsync(
+        string tenantId,
+        string userToken,
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await DelegatedClient(tenantId, userToken).Users[userId]
+                .DeleteAsync(cancellationToken: cancellationToken);
+        }
+        catch (ODataError e)
+        {
+            throw Denied(e);
+        }
+        catch (AuthenticationFailedException e)
+        {
+            throw NoConsent(e, "User.DeleteRestore.All");
+        }
+    }
+
+    private static GraphUnavailableException Denied(ODataError e) =>
+        new(e.ResponseStatusCode switch
+        {
+            401 or 403 => "Du har ikke lov til dette i Entra ID. Det krever en rolle som User Administrator " +
+                          "(Privileged Authentication Administrator for administratorer).",
+            404 => "Fant ikke brukeren i Entra ID.",
+            _ => $"Microsoft Graph svarte med feil: {e.Error?.Message ?? e.Message}",
+        }, e.ResponseStatusCode, e);
+
+    private static GraphUnavailableException NoConsent(AuthenticationFailedException e, string permission) =>
+        new($"Kunne ikke logge inn på dine vegne. Appen trenger den delegerte rettigheten {permission} " +
+            "med admin-samtykke (scripts/Grant-GraphPermissions.ps1 -IncludeUserAdmin).", null, e);
+
     // Følger alle sider i et Graph-svar
     private static async Task CollectAsync<TItem, TPage>(
         GraphServiceClient client,

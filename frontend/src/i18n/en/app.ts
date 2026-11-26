@@ -93,6 +93,10 @@ export const app: Record<string, string> = {
   'Tilgang fjernet': 'Access removed',
   'Innsyn lastet ned': 'Data export downloaded',
   'Anonymisert': 'Anonymized',
+  'Konto deaktivert': 'Account disabled',
+  'Konto aktivert': 'Account enabled',
+  'Slettet i Entra': 'Deleted in Entra',
+  'Bruker i Entra': 'Entra user',
 
   // Revisjonslogg: typer
   'Sak': 'Ticket',

@@ -22,6 +22,10 @@ public class AppCredentials
     private readonly Func<string, TokenCredential> _create;
     private readonly ConcurrentDictionary<string, TokenCredential> _byTenant = new();
 
+    // On-behalf-of: innlogget persons token byttes mot et token for samme person.
+    // Null når innloggingen ikke kan brukes til det (managed identity direkte).
+    private readonly Func<string, string, TokenCredential>? _createOnBehalfOf;
+
     // federated_managed_identity | managed_identity | certificate | secret, til visning og logg
     public string Kind { get; }
 
@@ -42,9 +46,13 @@ public class AppCredentials
             var identity = ManagedIdentity(identityClientId);
 
             // Token fra identiteten brukes som bevis (client assertion) for app-registreringen
-            _create = tenantId => new ClientAssertionCredential(tenantId, _clientId, async cancellationToken =>
+            Func<CancellationToken, Task<string>> assertion = async cancellationToken =>
                 (await identity.GetTokenAsync(
-                    new TokenRequestContext(["api://AzureADTokenExchange/.default"]), cancellationToken)).Token);
+                    new TokenRequestContext(["api://AzureADTokenExchange/.default"]), cancellationToken)).Token;
+
+            _create = tenantId => new ClientAssertionCredential(tenantId, _clientId, assertion);
+            _createOnBehalfOf = (tenantId, userToken) =>
+                new OnBehalfOfCredential(tenantId, _clientId, assertion, userToken);
         }
         else if (configuration.GetValue("MicrosoftGraph:UseManagedIdentity", false))
         {
@@ -57,6 +65,8 @@ public class AppCredentials
             Kind = "certificate";
             var certificate = FindInStore(thumbprint);
             _create = tenantId => new ClientCertificateCredential(tenantId, _clientId, certificate);
+            _createOnBehalfOf = (tenantId, userToken) =>
+                new OnBehalfOfCredential(tenantId, _clientId, certificate, userToken);
         }
         else if (!string.IsNullOrWhiteSpace(path))
         {
@@ -64,11 +74,15 @@ public class AppCredentials
             var certificate = X509CertificateLoader.LoadPkcs12FromFile(
                 path, configuration["MicrosoftGraph:CertificatePassword"]);
             _create = tenantId => new ClientCertificateCredential(tenantId, _clientId, certificate);
+            _createOnBehalfOf = (tenantId, userToken) =>
+                new OnBehalfOfCredential(tenantId, _clientId, certificate, userToken);
         }
         else if (!string.IsNullOrWhiteSpace(secret))
         {
             Kind = "secret";
             _create = tenantId => new ClientSecretCredential(tenantId, _clientId, secret);
+            _createOnBehalfOf = (tenantId, userToken) =>
+                new OnBehalfOfCredential(tenantId, _clientId, secret, userToken);
         }
         else
         {
@@ -84,6 +98,20 @@ public class AppCredentials
             throw new InvalidOperationException("Tenant mangler for innlogging mot Graph og Azure.");
 
         return _byTenant.GetOrAdd(tenantId.ToLowerInvariant(), _create);
+    }
+
+    // Innlogging på vegne av personen som sendte userToken (tokenet til API-et).
+    // Graph sjekker da personens egne roller i Entra. Lages per forespørsel.
+    public TokenCredential OnBehalfOf(string tenantId, string userToken)
+    {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            throw new InvalidOperationException("Tenant mangler for innlogging mot Graph.");
+        if (string.IsNullOrWhiteSpace(userToken))
+            throw new InvalidOperationException("Innlogget brukers token mangler.");
+
+        return (_createOnBehalfOf ?? throw new InvalidOperationException(
+            "Handlinger med personens egne rettigheter krever sertifikat eller federated managed identity " +
+            "(MicrosoftGraph:UseManagedIdentity støtter ikke on-behalf-of)."))(tenantId, userToken);
     }
 
     private static ManagedIdentityCredential ManagedIdentity(string? clientId) =>

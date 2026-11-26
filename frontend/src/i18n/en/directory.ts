@@ -136,4 +136,25 @@ export const directory: Record<string, string> = {
   'Rediger ansatt': 'Edit employee',
   'Lagrer...': 'Saving...',
   'Lagre endringer': 'Save changes',
+
+  // Microsoft 365 → Brukere: endre flere brukere med egne rettigheter
+  '{n} valgt': '{n} selected',
+  'Velg brukere for å endre dem': 'Select users to change them',
+  'Deaktiver valgte': 'Disable selected',
+  'Aktiver valgte': 'Enable selected',
+  'Slett valgte': 'Delete selected',
+  'Endrer...': 'Changing...',
+  'Endringene gjøres med dine egne rettigheter i Entra ID (f.eks. User Administrator). Du kan ikke endre deg selv.':
+    'Changes are made with your own permissions in Entra ID (e.g. User Administrator). You cannot change yourself.',
+  'Endret: {names}': 'Changed: {names}',
+  'Ikke endret:': 'Not changed:',
+  'Velg alle som vises': 'Select all shown',
+  'Velg {name}': 'Select {name}',
+  'Du kan ikke endre deg selv': 'You cannot change yourself',
+  '… og {n} til': '… and {n} more',
+  'Slette {n} brukere i Entra ID? De kan gjenopprettes i Entra i 30 dager.\n\n{list}\n\nSkriv SLETT for å bekrefte.':
+    'Delete {n} users in Entra ID? They can be restored in Entra for 30 days.\n\n{list}\n\nType SLETT to confirm.',
+  'Deaktivere {n} brukere? De kan ikke logge på før kontoen aktiveres igjen.\n\n{list}':
+    'Disable {n} users? They cannot sign in until the account is enabled again.\n\n{list}',
+  'Aktivere {n} brukere?\n\n{list}': 'Enable {n} users?\n\n{list}',
 }

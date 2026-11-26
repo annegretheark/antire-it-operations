@@ -136,7 +136,7 @@ Løsningen bruker to app-registreringer i hver tenant:
 | `scripts/Get-AppPermissions.ps1` | Revisjon: alle rettigheter på alle app-registreringer og enterprise apps i tenanten (delegert/applikasjon, samtykke, risiko), med CSV-eksport. Endrer ingenting |
 | `scripts/Show-AccessReview.ps1` | Vindu (PowerShell 7) med startside for app-rettigheter, SharePoint-tilgang, inaktive brukere og delte postbokser (oversikt, og gi/fjern tilgang for IT; sier fra og hjelper med å installere ExchangeOnlineManagement hvis den mangler). Anbefaling per rad, filtre og CSV-eksport. Deaktiver app, Slett app og Fjern rettighet vises bare for Global Administrator, Application Administrator og Cloud Application Administrator. Spør ved oppstart om Antire eller AGK (dev), eller bruk `-TenantId` |
 | `scripts/Get-SharePointAppAccess.ps1` | Apper med tilgang til SharePoint og OneDrive: hele tenanten eller utvalgte områder, med eller uten bruker, og siste pålogging. CSV-eksport. Endrer ingenting |
-| `scripts/Grant-GraphPermissions.ps1` | Gir API-appen Graph-rettighetene under, med admin-samtykke (`-SkipOptional` for bare de påkrevde) |
+| `scripts/Grant-GraphPermissions.ps1` | Gir API-appen Graph-rettighetene under, med admin-samtykke (`-SkipOptional` for bare de påkrevde). `-IncludeUserAdmin` legger også til de delegerte rettighetene `User.EnableDisableAccount.All` og `User.DeleteRestore.All` for å deaktivere og slette brukere under Microsoft 365 → Brukere med den innloggede personens egne rettigheter |
 
 **Graph-rettigheter (applikasjon, med admin-samtykke):**
 

@@ -57,4 +57,8 @@ public static class AuditActions
     // GDPR
     public const string GdprExported = "gdpr_exported";
     public const string GdprAnonymized = "gdpr_anonymized";
+    // Brukere i Entra ID, endret fra Microsoft 365-siden med personens egne rettigheter
+    public const string UserDisabled = "user_disabled";
+    public const string UserEnabled = "user_enabled";
+    public const string UserDeleted = "user_deleted";
 }
