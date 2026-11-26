@@ -404,3 +404,57 @@ Riktig type kort i køen for hver hendelse, ingen beskrivelser eller planer i ko
 - Lenker `?endring=`, `?risiko=` og `&historikk=1` åpner riktig side.
 - Ekte Teams-kanal er ikke prøvd (ingen Teams-lisens i dev-tenanten).
 - Tester: `GovernanceTeamsTests` (5).
+
+---
+
+## C6: Simulert GitHub og Terraform (detaljert plan)
+
+Alt er **simulert**. Ingen kall til GitHub eller Azure, ingen ekte pipeline, ingen Terraform Plan eller Apply. Feltene for leveranse finnes allerede på endringen (C1), og commit-SHA og hash av Terraform-plan er allerede med i hashen for godkjent innhold (C2). **Ingen migrering.**
+
+### Leverandør
+
+- `IChangeDeliveryProvider` med én implementasjon: `MockDeliveryProvider`. Konfigurasjon `Delivery:Provider` (standard `mock`). Andre verdier gir «Ekte integrasjon er ikke bygget» og ingen kall ut.
+- Innstillingen `SimulatedDeliveryEnabled` (C1) slår funksjonen av og på per tenant.
+
+### Hva man kan gjøre
+
+| Endepunkt | Hvem | Hva |
+|---|---|---|
+| `POST /api/changes/{id}/delivery/link` | Innmelder, Technical Owner eller Implementer | Kobler PR-URL (bare `https://github.com/…`), commit-SHA (7–40 heksadesimale tegn) og pipeline-kjøring. Ny SHA gjør godkjenningen ugyldig. |
+| `POST /api/changes/{id}/delivery/plan` | Samme | **Simulert Terraform Plan**: lager en syntetisk plan for omfanget (abonnementer og ressursgrupper), med antall add, change og destroy. Serveren regner ut hashen og lagrer den. Ny plan gjør godkjenningen ugyldig. Planer med destroy merkes tydelig. |
+| `GET /api/changes/{nummer}/deployment-gate?environment=&commitSha=&planHash=` | Helpdesk.Agent eller endringsrolle (senere: pipelinens identitet) | **Sjekken en pipeline ville kalt før Apply.** Ja bare når endringen er i `implementation`, har gyldig godkjenning (eller aktiv standardmal), miljøet stemmer, og commit og plan er de samme som ble godkjent. **Produksjon avvises alltid i prototypen.** Hver sjekk logges (`change_gate_checked`) med svar og årsak. |
+| `POST /api/changes/{id}/delivery/simulate-apply` | Implementer | **Simulert Apply** i utvikling eller test: kaller sjekken over og registrerer resultatet. Ingen infrastruktur endres. |
+
+### Policy as Code, beskyttede miljøer og påkrevde godkjennere
+
+- Dokumenteres i en ny del i denne filen: hvordan et GitHub-miljø med beskyttelsesregel, påkrevde godkjennere og sjekken over ville vært koblet sammen, og at sjekken senere skal kalles av pipelinens egen identitet (GitHub OIDC mot Entra), ikke av en person.
+- Et **eksempel** på en GitHub Actions-arbeidsflyt legges i `docs/examples/deploy-with-change-gate.yml`, **ikke** i `.github/workflows`, slik at den aldri kjører.
+
+### Frontend
+
+Ny seksjon **Leveranse** i endringsdetaljene: koble PR og commit, lage simulert plan (med antall og hash), se svaret fra sjekken per miljø, og simulert Apply i utvikling og test. Tydelig merket «Simulert».
+
+### Tester
+
+Kobling og plan gjør godkjenningen ugyldig. Sjekken sier nei uten godkjenning, ved feil commit eller plan, feil miljø, feil status og **alltid for produksjon**, og ja når alt stemmer. Hver sjekk logges. Ugyldig PR-URL og SHA avvises. Funksjonen kan slås av. Ingen HTTP-kall ut (den falske leverandøren brukes; testen sjekker at ingen `HttpClient` brukes). Tilgang per rolle og tenant-skille.
+
+### Policy as Code, beskyttede miljøer og påkrevde godkjennere (C6)
+
+Slik er det tenkt koblet sammen når en eventuell produksjonsintegrasjon bygges (eksempel i `docs/examples/deploy-with-change-gate.yml`, som ikke kjører):
+
+1. **Pull request** med endringsnummeret i tittelen. Commit-SHA kobles til endringen (`/delivery/link`); ny commit gjør godkjenningen ugyldig.
+2. **Terraform Plan** i pipelinen. Hashen av planen kobles til endringen; ny plan gjør godkjenningen ugyldig. Policy as Code (f.eks. Azure Policy, OPA eller Checkov) kjøres mot planen før godkjenning.
+3. **Godkjenning i appen** etter reglene, med separasjon av plikter, låst til innholdet (inkludert commit og plan).
+4. **Beskyttet miljø i GitHub** (`production`) med påkrevde godkjennere. Jobben for Apply kaller `deployment-gate` med miljø, commit og plan-hash og stopper ved nei.
+5. **Pipelinens egen identitet** (GitHub OIDC med federated credential i Entra) kaller sjekken. Ingen personlige tokener eller hemmeligheter i repoet.
+6. **Hver sjekk logges** i revisjonsloggen med svar og årsak.
+
+I prototypen er sjekken simulert, og **produksjon avvises alltid**.
+
+### Status C6 (2026-11-26): bygget (alt simulert)
+
+- `IChangeDeliveryProvider` med bare `MockDeliveryProvider` (ingen kall ut), `ChangeDeliveryService` (plan, sjekk før Apply, simulert Apply), endepunkter under `/api/changes/{id}/delivery/…` og `/api/changes/{nummer}/deployment-gate`.
+- Kobling av commit og plan bruker samme ugyldiggjøring av godkjenning som vanlig redigering (`Rehash` i `ChangeWorkflowService`).
+- Bryteren `SimulatedDeliveryEnabled` kan settes via `PUT /api/governance/settings`.
+- Seksjonen **Leveranse** (merket «Simulert») i endringsdetaljene. Eksempel på arbeidsflyt i `docs/examples/deploy-with-change-gate.yml` (kjører ikke).
+- Ingen migrering. Tester: `ChangeDeliveryTests` (9).

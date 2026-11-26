@@ -256,30 +256,119 @@ public class ChangeWorkflowService
 
         await ApplyAsync(change, input with { Type = change.Type }, isNew: false, ct);
 
-        change.ScopeHash = ChangeScopeHash.Compute(change);
-        change.UpdatedAt = DateTime.UtcNow;
-
-        if (change.ScopeHash != hashBefore)
-        {
-            var hadApprovals = change.Approvals.Any(a => a.ScopeHash == hashBefore);
-
-            // Godkjent innhold er endret: tilbake til godkjenning (ikke for standard,
-            // som er godkjent gjennom malen og ikke kan få endrede planer)
-            if (ApprovedStatuses.Contains(change.Status) && change.Type != ChangeTypes.Standard)
-            {
-                SetStatus(change, ChangeStatuses.PendingApproval, "Godkjent innhold er endret.");
-            }
-
-            if (hadApprovals)
-            {
-                _db.AddAuditEvent(nameof(ChangeRequest), change.Id.ToString(), AuditActions.ApprovalInvalidated,
-                    new { change.Number, reason = "Godkjent innhold er endret." });
-            }
-        }
+        Rehash(change, hashBefore, "Godkjent innhold er endret.");
 
         await SaveAndNotifyAsync(change, ct);
         return change;
     }
+
+    // Ny hash etter en endring. Er godkjent innhold endret, går endringen tilbake til
+    // godkjenning (ikke standard, som er godkjent gjennom malen), og det logges.
+    private void Rehash(ChangeRequest change, string? hashBefore, string reason)
+    {
+        change.ScopeHash = ChangeScopeHash.Compute(change);
+        change.UpdatedAt = DateTime.UtcNow;
+
+        if (change.ScopeHash == hashBefore)
+            return;
+
+        var hadApprovals = change.Approvals.Any(a => a.ScopeHash == hashBefore);
+
+        if (ApprovedStatuses.Contains(change.Status) && change.Type != ChangeTypes.Standard)
+            SetStatus(change, ChangeStatuses.PendingApproval, reason);
+
+        if (hadApprovals)
+        {
+            _db.AddAuditEvent(nameof(ChangeRequest), change.Id.ToString(), AuditActions.ApprovalInvalidated,
+                new { change.Number, reason });
+        }
+    }
+
+    // ---------- Leveranse (C6, simulert) ----------
+
+    // Hvem kan koble PR, commit og plan: innmelder, Technical Owner eller Implementer
+    private async Task<ChangeRequest> LoadForDeliveryAsync(int id, CancellationToken ct)
+    {
+        var change = await LoadAsync(id, ct);
+        var roles = await MyRolesAsync(ct);
+        var services = ServiceIds(change);
+
+        if (!IsRequester(change) &&
+            !roles.Has(GovernanceRoles.TechnicalOwner, services) &&
+            !roles.Has(GovernanceRoles.Implementer, services))
+        {
+            throw GovernanceException.Forbidden("Bare innmelder, Technical Owner eller Implementer kan koble leveransen.");
+        }
+
+        if (!EditableStatuses.Contains(change.Status))
+            throw GovernanceException.BadRequest("Leveransen kan ikke endres etter at implementeringen har startet.");
+
+        return change;
+    }
+
+    public async Task<ChangeRequest> LinkDeliveryAsync(
+        int id, string? pullRequestUrl, string? commitSha, string? pipelineRunId, CancellationToken ct = default)
+    {
+        var change = await LoadForDeliveryAsync(id, ct);
+
+        pullRequestUrl = Clean(pullRequestUrl);
+        commitSha = Clean(commitSha)?.ToLowerInvariant();
+        pipelineRunId = Clean(pipelineRunId);
+
+        if (pullRequestUrl != null &&
+            (pullRequestUrl.Length > 500 ||
+             !Uri.TryCreate(pullRequestUrl, UriKind.Absolute, out var uri) ||
+             uri.Scheme != Uri.UriSchemeHttps || uri.Host != "github.com"))
+        {
+            throw GovernanceException.BadRequest("PR-lenken må være en https://github.com/…-adresse.");
+        }
+
+        if (commitSha != null && (commitSha.Length is < 7 or > 40 || !commitSha.All(Uri.IsHexDigit)))
+            throw GovernanceException.BadRequest("Commit-SHA må være 7–40 heksadesimale tegn.");
+
+        if (pipelineRunId?.Length > 200)
+            throw GovernanceException.BadRequest("Pipeline-kjøring kan ha maks 200 tegn.");
+
+        var hashBefore = change.ScopeHash;
+        change.PullRequestUrl = pullRequestUrl;
+        change.CommitSha = commitSha;
+        change.PipelineRunId = pipelineRunId;
+        Rehash(change, hashBefore, "Ny commit er koblet til endringen.");
+
+        await SaveAndNotifyAsync(change, ct);
+        return change;
+    }
+
+    public async Task<ChangeRequest> SetTerraformPlanAsync(int id, string planHash, object summary, CancellationToken ct = default)
+    {
+        var change = await LoadForDeliveryAsync(id, ct);
+
+        var hashBefore = change.ScopeHash;
+        change.TerraformPlanHash = planHash;
+        _db.AddAuditEvent(nameof(ChangeRequest), change.Id.ToString(), AuditActions.ChangePlanCreated,
+            new { change.Number, planHash, summary, simulated = true });
+        Rehash(change, hashBefore, "Ny Terraform-plan er koblet til endringen.");
+
+        await SaveAndNotifyAsync(change, ct);
+        return change;
+    }
+
+    // Har endringen gyldig godkjenning nå? (aktiv standardmal, eller reglene med samme hash)
+    public async Task<(bool Ok, string? Reason)> CheckApprovalAsync(ChangeRequest change, CancellationToken ct = default)
+    {
+        try
+        {
+            await RequireValidApprovalAsync(change, ct);
+            return (true, null);
+        }
+        catch (GovernanceException e)
+        {
+            return (false, e.Message);
+        }
+    }
+
+    public bool IsImplementerRole(GovernanceRoleService.PersonRoles roles, ChangeRequest change) =>
+        roles.Has(GovernanceRoles.Implementer, ServiceIds(change));
 
     // Validerer og setter feltene. Standard: planene er låst til malen.
     private async Task ApplyAsync(ChangeRequest change, ChangeInput input, bool isNew, CancellationToken ct)

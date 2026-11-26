@@ -74,6 +74,9 @@ builder.Services.AddScoped<GovernanceNumberService>();
 builder.Services.AddScoped<GovernanceSetupService>();
 builder.Services.AddScoped<GovernanceRoleService>();
 builder.Services.AddScoped<ChangeWorkflowService>();
+// Simulert GitHub og Terraform (C6). Bare mock finnes; ingen kall ut av appen.
+builder.Services.AddSingleton<IChangeDeliveryProvider, MockDeliveryProvider>();
+builder.Services.AddScoped<ChangeDeliveryService>();
 builder.Services.AddScoped<RiskRegisterService>();
 // Påminnelser for endringer og risiko, og utløpt aksept (Governance:MonitorEnabled)
 builder.Services.AddScoped<GovernanceNotifier>();

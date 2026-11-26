@@ -11,7 +11,8 @@ public record MyGovernanceRolesDto(int? EmployeeId, IReadOnlyList<GovernanceRole
 
 public record SaveRoleAssignmentRequest(string? Role, int? ServiceCatalogItemId, int? EmployeeId, string? EntraGroupId);
 
-public record SaveGovernanceSettingsRequest(bool TeamsNotificationsEnabled, int ReminderDaysBefore, int? RetentionMonths);
+public record SaveGovernanceSettingsRequest(
+    bool TeamsNotificationsEnabled, int ReminderDaysBefore, int? RetentionMonths, bool SimulatedDeliveryEnabled = true);
 
 public record SaveRaciRequest(string? Activity, string? Role, string? Raci);
 
@@ -210,6 +211,7 @@ public class GovernanceController : ControllerBase
         settings.TeamsNotificationsEnabled = request.TeamsNotificationsEnabled;
         settings.ReminderDaysBefore = request.ReminderDaysBefore;
         settings.RetentionMonths = request.RetentionMonths;
+        settings.SimulatedDeliveryEnabled = request.SimulatedDeliveryEnabled;
         await _db.SaveChangesAsync(Ct);
         return Ok(settings);
     }

@@ -81,6 +81,10 @@ export type ChangeRequest = {
   postReviewedAt: string | null
   postReviewedByName: string | null
   templateId: number | null
+  pullRequestUrl: string | null
+  commitSha: string | null
+  pipelineRunId: string | null
+  terraformPlanHash: string | null
   scopeHash: string | null
   createdAt: string
   updatedAt: string

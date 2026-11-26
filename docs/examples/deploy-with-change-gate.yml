@@ -1,0 +1,58 @@
+# EKSEMPEL – kjører ikke. Ligger bevisst utenfor .github/workflows.
+#
+# Viser hvordan en GitHub Actions-arbeidsflyt kunne koblet Terraform til en
+# godkjent endring i Antire IT Operations (ENDRING_OG_RISIKO.md, C6).
+# I prototypen er sjekken simulert, og produksjon avvises alltid.
+#
+# Forutsetninger før noe slikt tas i bruk (se «Forutsetninger for produksjon»):
+#   - skriftlig mandat, avklart system- og risikoeierskap, og et eget testmiljø
+#   - pipelinen logger inn med sin egen identitet (GitHub OIDC mot Entra), ikke en person
+#   - miljøet «production» i GitHub har påkrevde godkjennere og denne sjekken som krav
+
+name: Deploy with change gate (example)
+
+on:
+  workflow_dispatch:
+    inputs:
+      change_number:
+        description: Endringsnummer, f.eks. CHG-000042
+        required: true
+      environment:
+        description: development | test
+        required: true
+
+permissions:
+  id-token: write   # OIDC-token til Entra, ingen hemmeligheter i repoet
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      plan_hash: ${{ steps.hash.outputs.plan_hash }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform init
+      - run: terraform plan -out=tfplan
+      - id: hash
+        run: echo "plan_hash=$(terraform show -json tfplan | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    # Beskyttet miljø: påkrevde godkjennere i GitHub i tillegg til endringsgodkjenningen
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Sjekk at endringen er godkjent for denne commit og planen
+        run: |
+          # Token for pipelinens egen identitet (federated credential i Entra)
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
+          # (bytt TOKEN mot et Entra-token for API-et her)
+          RESULT=$(curl -sS -H "Authorization: Bearer $API_TOKEN" \
+            "https://<app>/api/changes/${{ inputs.change_number }}/deployment-gate?environment=${{ inputs.environment }}&commitSha=${{ github.sha }}&planHash=${{ needs.plan.outputs.plan_hash }}")
+          echo "$RESULT"
+          test "$(echo "$RESULT" | jq -r .allowed)" = "true"
+      - run: echo "terraform apply ville kjørt her (ikke i eksempelet)"

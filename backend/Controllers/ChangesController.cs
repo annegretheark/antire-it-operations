@@ -37,6 +37,10 @@ public record ChangeOptionsDto(
     IReadOnlyList<ChangeTemplate> Templates,
     IReadOnlyList<OptionDto> Employees);
 
+public record DeliveryLinkRequest(string? PullRequestUrl, string? CommitSha, string? PipelineRunId);
+
+public record SimulatedPlanDto(SimulatedPlan Plan, ChangeDetailsDto Details);
+
 public record ChangeTransitionRequest(string? To, string? Note);
 
 public record ChangeDecisionRequest(string? Role, string? Decision, string? Comment, string? ExpectedScopeHash);
@@ -51,11 +55,13 @@ public class ChangesController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ChangeWorkflowService _workflow;
+    private readonly ChangeDeliveryService _delivery;
 
-    public ChangesController(AppDbContext db, ChangeWorkflowService workflow)
+    public ChangesController(AppDbContext db, ChangeWorkflowService workflow, ChangeDeliveryService delivery)
     {
         _db = db;
         _workflow = workflow;
+        _delivery = delivery;
     }
 
     private bool IsAgent => User.IsHelpdeskAgent();
@@ -162,6 +168,49 @@ public class ChangesController : ControllerBase
         await ReadableAsync(id);
         var change = await _workflow.PostReviewAsync(id, request.Notes, Ct);
         return Ok(await DetailsAsync(change, await _workflow.MyRolesAsync(Ct)));
+    });
+
+    // ---------- Leveranse (C6, simulert GitHub og Terraform) ----------
+
+    [HttpPost("{id:int}/delivery/link")]
+    public Task<IActionResult> LinkDelivery(int id, [FromBody] DeliveryLinkRequest request) => RunAsync(async () =>
+    {
+        await ReadableAsync(id);
+        await _delivery.EnsureEnabledAsync(Ct);
+        var change = await _workflow.LinkDeliveryAsync(id, request.PullRequestUrl, request.CommitSha, request.PipelineRunId, Ct);
+        return Ok(await DetailsAsync(change, await _workflow.MyRolesAsync(Ct)));
+    });
+
+    // Simulert Terraform Plan; teksten returneres, hashen lagres
+    [HttpPost("{id:int}/delivery/plan")]
+    public Task<IActionResult> CreatePlan(int id) => RunAsync(async () =>
+    {
+        await ReadableAsync(id);
+        var (change, plan) = await _delivery.CreatePlanAsync(id, Ct);
+        return Ok(new SimulatedPlanDto(plan, await DetailsAsync(change, await _workflow.MyRolesAsync(Ct))));
+    });
+
+    // Sjekken en pipeline ville kalt før Apply. Produksjon avvises alltid i prototypen.
+    [HttpGet("{number}/deployment-gate")]
+    public Task<IActionResult> DeploymentGate(
+        string number, [FromQuery] string? environment, [FromQuery] string? commitSha, [FromQuery] string? planHash) => RunAsync(async () =>
+    {
+        var roles = await _workflow.MyRolesAsync(Ct);
+        if (!IsAgent && !roles.HasAny)
+            throw GovernanceException.Forbidden("Krever Helpdesk.Agent eller en rolle i endringsprosessen.");
+
+        var id = await _db.ChangeRequests.Where(c => c.Number == number).Select(c => (int?)c.Id).FirstOrDefaultAsync(Ct)
+            ?? throw GovernanceException.NotFound();
+        var change = await _workflow.LoadAsync(id, Ct);
+
+        return Ok(await _delivery.CheckGateAsync(change, environment, commitSha, planHash, Ct));
+    });
+
+    [HttpPost("{id:int}/delivery/simulate-apply")]
+    public Task<IActionResult> SimulateApply(int id) => RunAsync(async () =>
+    {
+        await ReadableAsync(id);
+        return Ok(await _delivery.SimulateApplyAsync(id, Ct));
     });
 
     // Revisjonslogg for endringen (inkl. beslutninger og statusendringer)

@@ -85,4 +85,8 @@ public static class AuditActions
     public const string ChangePostReviewReminder = "change_post_review_reminder";
     public const string RiskUntreatedNotified = "risk_untreated_notified";
     public const string RiskAcceptanceExpiring = "risk_acceptance_expiring";
+    // Leveranse (C6, simulert GitHub og Terraform)
+    public const string ChangePlanCreated = "change_plan_created";
+    public const string ChangeGateChecked = "change_gate_checked";
+    public const string ChangeSimulatedApply = "change_simulated_apply";
 }

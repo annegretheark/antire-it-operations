@@ -23,6 +23,7 @@ import {
   type ChangeSummary,
 } from '../governance'
 import { errorText, useList, useResource, useSend } from './settings/settingsApi'
+import { apiUrl, useAuthHeaders } from '../apiClient'
 import { locale, t } from '../i18n'
 
 type View = { kind: 'list' } | { kind: 'calendar' } | { kind: 'new' } | { kind: 'details'; id: number }
@@ -666,6 +667,8 @@ function ChangeDetailsView({ id, options, onChanged }: { id: number; options: Ch
         </div>
       ))}
 
+      <DeliveryPanel details={d} onChanged={() => { setReloadKey((k) => k + 1); onChanged() }} />
+
       {showHistory && <History url={`/api/changes/${c.id}/history`} />}
     </div>
   )
@@ -686,6 +689,105 @@ export function History({ url }: { url: string }) {
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+type GateResult = { changeNumber: string; environment: string; allowed: boolean; reason: string; simulated: boolean }
+type PlanResult = { plan: { text: string; hash: string; add: number; change: number; destroy: number } }
+
+// Leveranse (C6): SIMULERT GitHub og Terraform. Ingen kall ut av appen, ingen
+// infrastruktur endres, og produksjon avvises alltid i prototypen.
+function DeliveryPanel({ details, onChanged }: { details: ChangeDetails; onChanged: () => void }) {
+  const send = useSend()
+  const getHeaders = useAuthHeaders()
+  const c = details.change
+  const [prUrl, setPrUrl] = useState(c.pullRequestUrl ?? '')
+  const [sha, setSha] = useState(c.commitSha ?? '')
+  const [plan, setPlan] = useState<PlanResult['plan'] | null>(null)
+  const [gate, setGate] = useState<GateResult | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function run(action: () => Promise<void>) {
+    setBusy(true)
+    setError('')
+    try {
+      await action()
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const link = () => run(async () => {
+    await send('POST', `/api/changes/${c.id}/delivery/link`, { pullRequestUrl: prUrl.trim() || null, commitSha: sha.trim() || null })
+    onChanged()
+  })
+
+  const createPlan = () => run(async () => {
+    const response = await send('POST', `/api/changes/${c.id}/delivery/plan`)
+    setPlan(((await response.json()) as PlanResult).plan)
+    onChanged()
+  })
+
+  const checkGate = (environment: string) => run(async () => {
+    const p = new URLSearchParams({ environment, commitSha: c.commitSha ?? '', planHash: c.terraformPlanHash ?? '' })
+    const response = await fetch(apiUrl(`/api/changes/${c.number}/deployment-gate?${p}`), { headers: await getHeaders() })
+    if (!response.ok) throw new Error(t('Sjekken feilet.'))
+    setGate(await response.json())
+  })
+
+  const simulateApply = () => run(async () => {
+    const response = await send('POST', `/api/changes/${c.id}/delivery/simulate-apply`)
+    setGate(await response.json())
+    onChanged()
+  })
+
+  return (
+    <div className="gov-decision">
+      <h4>{t('Leveranse')} <span className="gov-badge">{t('Simulert')}</span></h4>
+      <p className="settings-muted">
+        {t('Simulert GitHub og Terraform. Ingen kall ut av appen og ingen infrastruktur endres. Produksjon avvises alltid i prototypen. Ny commit eller ny plan gjør godkjenningen ugyldig.')}
+      </p>
+      <label htmlFor="dl-pr">{t('Pull request (https://github.com/…)')}</label>
+      <input id="dl-pr" value={prUrl} onChange={(e) => setPrUrl(e.target.value)} />
+      <label htmlFor="dl-sha">{t('Commit-SHA')}</label>
+      <input id="dl-sha" value={sha} onChange={(e) => setSha(e.target.value)} />
+      <div className="gov-actions">
+        <button type="button" className="settings-row-action" disabled={busy} onClick={() => void link()}>{t('Koble PR og commit')}</button>
+        <button type="button" className="settings-row-action" disabled={busy} onClick={() => void createPlan()}>{t('Lag simulert Terraform-plan')}</button>
+      </div>
+      <p className="settings-muted">
+        {t('Koblet commit')}: {c.commitSha ?? '–'} · {t('Plan-hash')}: {c.terraformPlanHash ? `${c.terraformPlanHash.slice(0, 12)}…` : '–'}
+      </p>
+      {plan && (
+        <>
+          <p className={plan.destroy > 0 ? 'settings-error' : undefined}>
+            {t('Plan: {add} legges til, {change} endres, {destroy} slettes.', { add: plan.add, change: plan.change, destroy: plan.destroy })}
+          </p>
+          <pre className="gov-history-changes">{plan.text}</pre>
+        </>
+      )}
+      <div className="gov-actions">
+        {ENVIRONMENT_CODES.map((env) => (
+          <button key={env} type="button" className="settings-row-action" disabled={busy} onClick={() => void checkGate(env)}>
+            {t('Sjekk {env}', { env: environmentLabel(env) })}
+          </button>
+        ))}
+        {c.status === 'implementation' && c.environment !== 'production' && (
+          <button type="button" className="settings-row-action" disabled={busy} onClick={() => void simulateApply()}>
+            {t('Simulert Apply')}
+          </button>
+        )}
+      </div>
+      {gate && (
+        <p className={gate.allowed ? 'settings-message' : 'settings-error'}>
+          {environmentLabel(gate.environment)}: {gate.allowed ? t('Tillatt') : t('Ikke tillatt')} – {gate.reason}
+        </p>
+      )}
+      {error && <p role="alert" className="settings-error">{error}</p>}
     </div>
   )
 }
