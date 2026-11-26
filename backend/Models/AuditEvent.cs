@@ -71,4 +71,13 @@ public static class AuditActions
     public const string RoleAssigned = "role_assigned";
     public const string RoleRemoved = "role_removed";
     public const string TemplateApproved = "template_approved";
+    // Risk Management
+    public const string RiskStatusChanged = "risk_status_changed";
+    public const string RiskAccepted = "risk_accepted";
+    public const string RiskAcceptanceRevoked = "risk_acceptance_revoked";
+    public const string RiskAcceptanceVoided = "risk_acceptance_voided";
+    public const string RiskAcceptanceExpired = "risk_acceptance_expired";
+    public const string RiskActionOverdue = "risk_action_overdue";
+    public const string RiskReviewDue = "risk_review_due";
+    public const string RiskLinksChanged = "risk_links_changed";
 }

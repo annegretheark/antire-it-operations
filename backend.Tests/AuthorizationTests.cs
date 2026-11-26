@@ -120,6 +120,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
     [InlineData("GET", "/api/assets")]
     [InlineData("GET", "/api/opsreports")]
     [InlineData("GET", "/api/changes")]
+    [InlineData("GET", "/api/risks")]
     public async Task Anonymous_requests_are_rejected(string method, string path)
     {
         var client = factory.CreateClient();

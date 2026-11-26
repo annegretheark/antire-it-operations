@@ -216,6 +216,7 @@ public class ChangeRequest : ITenantOwned, IAudited
     // Risiko for selve endringen, 1–5; RiskScore beregnes i databasen
     public int? Likelihood { get; set; }
     public int? Impact { get; set; }
+    [System.Text.Json.Serialization.JsonInclude]
     public int? RiskScore { get; private set; }
 
     public string? RiskAnalysis { get; set; }
@@ -425,6 +426,7 @@ public class Risk : ITenantOwned, IAudited
     // 1–5; Score beregnes i databasen
     public int Likelihood { get; set; } = 1;
     public int Consequence { get; set; } = 1;
+    [System.Text.Json.Serialization.JsonInclude]
     public int Score { get; private set; }
 
     public string? ExistingControls { get; set; }
@@ -433,6 +435,7 @@ public class Risk : ITenantOwned, IAudited
     // Restrisiko etter tiltak, 1–5; ResidualScore beregnes i databasen
     public int? ResidualLikelihood { get; set; }
     public int? ResidualConsequence { get; set; }
+    [System.Text.Json.Serialization.JsonInclude]
     public int? ResidualScore { get; private set; }
 
     // mitigate | accept | transfer | avoid (RiskStrategies)

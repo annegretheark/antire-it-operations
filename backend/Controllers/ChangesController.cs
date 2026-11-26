@@ -24,7 +24,9 @@ public record ChangeDetailsDto(
     // Hva innlogget person kan gjøre nå
     IReadOnlyList<string> AllowedTransitions,
     IReadOnlyList<string> CanDecideAs,
-    bool CanPostReview
+    bool CanPostReview,
+    // Risikoer koblet til endringen (C3)
+    IReadOnlyList<int>? LinkedRiskIds = null
 );
 
 public record ChangeTransitionRequest(string? To, string? Note);
@@ -192,7 +194,8 @@ public class ChangesController : ControllerBase
             ChangeWorkflowService.WaitingForInfo(change),
             await _workflow.AllowedTransitionsAsync(change, roles, Ct),
             canDecideAs,
-            canPostReview);
+            canPostReview,
+            await _db.RiskChanges.Where(l => l.ChangeRequestId == change.Id).Select(l => l.RiskId).ToListAsync(Ct));
     }
 
     private async Task<IActionResult> RunAsync(Func<Task<IActionResult>> action)

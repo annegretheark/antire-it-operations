@@ -253,3 +253,67 @@ Nye hendelser i revisjonsloggen: `change_submitted`, `change_status_changed`, `c
 - Testinnloggingen har fått en valgfri header for objekt-ID (`X-Test-ObjectId`), så testene kan bruke flere personer.
 - Tester: `ChangeWorkflowTests` (14) og nye rader i `AuthorizationTests`.
 - Skriptet `scripts/New-GovernanceTestUsers.ps1` lager de syntetiske testbrukerne.
+
+---
+
+## C3: Risikoregister (detaljert plan)
+
+Ingen frontend i C3 (C4) og ingen Teams-varsler (C5). Ingen migrering er planlagt.
+
+### Nivåer
+
+Score = sannsynlighet × konsekvens (beregnet i databasen): **lav** 1–4, **middels** 5–9, **høy** 10–14, **kritisk** 15–25. Brukes i lister, matrise og regler under.
+
+### Tilgang
+
+| Hvem | Kan |
+|---|---|
+| Helpdesk.Agent eller en endringsrolle | Se risikoer, registrere nye |
+| Risikoeier (`OwnerEmployeeId`), rollen Risk Owner (global eller for en koblet tjeneste), Security Officer | Endre vurdering, tiltak, strategi, eier og koblinger |
+| Tiltaksansvarlig | Oppdatere status for tiltak (in_treatment → monitoring) |
+| **Utpekt risikoeier som også har rollen Risk Owner** | Akseptere og trekke tilbake aksept |
+
+### Statuser (styrt på serveren)
+
+identified → assessed (sannsynlighet, konsekvens og eier er satt) → in_treatment (strategi mitigate, transfer eller avoid, tiltaksansvarlig og frist) → monitoring → closed. `accepted` nås bare gjennom aksept. Lukking krever en kommentar.
+
+### Risikoaksept
+
+- `POST /api/risks/{id}/acceptances` med begrunnelse, gyldig til (maks 12 måneder) og **scoren personen så**. Annen score enn nå → 409.
+- Krever strategi `accept` og at personen er utpekt risikoeier **og** har rollen Risk Owner.
+- **Kritiske risikoer** (15–25) kan ikke aksepteres av den som registrerte risikoen (hentes fra revisjonsloggen).
+- Lagres som ny rad (`RiskAcceptances`); tilbaketrekking er en ny rad med `revoked`.
+- Aksepten gjelder bare så lenge scoren er den samme og den ikke er utløpt. Øker scoren, eller utløper aksepten, går risikoen tilbake til `assessed`, og hendelsen logges.
+
+### Koblinger
+
+`PUT /api/risks/{id}/links` med endringer, tjenester, saker og varsler (bare fra samme tenant). Endringsdetaljene (C2) får listen over koblede risikoer.
+
+### Bakgrunnsjobb (`RiskMonitorService`)
+
+Mønsteret fra `SlaMonitorService`: hver time, per tillatt tenant, aktør `system`, én tenant som feiler stopper ikke de andre. Logger én gang per hendelse: tiltak forbi frist (`risk_action_overdue`), vurdering forfalt (`risk_review_due`), aksept utløpt (`risk_acceptance_expired`, status tilbake til `assessed`). Teams-varsel for disse kommer i C5. Konfigurasjon: `Risks:MonitorEnabled` (standard true), `Risks:CheckIntervalSeconds` (3600).
+
+### API
+
+| Endepunkt | |
+|---|---|
+| `GET /api/risks` | Filter: kategori, status, nivå, eier, uten eier, forfalte tiltak, venter på aksept |
+| `GET /api/risks/{id}` | Risikoen, gjeldende aksept (gyldig eller ikke), akseptshistorikk, koblinger og hva **du** kan gjøre |
+| `POST /api/risks`, `PUT /api/risks/{id}` | Registrere og endre |
+| `POST /api/risks/{id}/transitions` | Ny status |
+| `POST /api/risks/{id}/acceptances`, `…/acceptances/revoke` | Aksept og tilbaketrekking |
+| `PUT /api/risks/{id}/links` | Koblinger |
+| `GET /api/risks/matrix` | 5×5-matrise med antall (iboende og restrisiko) |
+| `GET /api/risks/{id}/history` | Revisjonslogg |
+
+### Tester
+
+Nummer og score, nivåer, statusoverganger og vilkår, tilgang per rolle (403), aksept bare av utpekt eier med rollen, feil score (409), kritisk risiko kan ikke aksepteres av den som registrerte den, aksept faller bort når scoren øker og når den utløper (jobben), tilbaketrekking som ny rad, koblinger bare innen tenanten, matrisen teller riktig, jobben logger hver hendelse én gang og fortsetter når én tenant feiler, tenant-skille, og rader i `AuthorizationTests`.
+
+### Status C3 (2026-11-26): bygget
+
+- `RiskRegisterService` (statuser, tilgang, aksept, koblinger), `RiskMonitorService` (hver time), `RisksController` (`/api/risks`, matrise, historikk). Endringsdetaljene viser koblede risikoer.
+- Ingen migrering. Tjenesten heter `RiskRegisterService` fordi `RiskService` er koblingstabellen.
+- De beregnede scorene er merket `[JsonInclude]`, slik at klienter som leser JSON tilbake (testene) får dem med.
+- Ikke testet automatisk: at jobben fortsetter når én tenant feiler (samme `try/catch` per tenant som SLA-jobben).
+- Tester: `RiskRegisterTests` (18).
