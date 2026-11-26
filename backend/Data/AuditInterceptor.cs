@@ -160,7 +160,8 @@ public class AuditInterceptor : SaveChangesInterceptor
     private static bool NeedsTransaction(DbContext context) =>
         context.Database.IsRelational() && context.Database.CurrentTransaction == null;
 
-    // Revisjonsloggen kan bare legges til, aldri endres eller slettes
+    // Revisjonsloggen kan bare legges til, aldri endres eller slettes. Det samme gjelder
+    // beslutninger (IAppendOnly: godkjenninger og risikoaksept); de endres bare med en ny rad.
     private static void GuardAuditEvents(DbContext context)
     {
         foreach (var entry in context.ChangeTracker.Entries<AuditEvent>())
@@ -169,6 +170,15 @@ public class AuditInterceptor : SaveChangesInterceptor
             {
                 throw new InvalidOperationException(
                     "Revisjonsloggen kan ikke endres eller slettes.");
+            }
+        }
+
+        foreach (var entry in context.ChangeTracker.Entries<IAppendOnly>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+            {
+                throw new InvalidOperationException(
+                    $"{entry.Metadata.ClrType.Name} kan ikke endres eller slettes. Registrer en ny hendelse i stedet.");
             }
         }
     }

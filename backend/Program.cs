@@ -69,6 +69,9 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<GdprMonitorService
 builder.Services.AddScoped<OpsReportService>();
 // Brukerkontoer i Entra: oversikt (cachet) og endringer med personens egne rettigheter
 builder.Services.AddScoped<EntraUserService>();
+// Change Management og Risk Management (ENDRING_OG_RISIKO.md)
+builder.Services.AddScoped<GovernanceNumberService>();
+builder.Services.AddScoped<GovernanceSetupService>();
 // Varsler blir saker (fase 4)
 builder.Services.AddScoped<TeamsNotificationService>();
 builder.Services.AddScoped<AlertRuleService>();

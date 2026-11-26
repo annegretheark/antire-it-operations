@@ -82,11 +82,15 @@ public class SqliteWebApplicationFactory : TestWebApplicationFactory
         return options.UseSqlite(_connection);
     }
 
-    // SQLite har ikke sekvenser (PostgreSQL-oppsettet beholder den ekte tjenesten)
+    // SQLite har ikke sekvenser (PostgreSQL-oppsettet beholder de ekte tjenestene):
+    // ansattnummer og løpenumre for endringer og risikoer
     protected virtual void ReplaceEmployeeNumbers(IServiceCollection services)
     {
         services.RemoveAll<EmployeeNumberService>();
         services.AddScoped<EmployeeNumberService, CountingEmployeeNumberService>();
+
+        services.RemoveAll<GovernanceNumberService>();
+        services.AddScoped<GovernanceNumberService, CountingGovernanceNumberService>();
     }
 
     // Lager tabellene før første forespørsel
@@ -127,4 +131,17 @@ public class CountingEmployeeNumberService(AppDbContext db) : EmployeeNumberServ
 
     public override Task<string> NextAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(Interlocked.Increment(ref _next).ToString());
+}
+
+// SQLite har ikke sekvenser; løpenumre for endringer og risikoer fra tellere
+// (ekte sekvenser testes i PostgresTests)
+public class CountingGovernanceNumberService(AppDbContext db) : GovernanceNumberService(db)
+{
+    private static long _changes;
+    private static long _risks;
+
+    protected override Task<long> NextAsync(string sequence, CancellationToken cancellationToken) =>
+        Task.FromResult(sequence == "change_number_seq"
+            ? Interlocked.Increment(ref _changes)
+            : Interlocked.Increment(ref _risks));
 }

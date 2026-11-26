@@ -120,8 +120,8 @@ Ingen API eller frontend i C1, bare modellen, migreringen og tester. Alle tabell
 | Tabell | Innhold |
 |---|---|
 | `ChangeRequests` | `Number` (`CHG-000001`, unik per tenant), tittel, beskrivelse, begrunnelse, forventet gevinst, `Type`, `Priority`, `Environment`, `Status`, sannsynlighet og konsekvens (1–5) med beregnet score, risiko- og konsekvensanalyse, sikkerhetskonsekvens, GDPR-konsekvens (valgfri kobling til `ProcessingActivity`), kostnadsendring (beløp per måned og tekst), backupstatus (`verified`, `unverified`, `missing`, `not_applicable`) med merknad, implementeringsplan, testplan, testresultater, rollback-plan, planlagt start og slutt, innmelder (objekt-ID og ansatt), implementør (ansatt), implementeringsresultat, etterkontroll (påkrevd, notat, tidspunkt, av hvem), `TemplateId`, leveransekoblinger (PR-URL, commit-SHA, pipeline-kjøring, hash av Terraform-plan), `ScopeHash` (gjeldende hash), opprettet, endret, lukket |
-| `ChangeRequestServices` | Endring ↔ `ServiceCatalogItem` |
-| `ChangeRequestAzureScopes` | Endring ↔ `AzureSubscription`, med valgfri ressursgruppe |
+| `ChangeAffectedServices` | Endring ↔ `ServiceCatalogItem` |
+| `ChangeAzureScopes` | Endring ↔ `AzureSubscription`, med valgfri ressursgruppe |
 | `ChangeApprovals` | Endring, rolle, beslutning (`approved`, `rejected`, `info_requested`), godkjenner (objekt-ID, navn, ansatt), tidspunkt, kommentar, `ScopeHash` ved beslutningen. **Kan ikke endres eller slettes** (stoppes i `AuditInterceptor`, som for `AuditEvent`). Gyldighet = hashen er lik endringens gjeldende `ScopeHash`. |
 | `ChangeTemplates` | Standardmaler: navn, beskrivelse, planer (implementering, test, rollback), tillatte miljøer, maks risikoscore, godkjent av og når, neste gjennomgang, aktiv |
 | `GovernanceRoleAssignments` | Rolle, omfang (global eller `ServiceCatalogItemId`), ansatt **eller** Entra-gruppe |
@@ -148,3 +148,12 @@ Ingen API eller frontend i C1, bare modellen, migreringen og tester. Alle tabell
 ### Ikke i C1
 
 API, arbeidsflyt, frontend, Teams, AI og testbrukere.
+
+### Status C1 (2026-11-26): bygget
+
+- Migreringen `AddChangeAndRiskManagement` er kjørt i den lokale dev-databasen. Den legger bare til nye tabeller og sekvenser.
+- Sekvensene `change_number_seq` og `risk_number_seq` lages med SQL i migreringen, ikke i modellen, fordi SQLite (testene) ikke støtter sekvenser.
+- Risikoscorer er beregnede kolonner i databasen (`RiskScore`, `Score`, `ResidualScore`), og 1–5 er kontroller i databasen.
+- Godkjenninger og risikoaksept (`IAppendOnly`) stoppes i `AuditInterceptor` ved endring eller sletting, på samme måte som revisjonsloggen.
+- Koblingstabellene heter `ChangeAffectedServices` og `ChangeAzureScopes`, slik at navnet `ChangeRequestService` er ledig for tjenesten i C2.
+- Tester: `GovernanceModelTests` (15) mot SQLite og 1 ny i `PostgresTests` (sekvenser, beregnede scorer og kontroll i ekte PostgreSQL).

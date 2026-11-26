@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using backend.Controllers;
 using backend.Models;
 using backend.Services;
@@ -207,5 +208,42 @@ public class PostgresTests(PostgresWebApplicationFactory factory)
         var response = await Admin().PostAsJsonAsync("/api/servicecatalog", new { name = "Feil", category = "Feil" });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    // Change Management og Risk Management (C1): sekvensene for CHG- og RISK-numre,
+    // de beregnede risikoscorene og kontrollen 1–5 i ekte PostgreSQL
+    [PostgresFact]
+    public async Task Change_and_risk_numbers_come_from_sequences_and_scores_are_computed()
+    {
+        factory.CreateClient(); // starter API-et og kjører migreringene
+
+        using var scope = factory.Services
+            .GetRequiredService<IServiceScopeFactory>()
+            .CreateTenantScope(TenantA);
+        var numbers = scope.ServiceProvider.GetRequiredService<GovernanceNumberService>();
+        var db = scope.ServiceProvider.GetRequiredService<backend.Data.AppDbContext>();
+
+        var first = await numbers.NextChangeNumberAsync();
+        var second = await numbers.NextChangeNumberAsync();
+        var riskNumber = await numbers.NextRiskNumberAsync();
+
+        Assert.Matches(@"^CHG-\d{6,}$", first);
+        Assert.Matches(@"^RISK-\d{6,}$", riskNumber);
+        Assert.Equal(long.Parse(first[4..]) + 1, long.Parse(second[4..]));
+
+        var risk = new Risk
+        {
+            Number = riskNumber, Title = "PostgreSQL-test", Description = "Syntetisk",
+            Likelihood = 5, Consequence = 4, ResidualLikelihood = 2, ResidualConsequence = 2,
+            CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+        };
+        db.Risks.Add(risk);
+        await db.SaveChangesAsync();
+
+        Assert.Equal(20, risk.Score);
+        Assert.Equal(4, risk.ResidualScore);
+
+        risk.Likelihood = 6;
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 }

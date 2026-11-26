@@ -50,6 +50,22 @@ public class AppDbContext : DbContext
     public DbSet<AppSignIn> AppSignIns { get; set; }
     public DbSet<OpsReport> OpsReports { get; set; }
 
+    // Change Management og Risk Management (ENDRING_OG_RISIKO.md)
+    public DbSet<ChangeRequest> ChangeRequests { get; set; }
+    public DbSet<ChangeAffectedService> ChangeAffectedServices { get; set; }
+    public DbSet<ChangeAzureScope> ChangeAzureScopes { get; set; }
+    public DbSet<ChangeApproval> ChangeApprovals { get; set; }
+    public DbSet<ChangeTemplate> ChangeTemplates { get; set; }
+    public DbSet<GovernanceRoleAssignment> GovernanceRoleAssignments { get; set; }
+    public DbSet<RaciEntry> RaciEntries { get; set; }
+    public DbSet<ApprovalRule> ApprovalRules { get; set; }
+    public DbSet<Risk> Risks { get; set; }
+    public DbSet<RiskAcceptance> RiskAcceptances { get; set; }
+    public DbSet<RiskChange> RiskChanges { get; set; }
+    public DbSet<RiskService> RiskServices { get; set; }
+    public DbSet<RiskIncident> RiskIncidents { get; set; }
+    public DbSet<GovernanceSettings> GovernanceSettings { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -76,6 +92,22 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<GdprSettings>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<AppSignIn>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
         modelBuilder.Entity<OpsReport>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ChangeRequest>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ChangeAffectedService>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ChangeAzureScope>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ChangeApproval>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ChangeTemplate>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<GovernanceRoleAssignment>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<RaciEntry>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<ApprovalRule>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<Risk>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<RiskAcceptance>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<RiskChange>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<RiskService>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<RiskIncident>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+        modelBuilder.Entity<GovernanceSettings>().HasQueryFilter(e => e.TenantId == CurrentTenantId);
+
+        ConfigureGovernance(modelBuilder);
 
         // Driftsrapporter (fase 5): én per tenant og periode
         modelBuilder.Entity<OpsReport>(report =>
@@ -349,6 +381,250 @@ public class AppDbContext : DbContext
             .HasIndex(e => new { e.TenantId, e.EmployeeNumber })
             .IsUnique()
             .HasFilter("\"EmployeeNumber\" IS NOT NULL");
+    }
+
+    // Change Management og Risk Management: lengder, unike nøkler, koblinger,
+    // kontroller (1–5) og beregnede risikoscorer
+    private static void ConfigureGovernance(ModelBuilder modelBuilder)
+    {
+        const string Score1To5 = "BETWEEN 1 AND 5";
+
+        modelBuilder.Entity<ChangeRequest>(change =>
+        {
+            change.Property(e => e.TenantId).HasMaxLength(36);
+            change.Property(e => e.Number).HasMaxLength(20);
+            change.Property(e => e.Title).HasMaxLength(200);
+            change.Property(e => e.Description).HasMaxLength(8000);
+            change.Property(e => e.Justification).HasMaxLength(4000);
+            change.Property(e => e.ExpectedBenefit).HasMaxLength(4000);
+            change.Property(e => e.Type).HasMaxLength(20);
+            change.Property(e => e.Priority).HasMaxLength(20);
+            change.Property(e => e.Environment).HasMaxLength(20);
+            change.Property(e => e.Status).HasMaxLength(30);
+            change.Property(e => e.RiskAnalysis).HasMaxLength(8000);
+            change.Property(e => e.ImpactAnalysis).HasMaxLength(8000);
+            change.Property(e => e.SecurityImpact).HasMaxLength(4000);
+            change.Property(e => e.GdprImpact).HasMaxLength(4000);
+            change.Property(e => e.CostChangePerMonth).HasPrecision(12, 2);
+            change.Property(e => e.CostChangeNote).HasMaxLength(1000);
+            change.Property(e => e.BackupStatus).HasMaxLength(20);
+            change.Property(e => e.BackupNote).HasMaxLength(1000);
+            change.Property(e => e.ImplementationPlan).HasMaxLength(8000);
+            change.Property(e => e.TestPlan).HasMaxLength(8000);
+            change.Property(e => e.TestResults).HasMaxLength(8000);
+            change.Property(e => e.RollbackPlan).HasMaxLength(8000);
+            change.Property(e => e.RequestedByObjectId).HasMaxLength(64);
+            change.Property(e => e.RequestedByName).HasMaxLength(256);
+            change.Property(e => e.ImplementationResult).HasMaxLength(4000);
+            change.Property(e => e.PostReviewNotes).HasMaxLength(4000);
+            change.Property(e => e.PostReviewedByName).HasMaxLength(256);
+            change.Property(e => e.PullRequestUrl).HasMaxLength(500);
+            change.Property(e => e.CommitSha).HasMaxLength(64);
+            change.Property(e => e.PipelineRunId).HasMaxLength(200);
+            change.Property(e => e.TerraformPlanHash).HasMaxLength(128);
+            change.Property(e => e.ScopeHash).HasMaxLength(64);
+
+            change.Property(e => e.RiskScore)
+                .HasComputedColumnSql("\"Likelihood\" * \"Impact\"", stored: true);
+
+            change.HasIndex(e => new { e.TenantId, e.Number }).IsUnique();
+            change.HasIndex(e => new { e.TenantId, e.Status });
+            change.HasIndex(e => new { e.TenantId, e.PlannedStart });
+
+            change.HasOne<ProcessingActivity>().WithMany()
+                .HasForeignKey(e => e.ProcessingActivityId).OnDelete(DeleteBehavior.Restrict);
+            change.HasOne<ChangeTemplate>().WithMany()
+                .HasForeignKey(e => e.TemplateId).OnDelete(DeleteBehavior.Restrict);
+            change.HasOne<Employee>().WithMany()
+                .HasForeignKey(e => e.RequestedByEmployeeId).OnDelete(DeleteBehavior.Restrict);
+            change.HasOne<Employee>().WithMany()
+                .HasForeignKey(e => e.ImplementerEmployeeId).OnDelete(DeleteBehavior.Restrict);
+
+            change.HasMany(e => e.Services).WithOne()
+                .HasForeignKey(s => s.ChangeRequestId).OnDelete(DeleteBehavior.Cascade);
+            change.HasMany(e => e.AzureScopes).WithOne()
+                .HasForeignKey(s => s.ChangeRequestId).OnDelete(DeleteBehavior.Cascade);
+            change.HasMany(e => e.Approvals).WithOne()
+                .HasForeignKey(a => a.ChangeRequestId).OnDelete(DeleteBehavior.Restrict);
+
+            change.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_ChangeRequests_Likelihood", $"\"Likelihood\" IS NULL OR \"Likelihood\" {Score1To5}");
+                t.HasCheckConstraint("CK_ChangeRequests_Impact", $"\"Impact\" IS NULL OR \"Impact\" {Score1To5}");
+            });
+        });
+
+        modelBuilder.Entity<ChangeAffectedService>(link =>
+        {
+            link.Property(e => e.TenantId).HasMaxLength(36);
+            link.HasIndex(e => new { e.ChangeRequestId, e.ServiceCatalogItemId }).IsUnique();
+            link.HasOne<ServiceCatalogItem>().WithMany()
+                .HasForeignKey(e => e.ServiceCatalogItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ChangeAzureScope>(scope =>
+        {
+            scope.Property(e => e.TenantId).HasMaxLength(36);
+            scope.Property(e => e.ResourceGroup).HasMaxLength(90);
+            scope.HasIndex(e => new { e.ChangeRequestId, e.AzureSubscriptionId, e.ResourceGroup }).IsUnique();
+            scope.HasOne<AzureSubscription>().WithMany()
+                .HasForeignKey(e => e.AzureSubscriptionId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ChangeApproval>(approval =>
+        {
+            approval.Property(e => e.TenantId).HasMaxLength(36);
+            approval.Property(e => e.Role).HasMaxLength(40);
+            approval.Property(e => e.Decision).HasMaxLength(20);
+            approval.Property(e => e.ApproverObjectId).HasMaxLength(64);
+            approval.Property(e => e.ApproverName).HasMaxLength(256);
+            approval.Property(e => e.Comment).HasMaxLength(2000);
+            approval.Property(e => e.ScopeHash).HasMaxLength(64);
+            approval.HasIndex(e => new { e.ChangeRequestId, e.DecidedAt });
+            approval.HasOne<Employee>().WithMany()
+                .HasForeignKey(e => e.ApproverEmployeeId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ChangeTemplate>(template =>
+        {
+            template.Property(e => e.TenantId).HasMaxLength(36);
+            template.Property(e => e.Name).HasMaxLength(200);
+            template.Property(e => e.Description).HasMaxLength(4000);
+            template.Property(e => e.Category).HasMaxLength(100);
+            template.Property(e => e.ImplementationPlan).HasMaxLength(8000);
+            template.Property(e => e.TestPlan).HasMaxLength(8000);
+            template.Property(e => e.RollbackPlan).HasMaxLength(8000);
+            template.Property(e => e.AllowedEnvironments).HasMaxLength(100);
+            template.Property(e => e.ApprovedByObjectId).HasMaxLength(64);
+            template.Property(e => e.ApprovedByName).HasMaxLength(256);
+            template.HasIndex(e => new { e.TenantId, e.Name }).IsUnique();
+            template.ToTable(t => t.HasCheckConstraint(
+                "CK_ChangeTemplates_MaxRiskScore", "\"MaxRiskScore\" BETWEEN 1 AND 25"));
+        });
+
+        modelBuilder.Entity<GovernanceRoleAssignment>(assignment =>
+        {
+            assignment.Property(e => e.TenantId).HasMaxLength(36);
+            assignment.Property(e => e.Role).HasMaxLength(40);
+            assignment.Property(e => e.EntraGroupId).HasMaxLength(64);
+            assignment.HasIndex(e => new { e.TenantId, e.Role, e.ServiceCatalogItemId });
+            assignment.HasOne<Employee>().WithMany()
+                .HasForeignKey(e => e.EmployeeId).OnDelete(DeleteBehavior.Cascade);
+            assignment.HasOne<ServiceCatalogItem>().WithMany()
+                .HasForeignKey(e => e.ServiceCatalogItemId).OnDelete(DeleteBehavior.Cascade);
+            // Nøyaktig én av ansatt og Entra-gruppe
+            assignment.ToTable(t => t.HasCheckConstraint(
+                "CK_GovernanceRoleAssignments_Holder",
+                "(\"EmployeeId\" IS NULL) <> (\"EntraGroupId\" IS NULL)"));
+        });
+
+        modelBuilder.Entity<RaciEntry>(raci =>
+        {
+            raci.Property(e => e.TenantId).HasMaxLength(36);
+            raci.Property(e => e.Activity).HasMaxLength(60);
+            raci.Property(e => e.Role).HasMaxLength(40);
+            raci.Property(e => e.Raci).HasMaxLength(1);
+            raci.HasIndex(e => new { e.TenantId, e.Activity, e.Role }).IsUnique();
+            raci.ToTable(t => t.HasCheckConstraint("CK_RaciEntries_Raci", "\"Raci\" IN ('R', 'A', 'C', 'I')"));
+        });
+
+        modelBuilder.Entity<ApprovalRule>(rule =>
+        {
+            rule.Property(e => e.TenantId).HasMaxLength(36);
+            rule.Property(e => e.ChangeType).HasMaxLength(20);
+            rule.Property(e => e.Environment).HasMaxLength(20);
+            rule.Property(e => e.RequiredRole).HasMaxLength(40);
+            rule.HasIndex(e => new { e.TenantId, e.ChangeType, e.Environment, e.RequiredRole }).IsUnique();
+            rule.ToTable(t => t.HasCheckConstraint("CK_ApprovalRules_MinApprovals", "\"MinApprovals\" BETWEEN 1 AND 10"));
+        });
+
+        modelBuilder.Entity<Risk>(risk =>
+        {
+            risk.Property(e => e.TenantId).HasMaxLength(36);
+            risk.Property(e => e.Number).HasMaxLength(20);
+            risk.Property(e => e.Title).HasMaxLength(200);
+            risk.Property(e => e.Description).HasMaxLength(8000);
+            risk.Property(e => e.Category).HasMaxLength(40);
+            risk.Property(e => e.ExistingControls).HasMaxLength(8000);
+            risk.Property(e => e.RecommendedActions).HasMaxLength(8000);
+            risk.Property(e => e.Strategy).HasMaxLength(20);
+            risk.Property(e => e.Status).HasMaxLength(20);
+
+            risk.Property(e => e.Score)
+                .HasComputedColumnSql("\"Likelihood\" * \"Consequence\"", stored: true);
+            risk.Property(e => e.ResidualScore)
+                .HasComputedColumnSql("\"ResidualLikelihood\" * \"ResidualConsequence\"", stored: true);
+
+            risk.HasIndex(e => new { e.TenantId, e.Number }).IsUnique();
+            risk.HasIndex(e => new { e.TenantId, e.Status });
+
+            risk.HasOne<Employee>().WithMany()
+                .HasForeignKey(e => e.OwnerEmployeeId).OnDelete(DeleteBehavior.Restrict);
+            risk.HasOne<Employee>().WithMany()
+                .HasForeignKey(e => e.ActionOwnerEmployeeId).OnDelete(DeleteBehavior.Restrict);
+            risk.HasMany(e => e.Acceptances).WithOne()
+                .HasForeignKey(a => a.RiskId).OnDelete(DeleteBehavior.Restrict);
+
+            risk.ToTable(t =>
+            {
+                t.HasCheckConstraint("CK_Risks_Likelihood", $"\"Likelihood\" {Score1To5}");
+                t.HasCheckConstraint("CK_Risks_Consequence", $"\"Consequence\" {Score1To5}");
+                t.HasCheckConstraint("CK_Risks_ResidualLikelihood",
+                    $"\"ResidualLikelihood\" IS NULL OR \"ResidualLikelihood\" {Score1To5}");
+                t.HasCheckConstraint("CK_Risks_ResidualConsequence",
+                    $"\"ResidualConsequence\" IS NULL OR \"ResidualConsequence\" {Score1To5}");
+            });
+        });
+
+        modelBuilder.Entity<RiskAcceptance>(acceptance =>
+        {
+            acceptance.Property(e => e.TenantId).HasMaxLength(36);
+            acceptance.Property(e => e.Kind).HasMaxLength(20);
+            acceptance.Property(e => e.ActorObjectId).HasMaxLength(64);
+            acceptance.Property(e => e.ActorName).HasMaxLength(256);
+            acceptance.Property(e => e.Justification).HasMaxLength(4000);
+            acceptance.HasIndex(e => new { e.RiskId, e.DecidedAt });
+            acceptance.HasOne<Employee>().WithMany()
+                .HasForeignKey(e => e.ActorEmployeeId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RiskChange>(link =>
+        {
+            link.Property(e => e.TenantId).HasMaxLength(36);
+            link.HasIndex(e => new { e.RiskId, e.ChangeRequestId }).IsUnique();
+            link.HasOne<Risk>().WithMany().HasForeignKey(e => e.RiskId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne<ChangeRequest>().WithMany().HasForeignKey(e => e.ChangeRequestId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RiskService>(link =>
+        {
+            link.Property(e => e.TenantId).HasMaxLength(36);
+            link.HasIndex(e => new { e.RiskId, e.ServiceCatalogItemId }).IsUnique();
+            link.HasOne<Risk>().WithMany().HasForeignKey(e => e.RiskId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne<ServiceCatalogItem>().WithMany()
+                .HasForeignKey(e => e.ServiceCatalogItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RiskIncident>(link =>
+        {
+            link.Property(e => e.TenantId).HasMaxLength(36);
+            link.HasIndex(e => new { e.RiskId, e.TicketId, e.AlertId }).IsUnique();
+            link.HasOne<Risk>().WithMany().HasForeignKey(e => e.RiskId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne<Ticket>().WithMany().HasForeignKey(e => e.TicketId).OnDelete(DeleteBehavior.Restrict);
+            link.HasOne<Alert>().WithMany().HasForeignKey(e => e.AlertId).OnDelete(DeleteBehavior.Restrict);
+            // Nøyaktig én av sak og varsel
+            link.ToTable(t => t.HasCheckConstraint(
+                "CK_RiskIncidents_Target", "(\"TicketId\" IS NULL) <> (\"AlertId\" IS NULL)"));
+        });
+
+        modelBuilder.Entity<GovernanceSettings>(settings =>
+        {
+            settings.Property(e => e.TenantId).HasMaxLength(36);
+            settings.HasIndex(e => e.TenantId).IsUnique();
+            settings.ToTable(t => t.HasCheckConstraint(
+                "CK_GovernanceSettings_Values",
+                "(\"RetentionMonths\" IS NULL OR \"RetentionMonths\" BETWEEN 1 AND 240) AND \"ReminderDaysBefore\" BETWEEN 0 AND 60"));
+        });
     }
 
     // Merk neste lagring av entiteten med en forretningshendelse, f.eks.

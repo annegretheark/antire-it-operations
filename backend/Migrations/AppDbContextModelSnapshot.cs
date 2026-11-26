@@ -244,6 +244,51 @@ namespace backend.Migrations
                     b.ToTable("AppSignIns");
                 });
 
+            modelBuilder.Entity("backend.Models.ApprovalRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("MinApprovals")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RequiredRole")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ChangeType", "Environment", "RequiredRole")
+                        .IsUnique();
+
+                    b.ToTable("ApprovalRules", t =>
+                        {
+                            t.HasCheckConstraint("CK_ApprovalRules_MinApprovals", "\"MinApprovals\" BETWEEN 1 AND 10");
+                        });
+                });
+
             modelBuilder.Entity("backend.Models.Asset", b =>
                 {
                     b.Property<int>("Id")
@@ -414,6 +459,418 @@ namespace backend.Migrations
                     b.ToTable("AzureSubscriptions");
                 });
 
+            modelBuilder.Entity("backend.Models.ChangeAffectedService", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChangeRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ServiceCatalogItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceCatalogItemId");
+
+                    b.HasIndex("ChangeRequestId", "ServiceCatalogItemId")
+                        .IsUnique();
+
+                    b.ToTable("ChangeAffectedServices");
+                });
+
+            modelBuilder.Entity("backend.Models.ChangeApproval", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ApproverEmployeeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ApproverName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ApproverObjectId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("ChangeRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ScopeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApproverEmployeeId");
+
+                    b.HasIndex("ChangeRequestId", "DecidedAt");
+
+                    b.ToTable("ChangeApprovals");
+                });
+
+            modelBuilder.Entity("backend.Models.ChangeAzureScope", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AzureSubscriptionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ChangeRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ResourceGroup")
+                        .HasMaxLength(90)
+                        .HasColumnType("character varying(90)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AzureSubscriptionId");
+
+                    b.HasIndex("ChangeRequestId", "AzureSubscriptionId", "ResourceGroup")
+                        .IsUnique();
+
+                    b.ToTable("ChangeAzureScopes");
+                });
+
+            modelBuilder.Entity("backend.Models.ChangeRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BackupNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("BackupStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CommitSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("CostChangeNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal?>("CostChangePerMonth")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<string>("Environment")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("ExpectedBenefit")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("GdprImpact")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int?>("Impact")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ImpactAnalysis")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<string>("ImplementationPlan")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<string>("ImplementationResult")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int?>("ImplementerEmployeeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Justification")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int?>("Likelihood")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("PipelineRunId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("PlannedEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PlannedStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PostReviewNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<bool>("PostReviewRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("PostReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PostReviewedByName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("ProcessingActivityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PullRequestUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("RequestedByEmployeeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RequestedByName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("RequestedByObjectId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("RiskAnalysis")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int?>("RiskScore")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("integer")
+                        .HasComputedColumnSql("\"Likelihood\" * \"Impact\"", true);
+
+                    b.Property<string>("RollbackPlan")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<string>("ScopeHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("SecurityImpact")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<int?>("TemplateId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("TerraformPlanHash")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("TestPlan")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<string>("TestResults")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImplementerEmployeeId");
+
+                    b.HasIndex("ProcessingActivityId");
+
+                    b.HasIndex("RequestedByEmployeeId");
+
+                    b.HasIndex("TemplateId");
+
+                    b.HasIndex("TenantId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "PlannedStart");
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("ChangeRequests", t =>
+                        {
+                            t.HasCheckConstraint("CK_ChangeRequests_Impact", "\"Impact\" IS NULL OR \"Impact\" BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("CK_ChangeRequests_Likelihood", "\"Likelihood\" IS NULL OR \"Likelihood\" BETWEEN 1 AND 5");
+                        });
+                });
+
+            modelBuilder.Entity("backend.Models.ChangeTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AllowedEnvironments")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ApprovedByName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ApprovedByObjectId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("ImplementationPlan")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MaxRiskScore")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("NextReviewAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RollbackPlan")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("TestPlan")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ChangeTemplates", t =>
+                        {
+                            t.HasCheckConstraint("CK_ChangeTemplates_MaxRiskScore", "\"MaxRiskScore\" BETWEEN 1 AND 25");
+                        });
+                });
+
             modelBuilder.Entity("backend.Models.Employee", b =>
                 {
                     b.Property<int>("Id")
@@ -532,6 +989,81 @@ namespace backend.Migrations
                         .IsUnique();
 
                     b.ToTable("GdprSettings");
+                });
+
+            modelBuilder.Entity("backend.Models.GovernanceRoleAssignment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("EntraGroupId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("ServiceCatalogItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("ServiceCatalogItemId");
+
+                    b.HasIndex("TenantId", "Role", "ServiceCatalogItemId");
+
+                    b.ToTable("GovernanceRoleAssignments", t =>
+                        {
+                            t.HasCheckConstraint("CK_GovernanceRoleAssignments_Holder", "(\"EmployeeId\" IS NULL) <> (\"EntraGroupId\" IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("backend.Models.GovernanceSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ReminderDaysBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RetentionMonths")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("SimulatedDeliveryEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("GovernanceSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_GovernanceSettings_Values", "(\"RetentionMonths\" IS NULL OR \"RetentionMonths\" BETWEEN 1 AND 240) AND \"ReminderDaysBefore\" BETWEEN 0 AND 60");
+                        });
                 });
 
             modelBuilder.Entity("backend.Models.LifecycleProcess", b =>
@@ -804,6 +1336,312 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ProcessingActivities");
+                });
+
+            modelBuilder.Entity("backend.Models.RaciEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Activity")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Raci")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .HasColumnType("character varying(1)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Activity", "Role")
+                        .IsUnique();
+
+                    b.ToTable("RaciEntries", t =>
+                        {
+                            t.HasCheckConstraint("CK_RaciEntries_Raci", "\"Raci\" IN ('R', 'A', 'C', 'I')");
+                        });
+                });
+
+            modelBuilder.Entity("backend.Models.Risk", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ActionOwnerEmployeeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Consequence")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExistingControls")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int>("Likelihood")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("NextReviewAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("OwnerEmployeeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RecommendedActions")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int?>("ResidualConsequence")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ResidualLikelihood")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ResidualScore")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("integer")
+                        .HasComputedColumnSql("\"ResidualLikelihood\" * \"ResidualConsequence\"", true);
+
+                    b.Property<int>("Score")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("integer")
+                        .HasComputedColumnSql("\"Likelihood\" * \"Consequence\"", true);
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Strategy")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionOwnerEmployeeId");
+
+                    b.HasIndex("OwnerEmployeeId");
+
+                    b.HasIndex("TenantId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Status");
+
+                    b.ToTable("Risks", t =>
+                        {
+                            t.HasCheckConstraint("CK_Risks_Consequence", "\"Consequence\" BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("CK_Risks_Likelihood", "\"Likelihood\" BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("CK_Risks_ResidualConsequence", "\"ResidualConsequence\" IS NULL OR \"ResidualConsequence\" BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("CK_Risks_ResidualLikelihood", "\"ResidualLikelihood\" IS NULL OR \"ResidualLikelihood\" BETWEEN 1 AND 5");
+                        });
+                });
+
+            modelBuilder.Entity("backend.Models.RiskAcceptance", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ActorEmployeeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ActorObjectId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Justification")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("RiskId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ScoreAtDecision")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<DateTime?>("ValidUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorEmployeeId");
+
+                    b.HasIndex("RiskId", "DecidedAt");
+
+                    b.ToTable("RiskAcceptances");
+                });
+
+            modelBuilder.Entity("backend.Models.RiskChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChangeRequestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RiskId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeRequestId");
+
+                    b.HasIndex("RiskId", "ChangeRequestId")
+                        .IsUnique();
+
+                    b.ToTable("RiskChanges");
+                });
+
+            modelBuilder.Entity("backend.Models.RiskIncident", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AlertId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RiskId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.Property<int?>("TicketId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlertId");
+
+                    b.HasIndex("TicketId");
+
+                    b.HasIndex("RiskId", "TicketId", "AlertId")
+                        .IsUnique();
+
+                    b.ToTable("RiskIncidents", t =>
+                        {
+                            t.HasCheckConstraint("CK_RiskIncidents_Target", "(\"TicketId\" IS NULL) <> (\"AlertId\" IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("backend.Models.RiskService", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("RiskId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ServiceCatalogItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceCatalogItemId");
+
+                    b.HasIndex("RiskId", "ServiceCatalogItemId")
+                        .IsUnique();
+
+                    b.ToTable("RiskServices");
                 });
 
             modelBuilder.Entity("backend.Models.ServiceCatalogItem", b =>
@@ -1115,6 +1953,73 @@ namespace backend.Migrations
                     b.Navigation("AssignedToEmployee");
                 });
 
+            modelBuilder.Entity("backend.Models.ChangeAffectedService", b =>
+                {
+                    b.HasOne("backend.Models.ChangeRequest", null)
+                        .WithMany("Services")
+                        .HasForeignKey("ChangeRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ServiceCatalogItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.ChangeApproval", b =>
+                {
+                    b.HasOne("backend.Models.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ApproverEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.ChangeRequest", null)
+                        .WithMany("Approvals")
+                        .HasForeignKey("ChangeRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.ChangeAzureScope", b =>
+                {
+                    b.HasOne("backend.Models.AzureSubscription", null)
+                        .WithMany()
+                        .HasForeignKey("AzureSubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ChangeRequest", null)
+                        .WithMany("AzureScopes")
+                        .HasForeignKey("ChangeRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.ChangeRequest", b =>
+                {
+                    b.HasOne("backend.Models.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ImplementerEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.ProcessingActivity", null)
+                        .WithMany()
+                        .HasForeignKey("ProcessingActivityId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedByEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.ChangeTemplate", null)
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("backend.Models.EmployeeResponsibility", b =>
                 {
                     b.HasOne("backend.Models.Employee", "Employee")
@@ -1124,6 +2029,19 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("backend.Models.GovernanceRoleAssignment", b =>
+                {
+                    b.HasOne("backend.Models.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("backend.Models.ServiceCatalogItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceCatalogItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("backend.Models.LifecycleProcess", b =>
@@ -1143,6 +2061,82 @@ namespace backend.Migrations
                         .WithMany("Tasks")
                         .HasForeignKey("ProcessId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.Risk", b =>
+                {
+                    b.HasOne("backend.Models.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ActionOwnerEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("backend.Models.RiskAcceptance", b =>
+                {
+                    b.HasOne("backend.Models.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("ActorEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Risk", null)
+                        .WithMany("Acceptances")
+                        .HasForeignKey("RiskId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.RiskChange", b =>
+                {
+                    b.HasOne("backend.Models.ChangeRequest", null)
+                        .WithMany()
+                        .HasForeignKey("ChangeRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Risk", null)
+                        .WithMany()
+                        .HasForeignKey("RiskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.RiskIncident", b =>
+                {
+                    b.HasOne("backend.Models.Alert", null)
+                        .WithMany()
+                        .HasForeignKey("AlertId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Risk", null)
+                        .WithMany()
+                        .HasForeignKey("RiskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Ticket", null)
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("backend.Models.RiskService", b =>
+                {
+                    b.HasOne("backend.Models.Risk", null)
+                        .WithMany()
+                        .HasForeignKey("RiskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ServiceCatalogItem", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceCatalogItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -1178,9 +2172,23 @@ namespace backend.Migrations
                     b.Navigation("ReportedByEmployee");
                 });
 
+            modelBuilder.Entity("backend.Models.ChangeRequest", b =>
+                {
+                    b.Navigation("Approvals");
+
+                    b.Navigation("AzureScopes");
+
+                    b.Navigation("Services");
+                });
+
             modelBuilder.Entity("backend.Models.LifecycleProcess", b =>
                 {
                     b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("backend.Models.Risk", b =>
+                {
+                    b.Navigation("Acceptances");
                 });
 #pragma warning restore 612, 618
         }
