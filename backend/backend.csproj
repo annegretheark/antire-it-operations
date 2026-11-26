@@ -21,4 +21,8 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
   </ItemGroup>
 
+  <!-- Instruksjoner til AI-modellen (kan justeres uten kodeendring) -->
+  <ItemGroup>
+    <Content Include="Prompts/*.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

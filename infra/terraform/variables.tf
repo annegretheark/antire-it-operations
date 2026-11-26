@@ -82,3 +82,44 @@ variable "app_location" {
   type        = string
   default     = null
 }
+
+# ---------- AI (Foundry) ----------
+
+variable "ai_location" {
+  description = "Region for Foundry-ressursen (EU)"
+  type        = string
+  default     = "swedencentral"
+}
+
+variable "ai_model" {
+  type    = string
+  default = "gpt-4.1-mini"
+}
+
+variable "ai_model_version" {
+  type    = string
+  default = "2025-04-14"
+}
+
+variable "ai_deployment_name" {
+  type    = string
+  default = "gpt-4.1-mini"
+}
+
+variable "ai_sku" {
+  description = "DataZoneStandard holder behandlingen i EU; GlobalStandard bare hvis modellen ikke finnes som Data Zone"
+  type        = string
+  default     = "DataZoneStandard"
+}
+
+variable "ai_capacity" {
+  description = "Kapasitet i tusen tokens per minutt"
+  type        = number
+  default     = 20
+}
+
+variable "ai_enabled" {
+  description = "Slår på AI i appen (Ai__Enabled)"
+  type        = bool
+  default     = false
+}

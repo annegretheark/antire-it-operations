@@ -78,6 +78,11 @@ builder.Services.AddScoped<ChangeWorkflowService>();
 builder.Services.AddSingleton<IChangeDeliveryProvider, MockDeliveryProvider>();
 builder.Services.AddScoped<ChangeDeliveryService>();
 builder.Services.AddScoped<GovernanceDashboardService>();
+// AI (C8, fase 5 steg 3): Foundry via AppCredentials, av som standard (Ai:Enabled)
+builder.Services.AddHttpClient(nameof(FoundryAiClient));
+builder.Services.AddSingleton<IAiClient, FoundryAiClient>();
+builder.Services.AddScoped<AiService>();
+builder.Services.AddScoped<AiAssistService>();
 builder.Services.AddScoped<RiskRegisterService>();
 // Påminnelser for endringer og risiko, og utløpt aksept (Governance:MonitorEnabled)
 builder.Services.AddScoped<GovernanceNotifier>();

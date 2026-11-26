@@ -926,3 +926,8 @@
 .gov-dashboard-row { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: start; margin-top: 12px; }
 .gov-dashboard-row .gov-matrix-cell { display: inline-flex; align-items: center; justify-content: center; cursor: default; }
 @media (max-width: 900px) { .gov-dashboard-row { grid-template-columns: 1fr; } }
+
+/* Forslag fra AI (C8) */
+.gov-ai { border-color: #ddd6fe; background: #faf5ff; }
+.gov-ai .gov-badge { background: #ede9fe; color: #5b21b6; }
+.gov-ai-text { white-space: pre-wrap; }

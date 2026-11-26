@@ -491,3 +491,63 @@ Tallene stemmer for kjente data (hver teller), 90-dagersvinduet, tenant-skille, 
 - `GovernanceDashboardService` og `GET /api/governance/dashboard` (Helpdesk.Agent eller endringsrolle). Feilede, rullet tilbake og gjennomførte endringer telles fra revisjonsloggen (statusendringer siste 90 dager); «vellykket» = gjennomført uten feil eller rollback.
 - Delen **Endringer og risiko** på Dashboard (`GovernanceDashboard.tsx`) med kort som åpner riktig side med filter (`?status=`, `?level=`, `?flag=`), kommende produksjonsendringer, 5×5-matrise, roller med varsel for påkrevde roller uten noen tildelt, og risikoeiere.
 - Ingen migrering. Tester: `GovernanceDashboardTests` (2).
+
+---
+
+## C8: Foundry og Change and Risk-agenten (detaljert plan)
+
+Felles med steg 3 i fase 5 (FASE5_DRIFTSRAPPORT.md kap. 4): ett AI-lag som både driftsrapporten og agenten bruker. AI er **av som standard** (`Ai:Enabled = false`) og brukes bare i utviklingstenanten.
+
+### AI-laget
+
+- `IAiClient` med `FoundryAiClient`: `POST {Ai:Endpoint}/openai/v1/chat/completions`, `model` = deploymentnavnet, `response_format: json_object`. Innlogging med `AppCredentials` og scope `https://cognitiveservices.azure.com/.default`. **Ingen API-nøkkel.**
+- `FakeAiClient` i testene, som tar vare på hver forespørsel.
+- Instruksjonene ligger i `backend/Prompts/` (`ops-report.md`, `change-assist.md`, `risk-summary.md`), slik at de kan justeres uten kodeendring.
+- Tidsavbrudd, og maks antall forespørsler per bruker per time (standard 20), så kostnaden holdes nede.
+
+### Hva som sendes (CLAUDE.md, kapittel AI)
+
+- `AiPayloadBuilder` bygger forespørselen. Med: tekstfeltene i endringer og risikoer (tittel, beskrivelse, begrunnelse, planer, analyser), type, miljø, risikoscore, backupstatus og kategorier.
+- **Aldri med:** navn, e-post, objekt-ID-er, ansatt-ID-er, sakstekster, varseltitler, ressurs-ID-er, abonnementsnavn.
+- Tekstfeltene vaskes før de sendes: e-postadresser, GUID-er og Azure-ressurs-ID-er (`/subscriptions/…`) erstattes, og navnene på alle ansatte i tenanten erstattes med «[person]». Personer i endringen omtales med rollen sin.
+- Hver forespørsel logges i revisjonsloggen med oppgave og endringsnummer, **ikke** innholdet.
+
+### Agenten: bare forslag
+
+| Endepunkt | Gir forslag til |
+|---|---|
+| `POST /api/ai/changes/{id}/assist` med `task` | risikoklassifisering (sannsynlighet og konsekvens med begrunnelse), konsekvensanalyse, sikkerhetstiltak, GDPR-konsekvenser, testplan, rollback-plan, manglende backup, kostnadsoptimalisering, endringsdokumentasjon |
+| `POST /api/ai/changes/draft` | utkast til en ny endring fra en kort tekst (felt som brukeren går gjennom og lagrer selv) |
+| `POST /api/ai/risks/summary` | oppsummering av risikoene for ledelsen (tall fra dashboardet, titler og kategorier) |
+
+- Svarene vises som «Forslag fra AI», og knappen **Bruk forslaget** fyller bare inn skjemaet. Lagring går gjennom det vanlige API-et, med alle kontroller.
+- Agenten har **ingen verktøy, ingen skrivetilgang og ingen identitet med roller**. Den kan derfor ikke godkjenne, akseptere risiko, endre status, gjennomføre noe eller gi seg selv rettigheter. Svaret behandles alltid som tekst og leses aldri som en kommando.
+- Tilgang som for endringer og risiko (Helpdesk.Agent eller en endringsrolle), og bare til endringer personen kan se.
+
+### Driftsrapporten (fase 5, steg 3)
+
+`IOpsReportWriter` med AI-laget: bare de aggregerte nøkkeltallene sendes. `AiStatus` blir `ok`, `failed` eller `disabled`. Rapporten lagres og vises uansett.
+
+### Infrastruktur (Terraform i dev-abonnementet)
+
+- `azurerm_cognitive_account` (`AIServices`, Sweden Central, `local_auth_enabled = false`), `azurerm_cognitive_deployment` (`gpt-4.1-mini`, Data Zone Standard (EU), 20k TPM) og rollen **Cognitive Services OpenAI User** til API-appens service principal (både sertifikatet lokalt og den federerte identiteten i Azure logger inn som den).
+- App-innstillinger `Ai__Enabled`, `Ai__Endpoint`, `Ai__Deployment`.
+- Jeg kjører `terraform plan` og viser deg den før `apply`. Forventet kostnad er lav (betaling per token).
+
+### Frontend
+
+- Panelet **Forslag fra AI** i skjemaet og detaljene for endringer, i risikodetaljene, og en knapp for ledelsesoppsummering på Risiko. Tydelig merket «Skrevet av AI – forslag».
+- Driftsrapporten viser AI-oppsummeringen med merket «Skrevet av AI» (finnes fra steg 2).
+
+### Tester
+
+Forespørselen inneholder ikke navn, e-post, objekt-ID-er eller ressurs-ID-er fra testdataene (også når de står i fritekst). Ingen endring i status, godkjenninger eller felt etter AI-kall. AI av, feil og tidsavbrudd gir en tydelig melding, og driftsrapporten lagres likevel. Grensen per time. Tilgang og tenant-skille. Svar som ikke er gyldig JSON håndteres.
+
+### Status C8 (2026-11-26): bygget, ressursen i Azure er opprettet
+
+- AI-laget: `IAiClient` med `FoundryAiClient` (AppCredentials, ingen nøkkel), `AiService` (av/på, 20 forespørsler per bruker per time, instruksjoner i `backend/Prompts/`), `AiTextScrubber` (e-post, GUID-er, ressurs-ID-er og navn på ansatte byttes ut).
+- Agenten: `AiAssistService` og `AiController` (`/api/ai/status`, `/api/ai/changes/{id}/assist`, `/api/ai/changes/draft`, `/api/ai/risks/summary`). Bare forslag; bare tillatte felt fra svaret tas med; revisjonsloggen får oppgave og nummer, ikke innhold.
+- Driftsrapporten (fase 5 steg 3): `OpsReportService` sender bare nøkkeltallene og setter `AiStatus` `ok`, `failed` eller `disabled`.
+- Frontend: «Forslag fra AI» i endringsdetaljene, «Lag utkast med AI» i nytt skjema, «Oppsummering for ledelsen» på Risiko. Vises bare når AI er på.
+- Terraform: `azurerm_cognitive_account` (Sweden Central, ingen nøkkelinnlogging), `azurerm_cognitive_deployment` (`gpt-4.1-mini`, DataZoneStandard, 20k TPM) og rollen Cognitive Services OpenAI User til API-appen. Kjørt med `apply` i dev (3 nye, 1 endret, 0 slettet). `ai_enabled` er `false` i Azure; AI er bare slått på lokalt (user secrets).
+- Tester: `AiAgentTests` (6) og `AiDisabledTests` (1), med `FakeAiClient`.

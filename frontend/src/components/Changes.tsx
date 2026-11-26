@@ -15,6 +15,7 @@ import {
   fromLocalInput,
   roleLabel,
   linkedId,
+  useAiEnabled,
   startOfWeek,
   toLocalInput,
   type AuditEntry,
@@ -274,14 +275,17 @@ function TextField({ id, label, value, onChange, rows = 3, disabled }: {
   )
 }
 
-function ChangeForm({ options, existing, onSaved, onCancel }: {
+function ChangeForm({ options, existing, suggested, onSaved, onCancel }: {
   options: ChangeOptions | null
   existing?: ChangeDetails
+  // Forslag fra AI som fylles inn i skjemaet (brukeren lagrer selv)
+  suggested?: Record<string, string | null>
   onSaved: (d: ChangeDetails) => void
   onCancel?: () => void
 }) {
   const send = useSend()
-  const [f, setF] = useState<FormState>(() => toForm(existing))
+  const [f, setF] = useState<FormState>(() => withSuggestion(toForm(existing), suggested))
+  const aiEnabled = useAiEnabled()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setF((p) => ({ ...p, [key]: value }))
@@ -329,6 +333,7 @@ function ChangeForm({ options, existing, onSaved, onCancel }: {
   return (
     <div className="helpdesk-card">
       <h3>{existing ? t('Endre {number}', { number: existing.change.number }) : t('Ny endring')}</h3>
+      {!existing && aiEnabled && <AiDraftPanel onUse={(fields) => setF((p) => withSuggestion(p, fields))} />}
       <form className="helpdesk-form settings-form" onSubmit={(e) => { e.preventDefault(); void save() }}>
         <h4>{t('Beskrivelse')}</h4>
         <div className="settings-form-grid">
@@ -481,6 +486,9 @@ function ChangeForm({ options, existing, onSaved, onCancel }: {
   )
 }
 
+// Statuser der endringen kan redigeres (samme som i backend)
+const EDITABLE = ['draft', 'submitted', 'risk_assessment', 'technical_review', 'testing', 'pending_approval', 'approved', 'scheduled']
+
 const TRANSITION_LABELS: Record<string, string> = {
   submitted: 'Send inn',
   risk_assessment: 'Start risikovurdering',
@@ -505,6 +513,8 @@ function ChangeDetailsView({ id, options, onChanged }: { id: number; options: Ch
   const [reloadKey, setReloadKey] = useState(0)
   const details = useResource<ChangeDetails>(`/api/changes/${id}`, reloadKey)
   const [editing, setEditing] = useState(false)
+  const [suggested, setSuggested] = useState<Record<string, string | null> | undefined>()
+  const aiEnabled = useAiEnabled()
   const [showHistory, setShowHistory] = useState(() => new URLSearchParams(window.location.search).has('historikk'))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -535,8 +545,8 @@ function ChangeDetailsView({ id, options, onChanged }: { id: number; options: Ch
 
   if (editing) {
     return (
-      <ChangeForm options={options} existing={d} onCancel={() => setEditing(false)}
-        onSaved={() => { setEditing(false); setReloadKey((k) => k + 1); onChanged() }} />
+      <ChangeForm options={options} existing={d} suggested={suggested} onCancel={() => { setEditing(false); setSuggested(undefined) }}
+        onSaved={() => { setEditing(false); setSuggested(undefined); setReloadKey((k) => k + 1); onChanged() }} />
     )
   }
 
@@ -668,6 +678,10 @@ function ChangeDetailsView({ id, options, onChanged }: { id: number; options: Ch
         </div>
       ))}
 
+      {aiEnabled && EDITABLE.includes(c.status) && (
+        <AiAssistPanel changeId={c.id} onUse={(fields) => { setSuggested(fields); setEditing(true) }} />
+      )}
+
       <DeliveryPanel details={d} onChanged={() => { setReloadKey((k) => k + 1); onChanged() }} />
 
       {showHistory && <History url={`/api/changes/${c.id}/history`} />}
@@ -788,6 +802,127 @@ function DeliveryPanel({ details, onChanged }: { details: ChangeDetails; onChang
           {environmentLabel(gate.environment)}: {gate.allowed ? t('Tillatt') : t('Ikke tillatt')} – {gate.reason}
         </p>
       )}
+      {error && <p role="alert" className="settings-error">{error}</p>}
+    </div>
+  )
+}
+
+// Felt fra et AI-forslag som finnes i skjemaet (alt annet ignoreres)
+const SUGGESTIBLE: (keyof FormState)[] = [
+  'title', 'description', 'justification', 'expectedBenefit', 'likelihood', 'impact', 'riskAnalysis',
+  'impactAnalysis', 'securityImpact', 'gdprImpact', 'implementationPlan', 'testPlan', 'rollbackPlan',
+  'backupNote', 'costChangeNote',
+]
+
+function withSuggestion(form: FormState, suggested?: Record<string, string | null>): FormState {
+  if (!suggested) return form
+  const next = { ...form } as Record<string, unknown>
+  for (const key of SUGGESTIBLE) {
+    const value = suggested[key]
+    if (value == null) continue
+    // Planene i en standardendring er låst til malen
+    if (form.type === 'standard' && ['implementationPlan', 'testPlan', 'rollbackPlan'].includes(key)) continue
+    next[key] = value
+  }
+  return next as FormState
+}
+
+type AiSuggestion = { task: string; text: string; fields: Record<string, string | null> }
+
+const AI_TASKS: Record<string, string> = {
+  risk_classification: 'Foreslå risikoklassifisering',
+  impact_analysis: 'Analyser konsekvenser',
+  security_measures: 'Foreslå sikkerhetstiltak',
+  gdpr: 'Vurder GDPR-konsekvenser',
+  test_plan: 'Foreslå testplan',
+  rollback_plan: 'Foreslå rollback-plan',
+  backup_gaps: 'Finn manglende backup',
+  cost_optimization: 'Foreslå kostnadsoptimalisering',
+  documentation: 'Lag endringsdokumentasjon',
+}
+
+// Forslag fra AI for en endring. Bare forslag: «Bruk forslaget» fyller skjemaet,
+// og lagring går gjennom de vanlige kontrollene.
+export function AiAssistPanel({ changeId, onUse }: { changeId: number; onUse: (fields: Record<string, string | null>) => void }) {
+  const send = useSend()
+  const [task, setTask] = useState('risk_classification')
+  const [result, setResult] = useState<AiSuggestion | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function ask() {
+    setBusy(true)
+    setError('')
+    setResult(null)
+    try {
+      const response = await send('POST', `/api/ai/changes/${changeId}/assist`, { task })
+      setResult(await response.json())
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="gov-decision gov-ai">
+      <h4>{t('Forslag fra AI')} <span className="gov-badge">{t('Skrevet av AI – forslag')}</span></h4>
+      <p className="settings-muted">{t('Navn, e-post og ID-er fjernes før teksten sendes. AI kan ikke godkjenne, akseptere eller endre noe.')}</p>
+      <div className="gov-actions">
+        <select aria-label={t('Oppgave')} value={task} onChange={(e) => setTask(e.target.value)}>
+          {Object.entries(AI_TASKS).map(([k, label]) => <option key={k} value={k}>{t(label)}</option>)}
+        </select>
+        <button type="button" className="settings-row-action" disabled={busy} onClick={() => void ask()}>
+          {busy ? t('Spør AI...') : t('Spør AI')}
+        </button>
+      </div>
+      {error && <p role="alert" className="settings-error">{error}</p>}
+      {result && (
+        <>
+          <p className="gov-ai-text">{result.text}</p>
+          {Object.keys(result.fields).length > 0 && (
+            <button type="button" className="settings-row-action" onClick={() => onUse(result.fields)}>
+              {t('Bruk forslaget (fyller inn skjemaet)')}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// Utkast til ny endring fra en kort tekst
+function AiDraftPanel({ onUse }: { onUse: (fields: Record<string, string | null>) => void }) {
+  const send = useSend()
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [summary, setSummary] = useState('')
+
+  async function draft() {
+    setBusy(true)
+    setError('')
+    try {
+      const response = await send('POST', '/api/ai/changes/draft', { text })
+      const result: AiSuggestion = await response.json()
+      setSummary(result.text)
+      onUse(result.fields)
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="gov-decision gov-ai">
+      <h4>{t('Lag utkast med AI')} <span className="gov-badge">{t('Skrevet av AI – forslag')}</span></h4>
+      <label htmlFor="ai-draft">{t('Beskriv endringen kort. Navn, e-post og ID-er fjernes før teksten sendes.')}</label>
+      <textarea id="ai-draft" rows={2} value={text} maxLength={4000} onChange={(e) => setText(e.target.value)} />
+      <button type="button" className="settings-row-action" disabled={busy || !text.trim()} onClick={() => void draft()}>
+        {busy ? t('Lager utkast...') : t('Lag utkast')}
+      </button>
+      {summary && <p className="gov-ai-text">{summary}</p>}
       {error && <p role="alert" className="settings-error">{error}</p>}
     </div>
   )

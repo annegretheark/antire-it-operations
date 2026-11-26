@@ -28,3 +28,12 @@ output "deployer_db_user" {
   description = "Databasebrukeren migreringer kjøres som (UPN, kuttet ved 63 tegn)"
   value       = local.deployer_db_user
 }
+
+output "ai_endpoint" {
+  description = "Endepunkt for Foundry-ressursen (Ai:Endpoint lokalt)"
+  value       = azurerm_cognitive_account.ai.endpoint
+}
+
+output "ai_deployment" {
+  value = azurerm_cognitive_deployment.ai.name
+}

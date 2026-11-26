@@ -1,4 +1,5 @@
 import { t } from './i18n'
+import { useResource } from './components/settings/settingsApi'
 
 // Change Management og Risk Management (ENDRING_OG_RISIKO.md): typer som speiler
 // API-et, og norske etiketter. Koder er engelske, som i backend.
@@ -320,4 +321,10 @@ export function startOfWeek(date: Date): Date {
 export function linkedId(param: 'endring' | 'risiko'): { kind: 'details'; id: number } | null {
   const id = Number(new URLSearchParams(window.location.search).get(param))
   return Number.isInteger(id) && id > 0 ? { kind: 'details', id } : null
+}
+
+// Er AI slått på i backend? (Ai:Enabled; av som standard)
+export function useAiEnabled(): boolean {
+  const status = useResource<{ enabled: boolean }>('/api/ai/status')
+  return status.data?.enabled === true
 }

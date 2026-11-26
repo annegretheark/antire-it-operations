@@ -280,6 +280,10 @@ resource "azurerm_linux_web_app" "main" {
     DataProtection__KeyVaultKeyUri = azurerm_key_vault_key.dataprotection.versionless_id
 
     App__FrontendUrl = local.app_url
+
+    Ai__Enabled    = tostring(var.ai_enabled)
+    Ai__Endpoint   = azurerm_cognitive_account.ai.endpoint
+    Ai__Deployment = azurerm_cognitive_deployment.ai.name
   }
 
   logs {
@@ -339,4 +343,46 @@ resource "azurerm_consumption_budget_resource_group" "main" {
   lifecycle {
     ignore_changes = [time_period]
   }
+}
+
+# ---------- AI: Azure OpenAI i Microsoft Foundry (FASE5_DRIFTSRAPPORT.md kap. 4, ENDRING_OG_RISIKO.md C8) ----------
+# Egen ressurs i EU (Sweden Central), uten nøkkelinnlogging. Appen logger inn som
+# API-app-registreringen (sertifikat lokalt, federert identitet i Azure), så den får
+# rollen Cognitive Services OpenAI User. AI er av i appen til Ai__Enabled settes.
+
+data "azuread_service_principal" "api" {
+  client_id = var.api_client_id
+}
+
+resource "azurerm_cognitive_account" "ai" {
+  name                  = "ai-itops-${var.environment}-${local.suffix}"
+  location              = var.ai_location
+  resource_group_name   = azurerm_resource_group.main.name
+  kind                  = "AIServices"
+  sku_name              = "S0"
+  custom_subdomain_name = "ai-itops-${var.environment}-${local.suffix}"
+  local_auth_enabled    = false
+  tags                  = local.tags
+}
+
+resource "azurerm_cognitive_deployment" "ai" {
+  name                 = var.ai_deployment_name
+  cognitive_account_id = azurerm_cognitive_account.ai.id
+
+  model {
+    format  = "OpenAI"
+    name    = var.ai_model
+    version = var.ai_model_version
+  }
+
+  sku {
+    name     = var.ai_sku
+    capacity = var.ai_capacity
+  }
+}
+
+resource "azurerm_role_assignment" "api_openai_user" {
+  scope                = azurerm_cognitive_account.ai.id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = data.azuread_service_principal.api.object_id
 }

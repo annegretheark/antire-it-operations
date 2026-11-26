@@ -5,6 +5,7 @@ import { formatDateTime } from '../audit'
 import {
   RISK_CATEGORIES,
   linkedId,
+  useAiEnabled,
   RISK_LEVEL_CODES,
   RISK_STATUS_CODES,
   RISK_STRATEGIES,
@@ -50,6 +51,7 @@ export default function Risks() {
         </div>
       )}
 
+      {view.kind === 'list' && <AiRiskSummary />}
       {view.kind === 'list' && <RiskOverview reloadKey={reloadKey} onOpen={(id) => setView({ kind: 'details', id })} />}
       {view.kind === 'new' && (
         <RiskForm options={options.data} onSaved={(d) => { setReloadKey((k) => k + 1); setView({ kind: 'details', id: d.risk.id }) }} />
@@ -526,6 +528,38 @@ function RiskLinksEditor({ riskId, links, options, onSaved }: {
         }}>{t('Lagre koblinger')}</button>
         <button type="button" className="settings-row-action" onClick={() => setOpen(false)}>{t('Avbryt')}</button>
       </div>
+    </div>
+  )
+}
+
+// Oppsummering av risikoene for ledelsen (AI). Bare forslag til tekst.
+function AiRiskSummary() {
+  const send = useSend()
+  const enabled = useAiEnabled()
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  if (!enabled) return null
+
+  return (
+    <div className="helpdesk-card gov-ai">
+      <h3>{t('Oppsummering for ledelsen')} <span className="gov-badge">{t('Skrevet av AI – forslag')}</span></h3>
+      <p className="settings-muted">{t('Bygger på tallene fra dashboardet og åpne høye og kritiske risikoer. Navn og ID-er fjernes før teksten sendes.')}</p>
+      <button type="button" className="settings-row-action" disabled={busy} onClick={async () => {
+        setBusy(true)
+        setError('')
+        try {
+          const response = await send('POST', '/api/ai/risks/summary')
+          setText((await response.json()).text)
+        } catch (e) {
+          setError(errorText(e))
+        } finally {
+          setBusy(false)
+        }
+      }}>{busy ? t('Spør AI...') : t('Lag oppsummering')}</button>
+      {text && <p className="gov-ai-text">{text}</p>}
+      {error && <p role="alert" className="settings-error">{error}</p>}
     </div>
   )
 }

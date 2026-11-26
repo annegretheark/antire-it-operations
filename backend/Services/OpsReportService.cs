@@ -28,6 +28,7 @@ public class OpsReportService
     private readonly GraphService _graph;
     private readonly AlertSourceStatusRegistry _alertStatus;
     private readonly ILogger<OpsReportService> _logger;
+    private readonly AiService _ai;
 
     public OpsReportService(
         AppDbContext db,
@@ -35,8 +36,10 @@ public class OpsReportService
         ICurrentUser currentUser,
         GraphService graph,
         AlertSourceStatusRegistry alertStatus,
-        ILogger<OpsReportService> logger)
+        ILogger<OpsReportService> logger,
+        AiService ai)
     {
+        _ai = ai;
         _db = db;
         _tenant = tenant;
         _currentUser = currentUser;
@@ -87,6 +90,8 @@ public class OpsReportService
             CreatedBy = createdBy ?? _currentUser.Name ?? SystemActor,
         };
 
+        await WriteAiPartAsync(report, metrics, cancellationToken);
+
         _db.OpsReports.Add(report);
 
         try
@@ -108,6 +113,40 @@ public class OpsReportService
             "Driftsrapport for {Start:yyyy-MM-dd} laget i tenant {TenantId}", periodStart, _tenant.TenantId);
 
         return (report, true);
+    }
+
+    // AI-delen (FASE5_DRIFTSRAPPORT.md kap. 4): bare de aggregerte nøkkeltallene sendes.
+    // Feiler AI, lagres rapporten likevel med AiStatus «failed».
+    private async Task WriteAiPartAsync(OpsReport report, OpsReportMetrics metrics, CancellationToken ct)
+    {
+        if (!_ai.Enabled)
+        {
+            report.AiStatus = OpsReportAiStatuses.Disabled;
+            return;
+        }
+
+        try
+        {
+            var result = await _ai.CompleteAsync("ops-report", metrics, userKey: null, ct);
+
+            var summary = result.TryGetProperty("oppsummering", out var s) && s.ValueKind == JsonValueKind.String
+                ? s.GetString() : null;
+            var actions = result.TryGetProperty("tiltak", out var a) && a.ValueKind == JsonValueKind.Array
+                ? a.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).Take(3).ToList()
+                : [];
+
+            if (string.IsNullOrWhiteSpace(summary))
+                throw new AiUnavailableException("AI-svaret manglet oppsummering.");
+
+            report.AiSummary = summary.Length > 4000 ? summary[..4000] : summary;
+            report.AiActions = JsonSerializer.Serialize(actions, JsonOptions);
+            report.AiStatus = OpsReportAiStatuses.Ok;
+        }
+        catch (AiUnavailableException e)
+        {
+            _logger.LogWarning(e, "AI-delen av driftsrapporten feilet");
+            report.AiStatus = OpsReportAiStatuses.Failed;
+        }
     }
 
     private Task<OpsReport?> FindAsync(DateTime periodStart, CancellationToken cancellationToken) =>

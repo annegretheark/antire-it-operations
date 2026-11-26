@@ -89,4 +89,6 @@ public static class AuditActions
     public const string ChangePlanCreated = "change_plan_created";
     public const string ChangeGateChecked = "change_gate_checked";
     public const string ChangeSimulatedApply = "change_simulated_apply";
+    // AI (C8): hvilken oppgave som ble sendt, ikke innholdet
+    public const string AiSuggestionRequested = "ai_suggestion_requested";
 }
