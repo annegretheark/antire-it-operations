@@ -760,3 +760,17 @@
 .m365-bulk-hint {
   margin: 0 0 12px;
 }
+
+/* Offboarding: handling på oppgaven (Deaktiver konto i Entra) */
+.lifecycle-task-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0 26px;
+  font-size: 13px;
+}
+
+.lifecycle-task-action .settings-row-action {
+  margin-left: 0;
+}

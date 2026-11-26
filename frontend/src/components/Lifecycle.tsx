@@ -3,6 +3,7 @@ import './Helpdesk.css'
 import { useCurrentUser } from '../useCurrentUser'
 import { formatDate } from '../assets'
 import { errorText, useList, useResource, useSend } from './settings/settingsApi'
+import { entraStatusLabel, type EntraStatus } from '../entra'
 import { t } from '../i18n'
 
 type Summary = {
@@ -28,6 +29,8 @@ type Task = {
   completedAt: string | null
   completedByName: string | null
   note: string | null
+  // Valgfri handling som gir en knapp på oppgaven (disable_entra_account)
+  action: string | null
 }
 
 type Details = {
@@ -35,6 +38,9 @@ type Details = {
   tasks: Task[]
   assets: { id: number; assetTag: string; model: string | null; status: string }[]
   accesses: { accessRequestId: number; systemName: string; status: string; groupId: string | null }[]
+  // Offboarding: den ansattes konto i Entra
+  entraStatus: EntraStatus | null
+  entraUnavailableReason: string | null
 }
 
 type Employee = { id: number; firstName: string; lastName: string; status: string }
@@ -178,6 +184,7 @@ function ProcessRow({
 }
 
 function ProcessDetails({ id, onChanged }: { id: number; onChanged: () => void }) {
+  const { isHelpdeskAdmin } = useCurrentUser()
   const send = useSend()
   const [reloadKey, setReloadKey] = useState(0)
   const details = useResource<Details>(`/api/lifecycle/${id}`, reloadKey)
@@ -237,6 +244,18 @@ function ProcessDetails({ id, onChanged }: { id: number; onChanged: () => void }
                   )}
                 </span>
               </label>
+              {task.action === 'disable_entra_account' && process.type === 'offboarding' && (
+                <DisableAccountAction
+                  status={details.data!.entraStatus}
+                  reason={details.data!.entraUnavailableReason}
+                  canRun={isHelpdeskAdmin && process.status === 'active' && !busy}
+                  isAdmin={isHelpdeskAdmin}
+                  onRun={() => {
+                    if (!window.confirm(t('Deaktivere kontoen til {name} i Entra ID? Personen kan ikke logge på før kontoen aktiveres igjen.', { name: process.employeeName }))) return
+                    void run(() => send('POST', `/api/lifecycle/${process.id}/disable-account`))
+                  }}
+                />
+              )}
             </li>
           )
         })}
@@ -364,6 +383,46 @@ function StartProcess({ onStarted }: { onStarted: () => void }) {
       </div>
       {error && <p role="alert" className="settings-error">{error}</p>}
       {message && <p className="settings-message">{message}</p>}
+    </div>
+  )
+}
+
+// Knappen «Deaktiver konto i Entra» på offboarding-oppgaven. Bare Helpdesk.Admin kan
+// bruke den, og Entra sjekker i tillegg personens egen rolle.
+function DisableAccountAction({
+  status,
+  reason,
+  canRun,
+  isAdmin,
+  onRun,
+}: {
+  status: EntraStatus | null
+  reason: string | null
+  canRun: boolean
+  isAdmin: boolean
+  onRun: () => void
+}) {
+  if (!status) return null
+
+  const why =
+    status === 'disabled' ? t('Kontoen er allerede deaktivert.')
+    : status === 'not_linked' ? t('Den ansatte er ikke koblet til en bruker i Entra ID.')
+    : status === 'missing' ? t('Kontoen finnes ikke lenger i Entra ID.')
+    : status === 'unknown' ? (reason ?? t('Kontostatus kunne ikke hentes.'))
+    : !isAdmin ? t('Krever rollen Helpdesk.Admin.')
+    : null
+
+  return (
+    <div className="lifecycle-task-action">
+      <span className="settings-muted">
+        {t('Konto i Entra')}: {entraStatusLabel(status)}
+      </span>
+      {status === 'enabled' && isAdmin && (
+        <button type="button" className="settings-row-action" disabled={!canRun} onClick={onRun}>
+          {t('Deaktiver konto i Entra')}
+        </button>
+      )}
+      {why && <span className="settings-muted"> · {why}</span>}
     </div>
   )
 }

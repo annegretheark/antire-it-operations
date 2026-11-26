@@ -24,8 +24,8 @@ public class LifecycleService
         LifecycleTemplateTask On(string title, int days, string? category = null, string? description = null) =>
             new() { Type = LifecycleTypes.Onboarding, Title = title, OffsetDays = days, Category = category, Description = description, SortOrder = ++order };
 
-        LifecycleTemplateTask Off(string title, int days, string? category = null, string? description = null) =>
-            new() { Type = LifecycleTypes.Offboarding, Title = title, OffsetDays = days, Category = category, Description = description, SortOrder = ++order };
+        LifecycleTemplateTask Off(string title, int days, string? category = null, string? description = null, string? action = null) =>
+            new() { Type = LifecycleTypes.Offboarding, Title = title, OffsetDays = days, Category = category, Description = description, Action = action, SortOrder = ++order };
 
         return
         [
@@ -37,7 +37,9 @@ public class LifecycleService
             On("Kontroller at MFA er registrert", 1, "Tilgangsbestilling"),
 
             Off("Overfør filer og e-post", -3, null, "Avtal med leder hva som skal overføres og til hvem."),
-            Off("Deaktiver brukerkonto i Entra ID", 0, "Tilgangsbestilling"),
+            Off("Deaktiver brukerkonto i Entra ID", 0, "Tilgangsbestilling",
+                "Kan gjøres med knappen på oppgaven (Helpdesk.Admin med rolle i Entra, f.eks. User Administrator).",
+                LifecycleTaskActions.DisableEntraAccount),
             Off("Fjern tilganger og gruppemedlemskap", 0, "Tilgangsbestilling", "Tilganger gitt via Entra-grupper kan fjernes direkte fra prosessen."),
             Off("Motta utstyr", 0, "Bestilling av utstyr", "Registrer innlevering av hvert utstyr («Mottatt»)."),
             Off("Fjern lisenser", 1, "Tilgangsbestilling"),
@@ -90,6 +92,7 @@ public class LifecycleService
                 DueDate = date.AddDays(t.OffsetDays),
                 SortOrder = t.SortOrder,
                 ServiceCatalogItemId = t.ServiceCatalogItemId,
+                Action = t.Action,
             }).ToList(),
         };
 

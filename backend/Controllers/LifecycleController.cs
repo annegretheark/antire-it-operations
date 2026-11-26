@@ -35,7 +35,10 @@ public record LifecycleDetailsDto(
     IReadOnlyList<LifecycleTask> Tasks,
     // Offboarding: utstyr som skal leveres inn og tilganger som kan fjernes
     IReadOnlyList<LifecycleAssetDto> Assets,
-    IReadOnlyList<LifecycleAccessDto> Accesses
+    IReadOnlyList<LifecycleAccessDto> Accesses,
+    // Offboarding: den ansattes konto i Entra (EntraAccountStatuses), ellers null
+    string? EntraStatus = null,
+    string? EntraUnavailableReason = null
 );
 
 public record StartLifecycleRequest(int EmployeeId, string? Type, DateTime? ReferenceDate);
@@ -50,7 +53,9 @@ public record SaveTemplateTaskRequest(
     int OffsetDays,
     int SortOrder,
     int? ServiceCatalogItemId,
-    bool IsActive = true
+    bool IsActive = true,
+    // Valgfri handling (LifecycleTaskActions)
+    string? Action = null
 );
 
 // Onboarding og offboarding (Helpdesk.Agent og Helpdesk.Admin)
@@ -64,19 +69,22 @@ public class LifecycleController : ControllerBase
     private readonly GraphService _graph;
     private readonly ITenantContext _tenant;
     private readonly ICurrentUser _currentUser;
+    private readonly EntraUserService _entraUsers;
 
     public LifecycleController(
         AppDbContext db,
         LifecycleService lifecycle,
         GraphService graph,
         ITenantContext tenant,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        EntraUserService entraUsers)
     {
         _db = db;
         _lifecycle = lifecycle;
         _graph = graph;
         _tenant = tenant;
         _currentUser = currentUser;
+        _entraUsers = entraUsers;
     }
 
     [HttpGet]
@@ -127,9 +135,22 @@ public class LifecycleController : ControllerBase
 
         IReadOnlyList<LifecycleAssetDto> assets = [];
         IReadOnlyList<LifecycleAccessDto> accesses = [];
+        string? entraStatus = null;
+        string? entraReason = null;
 
         if (summary.Type == LifecycleTypes.Offboarding)
         {
+            var entraObjectId = await _db.Employees
+                .Where(e => e.Id == summary.EmployeeId)
+                .Select(e => e.EntraObjectId)
+                .FirstOrDefaultAsync();
+
+            var (usersById, reason) = entraObjectId == null
+                ? (null, null)
+                : await _entraUsers.TryGetUsersByIdAsync(HttpContext.RequestAborted);
+            entraStatus = EntraAccountStatuses.For(entraObjectId, usersById);
+            entraReason = reason;
+
             assets = await _db.Assets
                 .AsNoTracking()
                 .Where(a => a.AssignedToEmployeeId == summary.EmployeeId)
@@ -140,7 +161,58 @@ public class LifecycleController : ControllerBase
             accesses = await AccessesAsync(summary.EmployeeId);
         }
 
-        return new LifecycleDetailsDto(summary, tasks, assets, accesses);
+        return new LifecycleDetailsDto(summary, tasks, assets, accesses, entraStatus, entraReason);
+    }
+
+    // Offboarding: deaktiverer den ansattes konto i Entra med personens egne rettigheter
+    // (Helpdesk.Admin og rolle i Entra), og krysser av oppgaver med handlingen.
+    [HttpPost("{id:int}/disable-account")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    public async Task<ActionResult<LifecycleDetailsDto>> DisableAccount(int id)
+    {
+        var process = await _db.LifecycleProcesses
+            .Include(p => p.Employee)
+            .Include(p => p.Tasks)
+            .FirstOrDefaultAsync(p => p.Id == id);
+
+        if (process == null || process.Type != LifecycleTypes.Offboarding)
+            return NotFound();
+
+        if (process.Status != LifecycleStatuses.Active)
+            return BadRequest(new { message = "Bare aktive offboarding-prosesser kan deaktivere kontoen." });
+
+        if (string.IsNullOrWhiteSpace(process.Employee.EntraObjectId))
+            return BadRequest(new { message = "Den ansatte er ikke koblet til en bruker i Entra ID." });
+
+        UserChangeResult result;
+        try
+        {
+            result = (await _entraUsers.ChangeAsync(
+                [process.Employee.EntraObjectId], EntraUserAction.Disable, HttpContext.RequestAborted)).Single();
+        }
+        catch (EntraChangeRejectedException e)
+        {
+            return BadRequest(new { message = e.Message });
+        }
+        catch (GraphUnavailableException e)
+        {
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = e.Message });
+        }
+
+        // Entra sa nei, eller brukeren finnes ikke: oppgaven krysses ikke av
+        if (!result.Ok)
+            return BadRequest(new { message = result.Error });
+
+        var actor = _currentUser.Name ?? _currentUser.ObjectId ?? "ukjent";
+        var taskIds = process.Tasks
+            .Where(t => t.Action == LifecycleTaskActions.DisableEntraAccount && t.CompletedAt == null)
+            .Select(t => t.Id)
+            .ToList();
+
+        foreach (var taskId in taskIds)
+            await _lifecycle.SetTaskDoneAsync(taskId, true, "Deaktivert i Entra fra appen.", actor);
+
+        return await Get(id);
     }
 
     // Start manuelt. Uten dato brukes startdato (onboarding) eller sluttdato/i dag (offboarding).
@@ -346,6 +418,14 @@ public class LifecycleTemplatesController : ControllerBase
         if (request.OffsetDays is < -365 or > 365)
             return "Fristen må være innenfor ett år før eller etter datoen.";
 
+        var action = string.IsNullOrWhiteSpace(request.Action) ? null : request.Action.Trim();
+
+        if (action != null && !LifecycleTaskActions.All.Contains(action))
+            return "Ugyldig handling.";
+
+        if (action == LifecycleTaskActions.DisableEntraAccount && type != LifecycleTypes.Offboarding)
+            return "Deaktivering av konto i Entra kan bare brukes i offboarding.";
+
         task.Type = type;
         task.Title = title;
         task.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
@@ -353,6 +433,7 @@ public class LifecycleTemplatesController : ControllerBase
         task.OffsetDays = request.OffsetDays;
         task.SortOrder = request.SortOrder;
         task.ServiceCatalogItemId = request.ServiceCatalogItemId;
+        task.Action = action;
         task.IsActive = request.IsActive;
 
         return null;

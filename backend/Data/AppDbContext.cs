@@ -146,6 +146,7 @@ public class AppDbContext : DbContext
             task.Property(e => e.Title).HasMaxLength(200);
             task.Property(e => e.Description).HasMaxLength(1000);
             task.Property(e => e.Category).HasMaxLength(100);
+            task.Property(e => e.Action).HasMaxLength(40);
         });
 
         modelBuilder.Entity<LifecycleProcess>(process =>
@@ -173,6 +174,7 @@ public class AppDbContext : DbContext
             task.Property(e => e.Description).HasMaxLength(1000);
             task.Property(e => e.Category).HasMaxLength(100);
             task.Property(e => e.CompletedByName).HasMaxLength(256);
+            task.Property(e => e.Action).HasMaxLength(40);
             task.Property(e => e.Note).HasMaxLength(1000);
         });
 

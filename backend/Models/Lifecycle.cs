@@ -15,6 +15,15 @@ public static class LifecycleStatuses
     public const string Cancelled = "cancelled";
 }
 
+// Handling appen kan utføre fra en oppgave (knapp på oppgaven)
+public static class LifecycleTaskActions
+{
+    // Offboarding: deaktiver den ansattes konto i Entra med personens egne rettigheter
+    public const string DisableEntraAccount = "disable_entra_account";
+
+    public static readonly string[] All = [DisableEntraAccount];
+}
+
 // Én oppgave i malen for onboarding eller offboarding (Innstillinger → Onboarding-maler).
 // Fristen regnes fra startdato (onboarding) eller sluttdato (offboarding).
 public class LifecycleTemplateTask : ITenantOwned, IAudited
@@ -40,6 +49,9 @@ public class LifecycleTemplateTask : ITenantOwned, IAudited
 
     // Onboarding: tjeneste (type access) som skal bestilles for den ansatte
     public int? ServiceCatalogItemId { get; set; }
+
+    // Valgfri handling (LifecycleTaskActions), kopieres til oppgavene
+    public string? Action { get; set; }
 
     public bool IsActive { get; set; } = true;
 }
@@ -88,6 +100,9 @@ public class LifecycleTask : ITenantOwned, IAudited
     public int SortOrder { get; set; }
 
     public int? ServiceCatalogItemId { get; set; }
+
+    // Valgfri handling (LifecycleTaskActions) som gir en knapp på oppgaven
+    public string? Action { get; set; }
 
     public DateTime? CompletedAt { get; set; }
     public string? CompletedByName { get; set; }

@@ -58,6 +58,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "POST", "/api/opsreports/generate" },
         { "POST", "/api/m365/users/account-enabled" },
         { "POST", "/api/m365/users/delete" },
+        { "POST", "/api/lifecycle/1/disable-account" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin

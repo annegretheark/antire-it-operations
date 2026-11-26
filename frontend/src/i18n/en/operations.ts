@@ -179,4 +179,16 @@ export const operations: Record<string, string> = {
   'Inaktive gjester (90 dager)': 'Inactive guests (90 days)',
   'Inaktive gjester: {reason}': 'Inactive guests: {reason}',
   '«Nå»-tall gjelder {time}, da rapporten ble laget.': '«Now» figures are as of {time}, when the report was created.',
+
+  // Offboarding: deaktiver konto i Entra (Lifecycle.tsx og Onboarding-maler)
+  'Knapp på oppgaven': 'Button on the task',
+  'Knapp: {action}': 'Button: {action}',
+  'Deaktiver konto i Entra': 'Disable account in Entra',
+  'Kontoen er allerede deaktivert.': 'The account is already disabled.',
+  'Den ansatte er ikke koblet til en bruker i Entra ID.': 'The employee is not linked to a user in Entra ID.',
+  'Kontoen finnes ikke lenger i Entra ID.': 'The account no longer exists in Entra ID.',
+  'Kontostatus kunne ikke hentes.': 'The account status could not be retrieved.',
+  'Krever rollen Helpdesk.Admin.': 'Requires the Helpdesk.Admin role.',
+  'Deaktivere kontoen til {name} i Entra ID? Personen kan ikke logge på før kontoen aktiveres igjen.':
+    'Disable the account of {name} in Entra ID? The person cannot sign in until the account is enabled again.',
 }

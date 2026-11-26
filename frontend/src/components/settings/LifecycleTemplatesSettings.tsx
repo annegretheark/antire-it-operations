@@ -12,9 +12,15 @@ type TemplateTask = {
   sortOrder: number
   serviceCatalogItemId: number | null
   isActive: boolean
+  // Valgfri handling som gir en knapp på oppgaven
+  action: string | null
 }
 
-type Draft = Omit<TemplateTask, 'id' | 'serviceCatalogItemId'> & { description: string; category: string }
+type Draft = Omit<TemplateTask, 'id' | 'serviceCatalogItemId' | 'action'> & {
+  description: string
+  category: string
+  action: string
+}
 
 const EMPTY: Draft = {
   type: 'onboarding',
@@ -24,7 +30,21 @@ const EMPTY: Draft = {
   offsetDays: 0,
   sortOrder: 100,
   isActive: true,
+  action: '',
 }
+
+// Handlinger per type (samme som LifecycleTaskActions i backend)
+const ACTIONS: Record<string, { value: string; label: string }[]> = {
+  onboarding: [],
+  offboarding: [{ value: 'disable_entra_account', label: 'Deaktiver konto i Entra' }],
+}
+
+const toDraft = (tpl: TemplateTask): Draft => ({
+  ...tpl,
+  description: tpl.description ?? '',
+  category: tpl.category ?? '',
+  action: tpl.action ?? '',
+})
 
 function dayText(days: number, type: string): string {
   if (type === 'onboarding') {
@@ -47,7 +67,7 @@ export default function LifecycleTemplatesSettings() {
 
   function edit(tpl: TemplateTask) {
     setEditingId(tpl.id)
-    setDraft({ ...tpl, description: tpl.description ?? '', category: tpl.category ?? '' })
+    setDraft(toDraft(tpl))
     setError('')
   }
 
@@ -89,7 +109,16 @@ export default function LifecycleTemplatesSettings() {
         <div className="settings-form-grid">
           <div>
             <label htmlFor="tpl-type">{t('Type')}</label>
-            <select id="tpl-type" value={draft.type} onChange={(e) => update('type', e.target.value)}>
+            <select
+              id="tpl-type"
+              value={draft.type}
+              onChange={(e) => setDraft((previous) => ({
+                ...previous,
+                type: e.target.value,
+                // Handlingen må passe til typen
+                action: ACTIONS[e.target.value]?.some((a) => a.value === previous.action) ? previous.action : '',
+              }))}
+            >
               <option value="onboarding">Onboarding</option>
               <option value="offboarding">Offboarding</option>
             </select>
@@ -114,6 +143,17 @@ export default function LifecycleTemplatesSettings() {
             <input id="tpl-order" type="number" value={draft.sortOrder}
               onChange={(e) => update('sortOrder', Number(e.target.value))} />
           </div>
+          {(ACTIONS[draft.type] ?? []).length > 0 && (
+            <div>
+              <label htmlFor="tpl-action">{t('Knapp på oppgaven')}</label>
+              <select id="tpl-action" value={draft.action} onChange={(e) => update('action', e.target.value)}>
+                <option value="">{t('Ingen')}</option>
+                {ACTIONS[draft.type].map((a) => (
+                  <option key={a.value} value={a.value}>{t(a.label)}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div>
           <label htmlFor="tpl-description">{t('Beskrivelse')}</label>
@@ -154,6 +194,13 @@ export default function LifecycleTemplatesSettings() {
                         <strong>{tpl.title}</strong>
                         {!tpl.isActive && ` (${t('av')})`}
                         {tpl.description && <div className="settings-muted">{tpl.description}</div>}
+                        {tpl.action && (
+                          <div className="settings-muted">
+                            {t('Knapp: {action}', {
+                              action: t(ACTIONS[tpl.type]?.find((a) => a.value === tpl.action)?.label ?? tpl.action),
+                            })}
+                          </div>
+                        )}
                       </td>
                       <td className="audit-nowrap">{dayText(tpl.offsetDays, tpl.type)}</td>
                       <td>{tpl.category ?? '–'}</td>
@@ -166,10 +213,7 @@ export default function LifecycleTemplatesSettings() {
                           className="settings-row-action"
                           disabled={busy}
                           onClick={() =>
-                            void save(
-                              { ...tpl, description: tpl.description ?? '', category: tpl.category ?? '', isActive: !tpl.isActive },
-                              tpl.id
-                            )
+                            void save({ ...toDraft(tpl), isActive: !tpl.isActive }, tpl.id)
                           }
                         >
                           {tpl.isActive ? t('Slå av') : t('Slå på')}
