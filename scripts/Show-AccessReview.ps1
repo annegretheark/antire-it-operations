@@ -1,15 +1,21 @@
-#Requires -Version 7
 <#
 .SYNOPSIS
-  Vindu for tilgangssjekk i en tenant: app-rettigheter, SharePoint-tilgang og inaktive brukere.
+  Vindu for tilgangssjekk i en tenant: app-rettigheter, SharePoint-tilgang, inaktive brukere
+  og delte postbokser.
 
 .DESCRIPTION
-  Startsiden gir tre valg:
+  Startsiden gir disse valgene:
     App-rettigheter      alle rettigheter på app-registreringer og enterprise apps
                          (Get-AppPermissions.ps1), med siste pålogging og en anbefaling per rad
     SharePoint-tilgang   apper som når SharePoint og OneDrive, særlig de som kan lese alt
                          (Get-SharePointAppAccess.ps1)
     Inaktive brukere     starter Rydd-InaktiveBrukere.ps1 (antire-entra-admin-scripts) i eget vindu
+    Delte postbokser     Oversikt: starter Hent-Postbokstilgang.ps1 (CSV over hvem som har tilgang)
+                         Gi eller fjern tilgang: skjema som starter Endre-Postbokstilgang.ps1,
+                         med «Vis hva som skjer» (-WhatIf) eller «Utfør» (ber om bekreftelse)
+                         Begge ligger i antire-entra-admin-scripts og kjører i eget vindu.
+                         Mangler modulen ExchangeOnlineManagement, får du beskjed og kan
+                         installere den derfra.
 
   Alt kjører med din egen innlogging i Azure CLI. Står Azure CLI på en annen tenant,
   byttes det til riktig tenant mens vinduet er åpent, og tilbake når det lukkes.
@@ -37,6 +43,7 @@
 
 .PARAMETER InactiveUsersScript
   Stien til Rydd-InaktiveBrukere.ps1. Standard: ..\..\antire-entra-admin-scripts\ fra denne mappen.
+  Postboksskriptene hentes fra samme mappe.
 
 .EXAMPLE
   # Spør om Antire eller AGK
@@ -46,6 +53,7 @@
   # Rett mot AGK (dev), uten spørsmål
   ./scripts/Show-AccessReview.ps1 -TenantId 3af5c92b-38f9-48ce-8746-82bb4c113032
 #>
+#Requires -Version 7
 [CmdletBinding()]
 param(
     [string] $TenantId,
@@ -366,11 +374,17 @@ $btnInactive = New-Choice 342 'Inaktive brukere' 'Starter Rydd-InaktiveBrukere.p
 $lblInactivePath = New-Control Label 320 392 -Text ''
 $lblInactivePath.ForeColor = [System.Drawing.Color]::DimGray
 
-$lblStartInfo = New-Control Label 42 440 1000 60 ''
+$lblMailboxHeading = New-Control Label 42 432 -Text 'Delte postbokser'
+$lblMailboxHeading.Font = New-Object System.Drawing.Font('Segoe UI', 12, [System.Drawing.FontStyle]::Bold)
+$btnMailboxOverview = New-Choice 466 'Postbokser: oversikt' 'Starter Hent-Postbokstilgang.ps1 i eget vindu: hvem som har FullAccess, SendAs og Send on behalf på delte postbokser. Lagrer en CSV som eieren kan gå gjennom (Beholde, Godkjent av).'
+$btnMailboxChange = New-Choice 542 'Postbokser: gi/fjern' 'For IT: gi eller fjern tilgang til en delt postboks når eieren har godkjent, eller fjern det eieren har merket Beholde = Nei i oversikten. Starter Endre-Postbokstilgang.ps1.'
+$lblExchangeModule = New-Control Label 42 610 -Text ''
+
+$lblStartInfo = New-Control Label 42 650 1000 60 ''
 $lblStartInfo.AutoSize = $false
 $lblStartInfo.ForeColor = [System.Drawing.Color]::DimGray
 
-$startPanel.Controls.AddRange(@($lblTitle, $lblTenant, $lblUser, $btnLogin, $lblInactivePath, $lblStartInfo))
+$startPanel.Controls.AddRange(@($lblTitle, $lblTenant, $lblUser, $btnLogin, $lblInactivePath, $lblMailboxHeading, $lblExchangeModule, $lblStartInfo))
 
 # --- Resultatside ----------------------------------------------------------
 $resultPanel = New-Object System.Windows.Forms.Panel
@@ -449,6 +463,16 @@ function Update-StartPage {
     else {
         $lblInactivePath.Text = "Fant ikke $InactiveUsersScript – klikk for å velge filen."
         $btnInactive.Text = 'Inaktive brukere...'
+    }
+
+    $exo = Get-Module -ListAvailable -Name ExchangeOnlineManagement | Sort-Object Version -Descending | Select-Object -First 1
+    if ($exo) {
+        $lblExchangeModule.Text = "Exchange Online-modulen er installert (versjon $($exo.Version))."
+        $lblExchangeModule.ForeColor = [System.Drawing.Color]::DimGray
+    }
+    else {
+        $lblExchangeModule.Text = 'Exchange Online-modulen er ikke installert. Du får hjelp til å installere den når du klikker en postboksknapp.'
+        $lblExchangeModule.ForeColor = [System.Drawing.Color]::DarkOrange
     }
 }
 
@@ -716,6 +740,155 @@ function Start-InactiveUsers {
 }
 
 # ---------------------------------------------------------------------------
+# Delte postbokser (skriptene ligger i samme mappe som Rydd-InaktiveBrukere.ps1)
+# ---------------------------------------------------------------------------
+function Get-AdminScript([string] $Name) {
+    Join-Path (Split-Path $InactiveUsersScript) $Name
+}
+
+# Sjekker at ExchangeOnlineManagement er installert, og tilbyr å installere den
+function Test-ExchangeModule {
+    if (Get-Module -ListAvailable -Name ExchangeOnlineManagement) { return $true }
+    $answer = [System.Windows.Forms.MessageBox]::Show(
+        "Postboksskriptene trenger modulen ExchangeOnlineManagement, og den er ikke installert.`n`n" +
+        "Installer den med:`n`n    Install-Module ExchangeOnlineManagement -Scope CurrentUser`n`n" +
+        "Vil du installere den nå? Det åpnes et PowerShell-vindu. Svar «Y» hvis du blir spurt om å stole på PSGallery, " +
+        "og klikk postboksknappen igjen når installasjonen er ferdig.",
+        'Exchange Online-modulen mangler', 'YesNo', 'Warning')
+    if ($answer -eq 'Yes') {
+        $command = "Install-Module ExchangeOnlineManagement -Scope CurrentUser; Write-Host ''; Write-Host 'Ferdig. Lukk dette vinduet og klikk postboksknappen igjen i Tilgangssjekk.'"
+        Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList "-NoProfile -NoExit -Command `"$command`""
+    }
+    $false
+}
+
+function Format-Arg([string] $Value) { '"' + ($Value -replace '"', '') + '"' }
+
+# Starter et skript i eget PowerShell-vindu som blir stående åpent, så resultatet kan leses
+function Start-AdminScript([string] $Name, [string[]] $Arguments) {
+    $path = Get-AdminScript $Name
+    if (-not (Test-Path $path)) {
+        [System.Windows.Forms.MessageBox]::Show("Fant ikke $path.`n`nSkriptet ligger i antire-entra-admin-scripts, i samme mappe som Rydd-InaktiveBrukere.ps1.",
+            'Fant ikke skriptet', 'OK', 'Error') | Out-Null
+        return
+    }
+    New-Item -ItemType Directory -Force -Path $LogFolder | Out-Null
+    $all = @('-NoProfile', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', (Format-Arg (Resolve-Path $path).Path)) + $Arguments
+    # Arbeidsmappen er Dokumenter\Antire tilgangssjekk, så oversikten (CSV) havner der
+    Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList ($all -join ' ') -WorkingDirectory $LogFolder
+}
+
+function Start-MailboxOverview {
+    if (-not (Test-ExchangeModule)) { return }
+    Start-AdminScript 'Hent-Postbokstilgang.ps1' @('-TenantId', $TenantId)
+}
+
+function Show-MailboxChangeDialog {
+    if (-not (Test-ExchangeModule)) { return }
+
+    $dialog = New-Object System.Windows.Forms.Form
+    $dialog.Text = 'Delte postbokser – gi eller fjern tilgang'
+    $dialog.Size = New-Object System.Drawing.Size(640, 520)
+    $dialog.StartPosition = 'CenterParent'
+    $dialog.FormBorderStyle = 'FixedDialog'
+    $dialog.MaximizeBox = $false
+    $dialog.MinimizeBox = $false
+    $dialog.Font = $form.Font
+
+    $y = 18
+    function Add-Field([string] $Label, [System.Windows.Forms.Control] $Control, [int] $Width = 380) {
+        $l = New-Control Label 18 ($script:fieldY + 3) -Text $Label
+        $Control.Location = New-Object System.Drawing.Point(190, $script:fieldY)
+        $Control.Width = $Width
+        $dialog.Controls.AddRange(@($l, $Control))
+        $script:fieldY += 34
+    }
+    $script:fieldY = $y
+
+    $txtMailbox = New-Object System.Windows.Forms.TextBox
+    $txtUser = New-Object System.Windows.Forms.TextBox
+    $cmbAccess = New-Object System.Windows.Forms.ComboBox
+    $cmbAccess.DropDownStyle = 'DropDownList'
+    [void]$cmbAccess.Items.AddRange(@('FullAccess', 'SendAs', 'SendOnBehalf', 'FullAccessAndSendAs'))
+    $cmbAccess.SelectedIndex = 0
+    $cmbAction = New-Object System.Windows.Forms.ComboBox
+    $cmbAction.DropDownStyle = 'DropDownList'
+    [void]$cmbAction.Items.AddRange(@('Gi tilgang', 'Fjern tilgang'))
+    $cmbAction.SelectedIndex = 0
+    $txtApproved = New-Object System.Windows.Forms.TextBox
+    $txtRequested = New-Object System.Windows.Forms.TextBox
+    $txtTicket = New-Object System.Windows.Forms.TextBox
+
+    Add-Field 'Delt postboks' $txtMailbox
+    Add-Field 'Bruker(e), komma mellom' $txtUser
+    Add-Field 'Tilgang' $cmbAccess 200
+    Add-Field 'Handling' $cmbAction 200
+    Add-Field 'Godkjent av (eier)' $txtApproved
+    Add-Field 'Bestilt av (valgfritt)' $txtRequested
+    Add-Field 'Saksnummer (valgfritt)' $txtTicket 200
+
+    $lblOr = New-Control Label 18 ($script:fieldY + 8) -Text 'Eller: fjern det eieren har merket Beholde = Nei i oversikten (CSV)'
+    $lblOr.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+    $script:fieldY += 34
+    $txtReview = New-Object System.Windows.Forms.TextBox
+    Add-Field 'Gjennomgangsfil' $txtReview 300
+    $btnBrowse = New-Control Button 496 ($script:fieldY - 35) 74 26 'Bla...'
+    $btnBrowse.Add_Click({
+        $open = New-Object System.Windows.Forms.OpenFileDialog
+        $open.Filter = 'CSV (*.csv)|*.csv'
+        $open.InitialDirectory = $LogFolder
+        if ($open.ShowDialog() -eq 'OK') { $txtReview.Text = $open.FileName }
+    })
+
+    $lblHelp = New-Control Label 18 ($script:fieldY + 4) 590 40 'Skriptet kjører i eget vindu mot valgt tenant. «Utfør» ber om bekreftelse før hver endring, og alt logges. Bare delte postbokser kan endres.'
+    $lblHelp.AutoSize = $false
+    $lblHelp.ForeColor = [System.Drawing.Color]::DimGray
+
+    $btnWhatIf = New-Control Button 190 ($script:fieldY + 54) 170 34 'Vis hva som skjer'
+    $btnRun = New-Control Button 370 ($script:fieldY + 54) 110 34 'Utfør'
+    $btnRun.ForeColor = [System.Drawing.Color]::DarkRed
+    $btnCancel = New-Control Button 490 ($script:fieldY + 54) 80 34 'Lukk'
+    $btnCancel.DialogResult = 'Cancel'
+    $dialog.CancelButton = $btnCancel
+    $dialog.Controls.AddRange(@($lblOr, $btnBrowse, $lblHelp, $btnWhatIf, $btnRun, $btnCancel))
+
+    # Bygger argumentene til Endre-Postbokstilgang.ps1, eller viser hva som mangler
+    $buildArgs = {
+        param([bool] $WhatIf)
+        $a = @('-TenantId', $TenantId)
+        if ($txtReview.Text.Trim()) {
+            if (-not (Test-Path $txtReview.Text.Trim())) { throw "Fant ikke filen $($txtReview.Text.Trim())." }
+            $a += @('-FromReviewCsv', (Format-Arg $txtReview.Text.Trim()))
+        }
+        else {
+            $missing = @()
+            if (-not $txtMailbox.Text.Trim()) { $missing += 'Delt postboks' }
+            if (-not $txtUser.Text.Trim()) { $missing += 'Bruker' }
+            if (-not $txtApproved.Text.Trim()) { $missing += 'Godkjent av' }
+            if ($missing) { throw "Fyll ut: $($missing -join ', '). Eller velg en gjennomgangsfil." }
+            $a += @('-Mailbox', (Format-Arg $txtMailbox.Text.Trim()), '-User', (Format-Arg $txtUser.Text.Trim()),
+                '-Access', $cmbAccess.SelectedItem, '-Action', $(if ($cmbAction.SelectedIndex -eq 1) { 'Remove' } else { 'Add' }),
+                '-ApprovedBy', (Format-Arg $txtApproved.Text.Trim()))
+            if ($txtRequested.Text.Trim()) { $a += @('-RequestedBy', (Format-Arg $txtRequested.Text.Trim())) }
+        }
+        if ($txtTicket.Text.Trim()) { $a += @('-Ticket', (Format-Arg $txtTicket.Text.Trim())) }
+        if ($WhatIf) { $a += '-WhatIf' }
+        , $a
+    }
+    $btnWhatIf.Add_Click({
+        try { Start-AdminScript 'Endre-Postbokstilgang.ps1' (& $buildArgs $true) }
+        catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Mangler noe', 'OK', 'Information') | Out-Null }
+    })
+    $btnRun.Add_Click({
+        try { Start-AdminScript 'Endre-Postbokstilgang.ps1' (& $buildArgs $false); $dialog.Close() }
+        catch { [System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Mangler noe', 'OK', 'Information') | Out-Null }
+    })
+
+    [void]$dialog.ShowDialog($form)
+    $dialog.Dispose()
+}
+
+# ---------------------------------------------------------------------------
 # Hendelser
 # ---------------------------------------------------------------------------
 $grid.Add_DataBindingComplete({
@@ -777,6 +950,8 @@ $btnRemovePermission.Add_Click({ Invoke-RemovePermissions })
 $btnApps.Add_Click({ Show-View 'apps' })
 $btnSharePoint.Add_Click({ Show-View 'sharepoint' })
 $btnInactive.Add_Click({ Start-InactiveUsers })
+$btnMailboxOverview.Add_Click({ Start-MailboxOverview })
+$btnMailboxChange.Add_Click({ Show-MailboxChangeDialog })
 
 function Invoke-Connect([bool] $AllowLogin) {
     try {
@@ -799,8 +974,9 @@ function Invoke-Connect([bool] $AllowLogin) {
 }
 $btnLogin.Add_Click({ Invoke-Connect $true })
 
-$lblStartInfo.Text = 'Alt kjører med din egen innlogging i Azure CLI, og vinduet endrer ingenting uten at du bekrefter det. ' +
-    'Deaktiver, Slett og Fjern rettighet vises bare for Global Administrator, Application Administrator og Cloud Application Administrator.'
+$lblStartInfo.Text = 'Alt kjører med din egen innlogging (Azure CLI for apper, Exchange Online for postbokser), og ingenting endres uten at du bekrefter det. ' +
+    'Deaktiver, Slett og Fjern rettighet vises bare for Global Administrator, Application Administrator og Cloud Application Administrator. ' +
+    'Endring av postbokstilgang krever Exchange Administrator eller Recipient Management.'
 
 $form.Add_Shown({ Update-StartPage; Invoke-Connect $false })
 $form.Add_FormClosed({ Restore-AzAccount })
