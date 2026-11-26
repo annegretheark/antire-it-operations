@@ -6,11 +6,17 @@
 - Ikke endre AzureAd:TenantId, Tenants:Allowed eller VITE_AUTHORITY uten at jeg ber om det.
 ## Planer
 - UTVIDELSESPLAN.md er hovedplanen. FASE5_DRIFTSRAPPORT.md beskriver driftsrapporten med AI.
+  ENDRING_OG_RISIKO.md beskriver Change Management og Risk Management (prototype).
 - Ta én fase eller ett steg om gangen, og vis planen før du endrer kode.
 
 ## AI
 - Send aldri personopplysninger til AI-modellen: ingen navn, e-post, sakstekster,
   varseltitler eller ressurs-ID-er. Bare aggregerte tall og kategorinavn.
+- Unntak, bare for Change and Risk-agenten (ENDRING_OG_RISIKO.md): den kan få tekstfeltene
+  i endringer og risikoer (tittel, beskrivelse, planer, analyser) og kategorier. Aldri navn,
+  e-post, objekt-ID-er, sakstekster, varseltitler eller ressurs-ID-er; personer erstattes med
+  rollen sin. Bare i utviklingstenanten med syntetiske data, og Ai:Enabled er av som standard.
+- AI kan bare foreslå. Den kan aldri godkjenne, akseptere risiko, endre status eller rettigheter.
 - Tall i rapporter beregnes av koden, ikke av modellen.
 - Ingen API-nøkler: Foundry-kall går via AppCredentials.
 
