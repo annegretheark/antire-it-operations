@@ -79,7 +79,8 @@ export function Badge({ kind, children }: { kind: string; children: ReactNode })
 }
 
 function ChangeList({ reloadKey, onOpen }: { reloadKey: number; onOpen: (id: number) => void }) {
-  const [status, setStatus] = useState('')
+  // ?status=… (lenke fra dashboardet) forhåndsvelger filteret
+  const [status, setStatus] = useState(() => new URLSearchParams(window.location.search).get('status') ?? '')
   const [type, setType] = useState('')
   const [environment, setEnvironment] = useState('')
   const [mine, setMine] = useState(false)

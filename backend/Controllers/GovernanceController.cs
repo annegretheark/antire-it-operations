@@ -187,6 +187,18 @@ public class GovernanceController : ControllerBase
         return NoContent();
     }
 
+    // ---------- Dashboard (C7) ----------
+
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> Dashboard([FromServices] GovernanceDashboardService dashboard)
+    {
+        var roles = await _roles.ForAsync(_currentUser.ObjectId, Ct);
+        if (!User.IsHelpdeskAgent() && !roles.HasAny)
+            return StatusCode(403, new { message = "Krever Helpdesk.Agent eller en rolle i endrings- og risikoprosessen." });
+
+        return Ok(await dashboard.BuildAsync(DateTime.UtcNow, Ct));
+    }
+
     // ---------- Innstillinger ----------
 
     [HttpGet("settings")]

@@ -62,7 +62,11 @@ export default function Risks() {
 }
 
 function RiskOverview({ reloadKey, onOpen }: { reloadKey: number; onOpen: (id: number) => void }) {
-  const [filters, setFilters] = useState<Filters>({ category: '', status: '', level: '', flag: '', cell: null })
+  // ?level=, ?status= og ?flag= (lenker fra dashboardet) forhåndsvelger filteret
+  const [filters, setFilters] = useState<Filters>(() => {
+    const p = new URLSearchParams(window.location.search)
+    return { category: '', status: p.get('status') ?? '', level: p.get('level') ?? '', flag: p.get('flag') ?? '', cell: null }
+  })
   const [residual, setResidual] = useState(false)
   const matrix = useResource<RiskMatrix>('/api/risks/matrix', reloadKey)
 

@@ -458,3 +458,36 @@ I prototypen er sjekken simulert, og **produksjon avvises alltid**.
 - Bryteren `SimulatedDeliveryEnabled` kan settes via `PUT /api/governance/settings`.
 - Seksjonen **Leveranse** (merket «Simulert») i endringsdetaljene. Eksempel på arbeidsflyt i `docs/examples/deploy-with-change-gate.yml` (kjører ikke).
 - Ingen migrering. Tester: `ChangeDeliveryTests` (9).
+
+---
+
+## C7: Dashboard og rapporter (detaljert plan)
+
+Tallene beregnes av koden (CLAUDE.md), i ett nytt endepunkt. Ingen migrering.
+
+### Backend
+
+`GET /api/governance/dashboard` (Helpdesk.Agent eller endringsrolle; samme tilgang som listene), for tenanten i scopet:
+
+| Område | Nøkkeltall |
+|---|---|
+| Endringer | Åpne (ikke lukket, avvist, avbrutt), venter på godkjenning, planlagte produksjonsendringer de neste 14 dagene (liste med nummer, tittel og start), vellykkede (lukket/gjennomført) og mislykkede (feilet) siste 90 dager, rollbacks siste 90 dager, hasteendringer uten etterkontroll |
+| Risiko | Åpne, kritiske (15–25), uten eier, venter på aksept, aksepterte (gyldig aksept), forfalte tiltak, aksept som utløper innen 14 dager |
+| Matrise | Samme 5×5 som risikosiden (iboende og restrisiko) |
+| Ansvar og eierskap | Per rolle: antall personer og grupper med rollen, og om rollen mangler helt. Per risikoeier: antall åpne risikoer og hvor mange som er kritiske. |
+
+### Frontend
+
+- **Dashboard** (startsiden) får en ny del **Endringer og risiko** under sakene: kort for nøkkeltallene (klikk åpner riktig side med filter), listen over kommende produksjonsendringer, og 5×5-matrisen.
+- Vises bare for dem som har tilgang (Helpdesk.Agent eller en endringsrolle).
+- **Ansvar og eierskap** vises som en liten tabell, med varsel når en påkrevd rolle i godkjenningsreglene ikke er tildelt noen.
+
+### Tester
+
+Tallene stemmer for kjente data (hver teller), 90-dagersvinduet, tenant-skille, tilgang (403 uten rolle), og at roller som kreves i godkjenningsreglene men mangler, blir merket.
+
+### Status C7 (2026-11-26): bygget
+
+- `GovernanceDashboardService` og `GET /api/governance/dashboard` (Helpdesk.Agent eller endringsrolle). Feilede, rullet tilbake og gjennomførte endringer telles fra revisjonsloggen (statusendringer siste 90 dager); «vellykket» = gjennomført uten feil eller rollback.
+- Delen **Endringer og risiko** på Dashboard (`GovernanceDashboard.tsx`) med kort som åpner riktig side med filter (`?status=`, `?level=`, `?flag=`), kommende produksjonsendringer, 5×5-matrise, roller med varsel for påkrevde roller uten noen tildelt, og risikoeiere.
+- Ingen migrering. Tester: `GovernanceDashboardTests` (2).

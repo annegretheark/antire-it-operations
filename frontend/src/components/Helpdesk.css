@@ -919,3 +919,10 @@
   .gov-calendar { grid-template-columns: 1fr; }
   .gov-fields { grid-template-columns: 1fr; }
 }
+
+/* Endringer og risiko på dashboardet (C7) */
+.gov-dashboard-card { font: inherit; cursor: pointer; }
+.gov-dashboard-card:hover { border-color: #94a3b8; }
+.gov-dashboard-row { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: start; margin-top: 12px; }
+.gov-dashboard-row .gov-matrix-cell { display: inline-flex; align-items: center; justify-content: center; cursor: default; }
+@media (max-width: 900px) { .gov-dashboard-row { grid-template-columns: 1fr; } }

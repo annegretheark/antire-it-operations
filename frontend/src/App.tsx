@@ -13,6 +13,7 @@ import Alerts from './components/Alerts'
 import OpsReports from './components/OpsReports'
 import Changes from './components/Changes'
 import Risks from './components/Risks'
+import GovernanceDashboard from './components/GovernanceDashboard'
 import Lifecycle from './components/Lifecycle'
 import Gdpr from './components/Gdpr'
 import {
@@ -202,6 +203,7 @@ await instance.logoutPopup({
 
 
         {activePage === 'Dashboard' ? (
+          <>
           <section className="card">
             <h3>{t('IT Operations – Dashboard')}</h3>
 
@@ -243,6 +245,11 @@ await instance.logoutPopup({
               </div>
             )}
           </section>
+          <GovernanceDashboard onOpen={(page, query) => {
+            window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname)
+            setActivePage(page)
+          }} />
+          </>
       ) : activePage === 'Helpdesk' ? (
   <Helpdesk />
 ) : activePage === 'Tilgangsbestillinger' ? (
