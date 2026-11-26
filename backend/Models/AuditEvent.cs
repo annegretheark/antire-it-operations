@@ -61,4 +61,14 @@ public static class AuditActions
     public const string UserDisabled = "user_disabled";
     public const string UserEnabled = "user_enabled";
     public const string UserDeleted = "user_deleted";
+    // Change Management (ENDRING_OG_RISIKO.md)
+    public const string ChangeStatusChanged = "change_status_changed";
+    public const string ChangeApproved = "change_approved";
+    public const string ChangeRejected = "change_rejected";
+    public const string ChangeInfoRequested = "change_info_requested";
+    public const string ApprovalInvalidated = "approval_invalidated";
+    public const string ChangePostReviewed = "change_post_reviewed";
+    public const string RoleAssigned = "role_assigned";
+    public const string RoleRemoved = "role_removed";
+    public const string TemplateApproved = "template_approved";
 }

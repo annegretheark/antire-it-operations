@@ -72,6 +72,8 @@ builder.Services.AddScoped<EntraUserService>();
 // Change Management og Risk Management (ENDRING_OG_RISIKO.md)
 builder.Services.AddScoped<GovernanceNumberService>();
 builder.Services.AddScoped<GovernanceSetupService>();
+builder.Services.AddScoped<GovernanceRoleService>();
+builder.Services.AddScoped<ChangeWorkflowService>();
 // Varsler blir saker (fase 4)
 builder.Services.AddScoped<TeamsNotificationService>();
 builder.Services.AddScoped<AlertRuleService>();

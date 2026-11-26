@@ -83,6 +83,9 @@ public class TestAuthHandler(
     // Fast objekt-ID for testbrukeren
     public const string TestObjectId = "00000000-0000-0000-0000-0000000000aa";
 
+    // Valgfri objekt-ID, for tester med flere personer (f.eks. separasjon av plikter)
+    public const string ObjectIdHeader = "X-Test-ObjectId";
+
     // Tillatte tenanter i testene (settes i TestWebApplicationFactory)
     public const string AllowedTenantId = "11111111-1111-1111-1111-111111111111";
     public const string OtherAllowedTenantId = "22222222-2222-2222-2222-222222222222";
@@ -95,7 +98,8 @@ public class TestAuthHandler(
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, user.ToString()),
-            new("http://schemas.microsoft.com/identity/claims/objectidentifier", TestObjectId),
+            new("http://schemas.microsoft.com/identity/claims/objectidentifier",
+                Request.Headers.TryGetValue(ObjectIdHeader, out var oid) ? oid.ToString() : TestObjectId),
         };
 
         if (Request.Headers.TryGetValue(TenantHeader, out var tenant))

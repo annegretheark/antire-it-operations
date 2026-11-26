@@ -157,3 +157,99 @@ API, arbeidsflyt, frontend, Teams, AI og testbrukere.
 - Godkjenninger og risikoaksept (`IAppendOnly`) stoppes i `AuditInterceptor` ved endring eller sletting, på samme måte som revisjonsloggen.
 - Koblingstabellene heter `ChangeAffectedServices` og `ChangeAzureScopes`, slik at navnet `ChangeRequestService` er ledig for tjenesten i C2.
 - Tester: `GovernanceModelTests` (15) mot SQLite og 1 ny i `PostgresTests` (sekvenser, beregnede scorer og kontroll i ekte PostgreSQL).
+
+---
+
+## C2: Arbeidsflyt, godkjenning og separasjon av plikter (detaljert plan)
+
+Ingen frontend i C2 (kommer i C4). Ingen migrering er planlagt; alt bygger på tabellene fra C1.
+
+### Tilgang (least privilege)
+
+| Hvem | Kan |
+|---|---|
+| Alle innloggede i tillatt tenant med Helpdesk.Agent **eller** en endringsrolle | Se endringer |
+| Innmelder | Se og endre egne utkast, sende inn, avbryte egne før implementering |
+| Endringsroller (fra `GovernanceRoleAssignments`) | Overganger og beslutninger etter tabellen under |
+| Helpdesk.Admin | Konfigurere roller, RACI, godkjenningsregler og maler. **Kan ikke tildele roller til seg selv.** |
+
+**Hvem har en rolle:** den innloggede brukeren slås opp som ansatt (Entra objekt-ID), og rolletildelinger til den ansatte telles med. Tildelinger til Entra-grupper sjekkes mot Graph (`IsMemberOfAnyGroupAsync`, appens leserettighet). En rolle gjelder globalt eller for en tjeneste endringen berører. Rollene slås opp på nytt ved hver forespørsel; ingenting tas fra klienten.
+
+### Overganger (`ChangeWorkflow`)
+
+Klienten ber om en ny status; serveren sjekker type, nåværende status, rolle og vilkår.
+
+| Fra → til | Rolle | Vilkår |
+|---|---|---|
+| draft → submitted | Innmelder | Påkrevde felt for typen (normal: beskrivelse, begrunnelse, miljø, minst én tjeneste, implementerings-, test- og rollback-plan, planlagt tid; produksjon: backupstatus er ikke `missing`) |
+| submitted → risk_assessment | Change Manager | Normal |
+| risk_assessment → technical_review | Change Manager eller Technical Owner | Sannsynlighet, konsekvens, risikoanalyse, sikkerhets- og GDPR-konsekvens er fylt ut |
+| technical_review → testing | Technical Owner | |
+| testing → pending_approval | Technical Owner eller Implementer | Testresultater er fylt ut (test og produksjon) |
+| pending_approval → approved / rejected | **Automatisk** ved beslutninger | Se godkjenning |
+| approved → scheduled | Change Manager | Planlagt start og slutt |
+| scheduled → implementation | Implementer | **Gyldig godkjenning** (eller aktiv standardmal) |
+| implementation → verification | Implementer | Implementeringsresultat er fylt ut |
+| implementation → failed / rolled_back | Implementer | Notat påkrevd |
+| verification → completed | Reviewer | Ikke den som implementerte |
+| completed → closed | Change Manager | Emergency: etterkontroll er gjort |
+| (før implementation) → cancelled | Innmelder eller Change Manager | |
+
+**Standard:** opprettes fra en aktiv, forhåndsgodkjent mal som ikke har passert neste gjennomgang. Miljøet må være tillatt i malen, og risikoscoren kan ikke overstige malens maks. Planene kopieres fra malen og kan ikke endres. Løp: draft → submitted → scheduled (automatisk når vilkårene er oppfylt) → implementation → verification → completed → closed.
+
+**Emergency:** draft → submitted → pending_approval (hurtiggodkjenning etter emergency-reglene) → approved → implementation (uten scheduled) → verification → completed → etterkontroll → closed. Etterkontroll (`POST …/post-review`) gjøres av Reviewer eller Change Manager som ikke implementerte.
+
+### Godkjenning
+
+- Beslutning: `POST /api/changes/{id}/decisions` med rolle, beslutning (`approved`, `rejected`, `info_requested`), kommentar og **hashen klienten så** (`expectedScopeHash`). Er hashen en annen enn endringens, avvises beslutningen (409): ingen kan godkjenne innhold de ikke har sett.
+- Godkjenneren må ha rollen (globalt eller for en berørt tjeneste).
+- **Separasjon av plikter (alle miljøer):** innmelder og implementør kan ikke godkjenne. Én person teller bare for én påkrevd regel per endring. Den som tildeler roller kan ikke tildele seg selv.
+- Når alle regler for type og miljø har nok gyldige godkjenninger (samme hash), går endringen til `approved`. En `rejected` fra en påkrevd rolle gir `rejected`. `info_requested` beholder `pending_approval` og vises som «venter på informasjon».
+- **Hash av godkjent innhold** (SHA-256 av kanonisk JSON): type, miljø, beskrivelse, tjenester, Azure-abonnementer og ressursgrupper, sannsynlighet og konsekvens, risiko- og konsekvensanalyse, sikkerhets- og GDPR-konsekvens, implementeringsplan, rollback-plan, commit-SHA og hash av Terraform-plan. Planlagt tidspunkt er ikke med (flytting krever ikke ny godkjenning, men logges).
+- Endres noe av dette etter `approved` eller `scheduled`, går endringen tilbake til `pending_approval`, og `approval_invalidated` logges. Gamle godkjenninger blir liggende, men gjelder ikke.
+
+### API
+
+| Endepunkt | |
+|---|---|
+| `GET /api/changes` | Liste med filter (status, type, miljø, mine) |
+| `GET /api/changes/{id}` | Endringen, godkjenninger med «gyldig», hvilke regler som mangler, og hvilke overganger **du** kan gjøre |
+| `POST /api/changes` | Nytt utkast, eventuelt fra mal (`templateId`) |
+| `PUT /api/changes/{id}` | Endre (innmelder eller Change Manager, før implementation) |
+| `POST /api/changes/{id}/transitions` | Ny status |
+| `POST /api/changes/{id}/decisions` | Godkjenne, avvise, be om informasjon |
+| `POST /api/changes/{id}/post-review` | Etterkontroll (emergency) |
+| `GET /api/changes/{id}/history` | Revisjonslogg for endringen og beslutningene |
+| `GET /api/governance/me` | Mine roller |
+| `/api/governance/roles`, `/raci`, `/approval-rules`, `/api/changetemplates` | Konfigurasjon (Helpdesk.Admin); maler godkjennes av Change Manager |
+
+Nye hendelser i revisjonsloggen: `change_submitted`, `change_status_changed`, `change_approved`, `change_rejected`, `change_info_requested`, `approval_invalidated`, `change_post_reviewed`, `role_assigned`, `role_removed`.
+
+### Syntetiske testbrukere i dev-tenanten
+
+- Skriptet `scripts/New-GovernanceTestUsers.ps1`, bare for `3af5c92b` (stopper ellers): fem brukere `test.requester`, `test.changemanager`, `test.systemowner`, `test.implementer`, `test.reviewer` på tenantens `onmicrosoft.com`-domene, med visningsnavn «Test …» og ingen lisenser.
+- Tilfeldige passord skrives til en fil i brukerprofilen din (ikke i repoet og ikke i chatten), med krav om bytte ved første pålogging.
+- App-rollen Helpdesk.Agent på API-appen, og ansatt-rader via den vanlige synken fra Entra. Endringsrollene tildeles i appen.
+- Kjøres med `-WhatIf` først, og etter tenant-sjekk.
+
+### Tester
+
+- Hele løpet for normal, standard og emergency.
+- Ugyldige overganger (400) og feil rolle (403).
+- Innmelder og implementør kan ikke godkjenne; én person teller ikke for to regler; Helpdesk.Admin kan ikke tildele seg selv roller.
+- Beslutning med feil hash avvises (409). Endring i godkjent innhold gjør godkjenningen ugyldig og gir `pending_approval`; endring av tidspunkt gjør det ikke.
+- Produksjon kan ikke gå til implementation uten gyldig godkjenning.
+- Standard utenfor malens miljø eller risiko avvises, og planene kan ikke endres.
+- Emergency kan ikke lukkes uten etterkontroll, og den som implementerte kan ikke gjøre etterkontrollen.
+- Rolle via Entra-gruppe (falsk Graph).
+- Tenant-skille, og nye rader i `AuthorizationTests`.
+
+### Status C2 (2026-11-26): bygget
+
+- `ChangeWorkflowService` (overganger, godkjenning, separasjon av plikter, standard og emergency), `GovernanceRoleService` (roller fra ansatt og Entra-grupper; uten svar fra Graph gis ingen rolle via gruppe), `ChangeScopeHash`.
+- API: `ChangesController`, `GovernanceController` (me, roller, RACI, godkjenningsregler) og `ChangeTemplatesController` (maler; endret innhold fjerner forhåndsgodkjenningen, som gis på nytt av en global Change Manager).
+- Ingen migrering.
+- Endres implementøren etter en godkjenning, teller ikke godkjenningen fra den personen lenger.
+- Testinnloggingen har fått en valgfri header for objekt-ID (`X-Test-ObjectId`), så testene kan bruke flere personer.
+- Tester: `ChangeWorkflowTests` (14) og nye rader i `AuthorizationTests`.
+- Skriptet `scripts/New-GovernanceTestUsers.ps1` lager de syntetiske testbrukerne.

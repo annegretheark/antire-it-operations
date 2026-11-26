@@ -59,6 +59,13 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "POST", "/api/m365/users/account-enabled" },
         { "POST", "/api/m365/users/delete" },
         { "POST", "/api/lifecycle/1/disable-account" },
+        { "GET", "/api/governance/roles" },
+        { "POST", "/api/governance/roles" },
+        { "DELETE", "/api/governance/roles/1" },
+        { "PUT", "/api/governance/raci" },
+        { "POST", "/api/governance/approval-rules" },
+        { "POST", "/api/changetemplates" },
+        { "PUT", "/api/changetemplates/1" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin
@@ -112,6 +119,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
     [InlineData("GET", "/api/servicecatalog")]
     [InlineData("GET", "/api/assets")]
     [InlineData("GET", "/api/opsreports")]
+    [InlineData("GET", "/api/changes")]
     public async Task Anonymous_requests_are_rejected(string method, string path)
     {
         var client = factory.CreateClient();
