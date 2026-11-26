@@ -123,3 +123,9 @@ variable "ai_enabled" {
   type        = bool
   default     = false
 }
+
+variable "ops_report_enabled" {
+  description = "Slår på den ukentlige driftsrapporten (OpsReport__Enabled), mandag kl. 7 norsk tid"
+  type        = bool
+  default     = false
+}

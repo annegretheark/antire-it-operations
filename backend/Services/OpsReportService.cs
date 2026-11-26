@@ -29,6 +29,7 @@ public class OpsReportService
     private readonly AlertSourceStatusRegistry _alertStatus;
     private readonly ILogger<OpsReportService> _logger;
     private readonly AiService _ai;
+    private readonly TeamsNotificationService _teams;
 
     public OpsReportService(
         AppDbContext db,
@@ -37,9 +38,11 @@ public class OpsReportService
         GraphService graph,
         AlertSourceStatusRegistry alertStatus,
         ILogger<OpsReportService> logger,
-        AiService ai)
+        AiService ai,
+        TeamsNotificationService teams)
     {
         _ai = ai;
+        _teams = teams;
         _db = db;
         _tenant = tenant;
         _currentUser = currentUser;
@@ -111,6 +114,9 @@ public class OpsReportService
 
         _logger.LogInformation(
             "Driftsrapport for {Start:yyyy-MM-dd} laget i tenant {TenantId}", periodStart, _tenant.TenantId);
+
+        // Teams-kort bare for en ny rapport (køen fanger feil i Teams)
+        await _teams.NotifyOpsReportAsync(report, metrics, cancellationToken);
 
         return (report, true);
     }

@@ -20,7 +20,11 @@ import { t } from '../i18n'
 export default function OpsReports() {
   const { isHelpdeskAgent, isHelpdeskAdmin } = useCurrentUser()
   const [reloadKey, setReloadKey] = useState(0)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  // ?driftsrapport=<id> (lenke fra Teams) velger rapporten
+  const [selectedId, setSelectedId] = useState<number | null>(() => {
+    const id = Number(new URLSearchParams(window.location.search).get('driftsrapport'))
+    return Number.isInteger(id) && id > 0 ? id : null
+  })
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [generating, setGenerating] = useState(false)

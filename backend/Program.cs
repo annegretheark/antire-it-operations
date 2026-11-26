@@ -86,6 +86,9 @@ builder.Services.AddScoped<AiService>();
 builder.Services.AddScoped<AiAssistService>();
 // Syntetiske demodata (C9): bare med Demo:Enabled og i utviklingstenanten
 builder.Services.AddScoped<GovernanceDemoSeeder>();
+// Ukentlig driftsrapport (fase 5 steg 4): mandag etter OpsReport:Hour (OpsReport:Enabled, standard av)
+builder.Services.AddSingleton<OpsReportMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<OpsReportMonitorService>());
 builder.Services.AddScoped<RiskRegisterService>();
 // Påminnelser for endringer og risiko, og utløpt aksept (Governance:MonitorEnabled)
 builder.Services.AddScoped<GovernanceNotifier>();

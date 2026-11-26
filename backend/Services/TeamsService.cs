@@ -125,6 +125,12 @@ public class TeamsNotificationService
     public string ChangeUrl(int id, bool history = false) => $"{_appUrl}/?endring={id}{(history ? "&historikk=1" : "")}";
     public string RiskUrl(int id, bool history = false) => $"{_appUrl}/?risiko={id}{(history ? "&historikk=1" : "")}";
 
+    public string OpsReportUrl(int id) => $"{_appUrl}/?driftsrapport={id}";
+
+    // Ukentlig driftsrapport (fase 5 steg 4): bare aggregerte tall og AI-teksten
+    public Task NotifyOpsReportAsync(OpsReport report, OpsReportMetrics metrics, CancellationToken cancellationToken = default) =>
+        EnqueueAsync(null, "ops_report", TeamsCards.ForOpsReport(report, metrics, OpsReportUrl(report.Id)), cancellationToken);
+
     // Kort for endringer og risiko. Sendes bare når tenanten har slått det på (standard på).
     public async Task NotifyGovernanceAsync(string kind, string payload, CancellationToken cancellationToken = default)
     {
@@ -299,6 +305,37 @@ public static class TeamsCards
             new { type = "TextBlock", text = "Teams-varsling er satt opp riktig.", wrap = true },
             new { type = "FactSet", facts = new List<object> { Fact("Sendt", DateTime.UtcNow.ToString("u")) } },
             [OpenUrl("Åpne appen", appUrl)]);
+
+    // Driftsrapporten: periode, de viktigste tallene og AI-oppsummeringen når den finnes
+    public static string ForOpsReport(OpsReport report, OpsReportMetrics m, string reportUrl)
+    {
+        var norway = SlaCalculator.Norway;
+        var start = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(report.PeriodStart, DateTimeKind.Utc), norway);
+        var end = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(report.PeriodEnd, DateTimeKind.Utc), norway).AddDays(-1);
+
+        var facts = new List<(string, string)>
+        {
+            ("Nye saker", m.Tickets.Created.ToString()),
+            ("Løste saker", m.Tickets.Resolved.ToString()),
+            ("Åpne kritiske saker", m.Tickets.OpenByPriority.GetValueOrDefault(TicketPriorities.Critical).ToString()),
+            ("SLA-brudd (respons/løsning)", $"{m.Sla.ResponseBreaches} / {m.Sla.ResolutionBreaches}"),
+            ("Nye varsler", m.Alerts.New.Sum(a => a.Count).ToString()),
+            ("Bestillinger som venter", m.Access.PendingApproval.ToString()),
+            ("Inaktive gjester", m.M365.InactiveGuests?.ToString() ?? "–"),
+        };
+
+        var text = "Nøkkeltallene er beregnet av appen.";
+        if (report.AiStatus == OpsReportAiStatuses.Ok && report.AiSummary != null)
+        {
+            var actions = report.AiActions == null
+                ? []
+                : JsonSerializer.Deserialize<List<string>>(report.AiActions) ?? [];
+            text = $"Skrevet av AI: {Shorten(report.AiSummary)}" +
+                   (actions.Count > 0 ? "\n\nTiltak:\n" + string.Join("\n", actions.Select(a => $"- {Shorten(a)}")) : "");
+        }
+
+        return Card($"Driftsrapport {start:d.M.} – {end:d.M.yyyy}", text, facts, [("Åpne rapporten", reportUrl)]);
+    }
 
     // Generelt kort: overskrift, kort tekst, fakta og lenker (alle knapper åpner appen)
     public static string Card(string heading, string text, IEnumerable<(string Title, string Value)> facts,

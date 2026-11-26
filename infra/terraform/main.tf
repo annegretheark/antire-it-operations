@@ -284,6 +284,8 @@ resource "azurerm_linux_web_app" "main" {
     Ai__Enabled    = tostring(var.ai_enabled)
     Ai__Endpoint   = azurerm_cognitive_account.ai.endpoint
     Ai__Deployment = azurerm_cognitive_deployment.ai.name
+
+    OpsReport__Enabled = tostring(var.ops_report_enabled)
   }
 
   logs {

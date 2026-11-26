@@ -130,3 +130,49 @@ Lokalt: sett `Ai:Endpoint` og `Ai:Deployment` i user secrets. Innloggingen bruke
 - `OpsReportsController` som i kapittel 5. `generate` gir 201 for en ny rapport og 200 med den eksisterende.
 - Siden **Driftsrapport** rett etter Varsler: ukene til venstre, nøkkeltall som kort til høyre, AI-delen med merket «Skrevet av AI» når den finnes. Knappen **Lag rapport nå** for `Helpdesk.Admin`.
 - Tester: `OpsReportsControllerTests` (3) og nye rader i `AuthorizationTests`.
+
+**Steg 3 (2026-11-26): ferdig, som del av C8 i ENDRING_OG_RISIKO.md.** AI-laget (`AiService`, `FoundryAiClient`), instruksjonen `backend/Prompts/ops-report.md`, og `OpsReportService` setter `AiStatus` `ok`, `failed` eller `disabled`. Foundry-ressursen finnes i dev (Terraform); AI er bare på lokalt.
+
+---
+
+## Steg 4: Ukentlig jobb og Teams-kort (detaljert plan)
+
+Ingen migrering. Bygger på steg 1–3 og den eksisterende Teams-køen.
+
+### Bakgrunnsjobb (`OpsReportMonitorService`)
+
+- Samme mønster som `SlaMonitorService` og `GovernanceMonitorService`: sjekker **hver time**, per tillatt tenant, aktør `system`. Én tenant som feiler stopper ikke de andre.
+- Lager rapporten for forrige uke når det er **mandag** og klokken er passert `OpsReport:Hour` (standard 7, Europe/Oslo), og rapporten mangler. Kjører den senere i uken (for eksempel etter en omstart), lages rapporten likevel så lenge den mangler.
+- Lager **aldri to rapporter for samme uke**, heller ikke etter omstart eller med flere instanser (sjekk før lagring og den unike indeksen fra steg 1).
+- Konfigurasjon: `OpsReport:Enabled` (standard **false**), `OpsReport:Hour` (7).
+
+### Teams-kort (`TeamsCards.ForOpsReport`)
+
+- Legges i den eksisterende køen med type `ops_report` og uten sak, **når en rapport lages** (av jobben eller med «Lag rapport nå»). En rapport som fantes fra før, gir ikke nytt kort.
+- Innhold: perioden, de viktigste tallene (nye og løste saker, åpne kritiske, SLA-brudd, nye varsler, bestillinger som venter, inaktive gjester), AI-oppsummeringen og tiltakene hvis `AiStatus` er `ok` (merket «Skrevet av AI»), og knappen **Åpne rapporten**.
+- Bare aggregerte tall og AI-teksten (som selv bare bygger på tall). Ingen navn eller sakstekster.
+- Sendes bare når Teams er satt opp for tenanten. Feil i Teams stopper aldri rapporten.
+
+### Lenke
+
+`?driftsrapport=<id>` åpner siden Driftsrapport med rapporten valgt (som `?sak=` og `?endring=`).
+
+### Infrastruktur
+
+App-innstillingen `OpsReport__Enabled` i Terraform, styrt av en ny variabel `ops_report_enabled` (standard `false`). Ingen nye ressurser; jeg viser `terraform plan` før eventuell `apply`.
+
+### Tester (kapittel 8)
+
+- Jobben lager rapporten mandag etter kl. 7, ikke før, og ikke på andre dager når den allerede finnes.
+- Ingen dobbel rapport for samme uke, også med to kjøringer etter hverandre (omstart).
+- Én tenant som feiler stopper ikke den neste.
+- Teams-kortet legges i køen med type `ops_report` når rapporten lages, ikke når den fantes fra før, og inneholder AI-teksten bare med `AiStatus` `ok`.
+- Ingen kort uten Teams-oppsett; feil i Teams stopper ikke rapporten.
+- `OpsReport:Enabled` av gir ingen rapporter fra jobben.
+
+**Steg 4 (2026-11-26): bygget.** Ingen migrering.
+- `OpsReportMonitorService`: hver time, mandag etter `OpsReport:Hour` (eller senere i uken hvis rapporten mangler), per tillatt tenant, aktør `system`. `OpsReport:Enabled` er av som standard. `OpsReport:RunOnStart` (standard true) lar testene slå jobben på uten kjøring ved oppstart.
+- `TeamsCards.ForOpsReport` legges i køen (type `ops_report`, uten sak) når en rapport lages, av jobben eller med «Lag rapport nå». AI-teksten tas med bare når `AiStatus` er `ok`.
+- `?driftsrapport=<id>` åpner rapporten. Terraform-variabelen `ops_report_enabled` (standard `false`) styrer `OpsReport__Enabled`; ikke kjørt `apply`.
+- Ikke testet automatisk: at én tenant som feiler ikke stopper de andre (samme `try/catch` per tenant som de andre jobbene).
+- Tester: `OpsReportJobTests` (4) og `OpsReportJobDisabledTests` (1).
