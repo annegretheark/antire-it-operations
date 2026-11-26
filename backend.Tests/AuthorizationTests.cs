@@ -55,6 +55,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "PUT", "/api/gdpr/settings" },
         { "GET", "/api/gdpr/processing" },
         { "POST", "/api/gdpr/processing" },
+        { "POST", "/api/opsreports/generate" },
     };
 
     // Helpdesk.Agent eller Helpdesk.Admin
@@ -76,6 +77,8 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
         { "POST", "/api/lifecycle/1/revoke/1" },
         { "GET", "/api/alerts" },
         { "GET", "/api/alerts/sources" },
+        { "GET", "/api/opsreports" },
+        { "GET", "/api/opsreports/1" },
     };
 
     // Approver eller Helpdesk.Admin
@@ -104,6 +107,7 @@ public class AuthorizationTests(TestWebApplicationFactory factory)
     [InlineData("GET", "/api/audit")]
     [InlineData("GET", "/api/servicecatalog")]
     [InlineData("GET", "/api/assets")]
+    [InlineData("GET", "/api/opsreports")]
     public async Task Anonymous_requests_are_rejected(string method, string path)
     {
         var client = factory.CreateClient();

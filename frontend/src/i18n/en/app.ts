@@ -10,6 +10,7 @@ export const app: Record<string, string> = {
   'Tilgangsbestillinger': 'Access requests',
   'Ansatte': 'Employees',
   'Varsler': 'Alerts',
+  'Driftsrapport': 'Operations report',
   'IT-utstyr': 'IT equipment',
   'Microsoft 365': 'Microsoft 365',
   'Azure': 'Azure',

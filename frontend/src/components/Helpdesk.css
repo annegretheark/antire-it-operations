@@ -622,3 +622,76 @@
 .protocol-entry dd {
   margin: 0;
 }
+
+/* Driftsrapport: ukene til venstre, valgt rapport til høyre */
+
+.ops-report-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.ops-report-weeks ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ops-report-weeks button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #172b4d;
+  cursor: pointer;
+}
+
+.ops-report-weeks button:hover {
+  background: #f1f5f9;
+}
+
+.ops-report-weeks button.active {
+  background: #e0e7ff;
+  border-color: #c7d2fe;
+  font-weight: 600;
+}
+
+.ops-report-details {
+  min-width: 0;
+}
+
+.ops-report-subheading {
+  margin: 20px 0 0;
+  font-size: 14px;
+  color: #475569;
+}
+
+.ops-report-caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 12px 0 6px;
+}
+
+.ops-report-ai {
+  border-left: 3px solid #6366f1;
+  padding-left: 12px;
+}
+
+.ops-report-ai-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .ops-report-layout {
+    grid-template-columns: 1fr;
+  }
+}

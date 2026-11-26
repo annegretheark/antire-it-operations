@@ -116,3 +116,17 @@ Lokalt: sett `Ai:Endpoint` og `Ai:Deployment` i user secrets. Innloggingen bruke
 3. `IOpsReportWriter` mot Foundry og Terraform for ressursen. Tester med falsk writer.
 4. Bakgrunnsjobb og Teams-kort.
 5. Kostnader fra Cost Management (eget steg, egen rolle).
+
+## 10. Status
+
+**Steg 1 (2026-11-25): ferdig.** Migreringen `AddOpsReports` er kjørt i den lokale dev-databasen.
+- `OpsReport` med unik indeks på (`TenantId`, `PeriodStart`). `OpsReportService` beregner nøkkeltallene for forrige uke (mandag 00:00 til mandag 00:00 norsk tid) og lagrer rapporten med `AiStatus` `disabled`. Finnes rapporten, lages ingen ny.
+- SLA-brudd regnes fra fristene (som `SlaEvaluator`), ikke fra `ResponseBreachedAt`, slik at svar som kom for sent mellom to kjøringer av SLA-jobben også telles.
+- «Gjenåpnet varsel» = varsel fra før perioden som fyrte igjen i perioden (`LastFiredAt`). En varselkilde som ikke er hentet ennå, regnes ikke som feil.
+- Feiler Graph, lagres rapporten med inaktive gjester tomt og en årsak.
+- Tester: `OpsReportTests` (6).
+
+**Steg 2 (2026-11-26): bygget.** Ingen ny migrering.
+- `OpsReportsController` som i kapittel 5. `generate` gir 201 for en ny rapport og 200 med den eksisterende.
+- Siden **Driftsrapport** rett etter Varsler: ukene til venstre, nøkkeltall som kort til høyre, AI-delen med merket «Skrevet av AI» når den finnes. Knappen **Lag rapport nå** for `Helpdesk.Admin`.
+- Tester: `OpsReportsControllerTests` (3) og nye rader i `AuthorizationTests`.
