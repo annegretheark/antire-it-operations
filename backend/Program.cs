@@ -17,7 +17,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<HttpTenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HttpTenantContext>());
 // Innlogget person (brukes bl.a. av revisjonsloggen)
-builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
+builder.Services.AddScoped<HttpCurrentUser>();
+builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<HttpCurrentUser>());
 // Revisjonslogg: logger endringer på IAudited-entiteter ved lagring
 builder.Services.AddScoped<backend.Data.AuditInterceptor>();
 // Singleton: gjenbruker credential og token-cache på tvers av forespørsler
@@ -83,6 +84,8 @@ builder.Services.AddHttpClient(nameof(FoundryAiClient));
 builder.Services.AddSingleton<IAiClient, FoundryAiClient>();
 builder.Services.AddScoped<AiService>();
 builder.Services.AddScoped<AiAssistService>();
+// Syntetiske demodata (C9): bare med Demo:Enabled og i utviklingstenanten
+builder.Services.AddScoped<GovernanceDemoSeeder>();
 builder.Services.AddScoped<RiskRegisterService>();
 // Påminnelser for endringer og risiko, og utløpt aksept (Governance:MonitorEnabled)
 builder.Services.AddScoped<GovernanceNotifier>();

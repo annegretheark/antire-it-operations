@@ -329,6 +329,13 @@ export const governance: Record<string, string> = {
   'Oppsummering for ledelsen': 'Summary for management',
   'Bygger på tallene fra dashboardet og åpne høye og kritiske risikoer. Navn og ID-er fjernes før teksten sendes.': 'Based on the dashboard figures and open high and critical risks. Names and IDs are removed before the text is sent.',
   'Lag oppsummering': 'Create summary',
+  'Demodata': 'Demo data',
+  'Syntetiske endringer og risikoer merket [DEMO], laget gjennom den vanlige arbeidsflyten med testbrukerne som aktører. Bare i utviklingstenanten.': 'Synthetic changes and risks marked [DEMO], created through the normal workflow with the test users as actors. Development tenant only.',
+  'Lag demodata': 'Create demo data',
+  'Fjern demodata': 'Remove demo data',
+  'Fjerne demodata? Rader med godkjenninger eller aksept avsluttes i stedet for å slettes.': 'Remove demo data? Rows with approvals or acceptance are closed instead of deleted.',
+  'Laget {c} endringer og {r} risikoer ({s} fantes fra før).': 'Created {c} changes and {r} risks ({s} already existed).',
+  'Slettet {d}, avsluttet {c}.': 'Deleted {d}, closed {c}.',
   'Endringer og risiko i Teams': 'Changes and risk in Teams',
   'Kort om endringer som venter på godkjenning, statusendringer, kommende produksjonsendringer, risikoer som ikke er behandlet og risikoaksept som utløper. Kortene viser bare nummer, tittel, status og tidspunkt, og lenker til appen.':
     'Cards about changes awaiting approval, status changes, upcoming production changes, untreated risks and expiring risk acceptance. The cards only show number, title, status and time, and link to the app.',

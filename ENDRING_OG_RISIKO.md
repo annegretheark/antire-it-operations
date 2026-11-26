@@ -551,3 +551,48 @@ Forespørselen inneholder ikke navn, e-post, objekt-ID-er eller ressurs-ID-er fr
 - Frontend: «Forslag fra AI» i endringsdetaljene, «Lag utkast med AI» i nytt skjema, «Oppsummering for ledelsen» på Risiko. Vises bare når AI er på.
 - Terraform: `azurerm_cognitive_account` (Sweden Central, ingen nøkkelinnlogging), `azurerm_cognitive_deployment` (`gpt-4.1-mini`, DataZoneStandard, 20k TPM) og rollen Cognitive Services OpenAI User til API-appen. Kjørt med `apply` i dev (3 nye, 1 endret, 0 slettet). `ai_enabled` er `false` i Azure; AI er bare slått på lokalt (user secrets).
 - Tester: `AiAgentTests` (6) og `AiDisabledTests` (1), med `FakeAiClient`.
+
+---
+
+## C9: Syntetiske demodata og dokumentasjon (detaljert plan)
+
+### Demodata
+
+- `GovernanceDemoSeeder` og `POST /api/governance/demo-data` (Helpdesk.Admin). **Virker bare når** `Demo:Enabled = true` **og** innlogget tenant er utviklingstenanten (`3af5c92b`); ellers 404. Av som standard, og aldri satt i Azure.
+- Lager data **gjennom de vanlige tjenestene** (`ChangeWorkflowService`, `RiskRegisterService`), slik at revisjonsloggen, hashene og godkjenningene blir ekte. Aktørene er de syntetiske testbrukerne fra C2 (må være synket inn som ansatte); mangler de, sier endepunktet hvilke som mangler.
+- Innhold (alt merket «[DEMO]» i tittelen, oppdiktet, ingen ekte personer eller systemer):
+  - 8 endringer: én i hver viktige status (utkast, venter på godkjenning, godkjent, planlagt, implementeres, lukket, avvist, rullet tilbake), en hasteendring uten etterkontroll, og en standardendring fra en demomal.
+  - 10 risikoer, én per kategori, spredt i matrisen: kritisk uten eier, under behandling med forfalt tiltak, akseptert med aksept som utløper snart, overvåkes, lukket.
+  - Koblinger mellom risikoer og endringer, og en standardmal.
+- Kan kjøres flere ganger: hopper over det som allerede finnes (tittel med «[DEMO]»).
+- **Fjerne** demodata: `DELETE /api/governance/demo-data` sletter bare rader merket «[DEMO]» som ikke har godkjenninger eller aksepter (de kan ikke slettes); resten settes til avbrutt eller lukket. Revisjonsloggen beholdes.
+- Knapp under Innstillinger → Endringsmaler (vises bare når funksjonen er på).
+- De tre utkastene CHG-000001–000003 jeg la inn direkte, blir liggende (de har ingen revisjonslogg); jeg kan avbryte dem hvis du vil.
+
+### Dokumentasjon (`docs/endring-og-risiko/`)
+
+| Fil | Innhold |
+|---|---|
+| `README.md` | Oversikt og lenker |
+| `arkitektur.md` | Komponenter (backend, frontend, bakgrunnsjobber, Teams-kø, Foundry, mock-leveranse), dataflyt og diagram (Mermaid) |
+| `datamodell.md` | Tabeller, felt, relasjoner, kontroller i databasen og hva som ikke kan endres |
+| `api.md` | Alle endepunkter med tilgang, input og svar |
+| `endringsprosess.md` | Typer, statuser og overganger (diagram), godkjenning låst til innhold, standard og hasteendring |
+| `risikoprosess.md` | Nivåer, statuser, strategier, aksept og utløp, bakgrunnsjobben |
+| `raci.md` | Roller, standard RACI-matrise og godkjenningsregler, og hvordan de endres |
+| `sikkerhet.md` | Tilgang (app-roller og endringsroller), least privilege, separasjon av plikter, serversidekontroll, revisjonslogg, hemmeligheter, tenant-skille, oppbevaring |
+| `integrasjoner.md` | Teams (kort, kø, innhold), Foundry (AI-laget, hva som sendes, begrensninger), GitHub og Terraform (simulert, sjekken, eksempel) |
+| `produksjon.md` | Forutsetninger før produksjon: skriftlig mandat, system- og risikoeierskap, ansvarsfordeling, sikkerhetsgodkjenning, eget testmiljø, ekte Teams-bot, pipelinens identitet, DPIA og behandlingsprotokoll for AI, og hva som er av i dag |
+
+`README.md` i rotmappen får en kort lenke. `ENDRING_OG_RISIKO.md` beholdes som plan og logg.
+
+### Tester
+
+Demodata: virker bare med `Demo:Enabled` og utviklingstenanten (404 ellers), bare Helpdesk.Admin, lager riktig antall i riktige statuser med revisjonslogg, kan kjøres to ganger uten dubletter, sier fra om manglende testbrukere, og fjerning rører bare «[DEMO]»-rader.
+
+### Status C9 (2026-11-26): bygget
+
+- `GovernanceDemoSeeder` og `GET/POST/DELETE /api/governance/demo-data` (Helpdesk.Admin, bare med `Demo:Enabled` og i `Demo:TenantId`, standard utviklingstenanten). Dataene lages gjennom de vanlige tjenestene som testbrukerne (`HttpCurrentUser.UseIdentity`, bare brukt her, i et eget scope). 10 endringer og 10 risikoer merket «[DEMO]»; kan kjøres på nytt; fjerning sletter bare rader uten beslutninger og avslutter resten.
+- Knapp under Innstillinger → Endringsmaler (vises bare når funksjonen er på).
+- Dokumentasjon i `docs/endring-og-risiko/` (10 filer) og lenker i `README.md`.
+- Tester: `GovernanceDemoTests` (3), `GovernanceDemoDisabledTests` (1), `GovernanceDemoMissingUsersTests` (1).

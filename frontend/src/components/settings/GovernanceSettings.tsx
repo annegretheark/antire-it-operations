@@ -366,3 +366,46 @@ export function GovernanceNotificationSettings() {
     </div>
   )
 }
+
+// Syntetiske demodata (C9). Vises bare når Demo:Enabled er på i utviklingstenanten.
+export function DemoDataSettings() {
+  const status = useResource<{ allowed: boolean }>('/api/governance/demo-data')
+  const send = useSend()
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  if (!status.data?.allowed) return null
+
+  async function run(method: 'POST' | 'DELETE') {
+    if (method === 'DELETE' && !window.confirm(t('Fjerne demodata? Rader med godkjenninger eller aksept avsluttes i stedet for å slettes.'))) return
+    setBusy(true)
+    setError('')
+    setMessage('')
+    try {
+      const result = await (await send(method, '/api/governance/demo-data')).json()
+      setMessage(method === 'POST'
+        ? t('Laget {c} endringer og {r} risikoer ({s} fantes fra før).', { c: result.changesCreated, r: result.risksCreated, s: result.skipped.length })
+        : t('Slettet {d}, avsluttet {c}.', { d: result.deleted, c: result.closed }))
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="helpdesk-card">
+      <h3>{t('Demodata')}</h3>
+      <p className="audit-intro">
+        {t('Syntetiske endringer og risikoer merket [DEMO], laget gjennom den vanlige arbeidsflyten med testbrukerne som aktører. Bare i utviklingstenanten.')}
+      </p>
+      <div className="settings-form-actions">
+        <button type="button" disabled={busy} onClick={() => void run('POST')}>{t('Lag demodata')}</button>
+        <button type="button" className="secondary" disabled={busy} onClick={() => void run('DELETE')}>{t('Fjern demodata')}</button>
+      </div>
+      {message && <p className="settings-message">{message}</p>}
+      {error && <p role="alert" className="settings-error">{error}</p>}
+    </div>
+  )
+}

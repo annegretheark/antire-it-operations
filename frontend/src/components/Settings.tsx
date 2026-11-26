@@ -12,6 +12,7 @@ import AppSignInsSettings from './settings/AppSignInsSettings'
 import {
   ApprovalRulesSettings,
   ChangeTemplatesSettings,
+  DemoDataSettings,
   GovernanceNotificationSettings,
   GovernanceRolesSettings,
   RaciSettings,
@@ -94,7 +95,7 @@ export default function Settings() {
       {tab === 'govroles' && <GovernanceRolesSettings />}
       {tab === 'raci' && <RaciSettings />}
       {tab === 'approvalrules' && <ApprovalRulesSettings />}
-      {tab === 'changetemplates' && <ChangeTemplatesSettings />}
+      {tab === 'changetemplates' && <><ChangeTemplatesSettings /><DemoDataSettings /></>}
       {tab === 'signins' && <AppSignInsSettings />}
       {tab === 'audit' && <AuditLog />}
     </section>

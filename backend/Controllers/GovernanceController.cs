@@ -199,6 +199,41 @@ public class GovernanceController : ControllerBase
         return Ok(await dashboard.BuildAsync(DateTime.UtcNow, Ct));
     }
 
+    // ---------- Demodata (C9): bare med Demo:Enabled og i utviklingstenanten ----------
+
+    [HttpGet("demo-data")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    public IActionResult DemoStatus([FromServices] GovernanceDemoSeeder seeder) =>
+        seeder.Allowed ? Ok(new { allowed = true }) : NotFound();
+
+    [HttpPost("demo-data")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    public async Task<IActionResult> SeedDemo([FromServices] GovernanceDemoSeeder seeder)
+    {
+        try
+        {
+            return Ok(await seeder.SeedAsync(Ct));
+        }
+        catch (GovernanceException e)
+        {
+            return StatusCode(e.StatusCode, new { message = e.Message });
+        }
+    }
+
+    [HttpDelete("demo-data")]
+    [Authorize(Policy = AuthPolicies.HelpdeskAdmin)]
+    public async Task<IActionResult> RemoveDemo([FromServices] GovernanceDemoSeeder seeder)
+    {
+        try
+        {
+            return Ok(await seeder.RemoveAsync(Ct));
+        }
+        catch (GovernanceException e)
+        {
+            return StatusCode(e.StatusCode, new { message = e.Message });
+        }
+    }
+
     // ---------- Innstillinger ----------
 
     [HttpGet("settings")]

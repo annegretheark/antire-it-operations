@@ -236,6 +236,9 @@ scripts/             PowerShell-skript for Entra og Azure
 | Dokument | Innhold |
 |---|---|
 | [`UTVIDELSESPLAN.md`](UTVIDELSESPLAN.md) | Planen og status for hvert steg, inkludert drift i Azure (kapittel 8b) |
+| [`FASE5_DRIFTSRAPPORT.md`](FASE5_DRIFTSRAPPORT.md) | Ukentlig driftsrapport med AI |
+| [`ENDRING_OG_RISIKO.md`](ENDRING_OG_RISIKO.md) | Plan og logg for Change Management og Risk Management (prototype, C1–C9) |
+| [`docs/endring-og-risiko/`](docs/endring-og-risiko/README.md) | Dokumentasjon for endring og risiko: arkitektur, datamodell, API, prosesser, RACI, sikkerhet, integrasjoner og forutsetninger for produksjon |
 | [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) | Målarkitektur |
 | [`DATABASE_DESIGN.md`](DATABASE_DESIGN.md) | Datamodell |
 | [`GRAPH_API_INTEGRATIONS.md`](GRAPH_API_INTEGRATIONS.md) | Microsoft Graph: endepunkter, rettigheter og struping |
