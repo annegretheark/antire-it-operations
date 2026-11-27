@@ -176,3 +176,48 @@ App-innstillingen `OpsReport__Enabled` i Terraform, styrt av en ny variabel `ops
 - `?driftsrapport=<id>` åpner rapporten. Terraform-variabelen `ops_report_enabled` (standard `false`) styrer `OpsReport__Enabled`; ikke kjørt `apply`.
 - Ikke testet automatisk: at én tenant som feiler ikke stopper de andre (samme `try/catch` per tenant som de andre jobbene).
 - Tester: `OpsReportJobTests` (4) og `OpsReportJobDisabledTests` (1).
+
+---
+
+## Steg 5: Kostnader fra Azure Cost Management (detaljert plan)
+
+Ingen migrering: kostnadene blir en ny del av `Metrics` (jsonb) i rapporten. Gamle rapporter uten kostnader vises som før.
+
+### Henting
+
+- `AzureService.GetCostsAsync`: `POST https://management.azure.com/subscriptions/{id}/providers/Microsoft.CostManagement/query?api-version=2023-11-01` med egendefinert periode, `granularity: None`, summen av `Cost` og gruppering på `ServiceName`. Samme innlogging som resten av Azure (`AppCredentials`, ingen nøkkel).
+- For hvert synket og synlig abonnement (som varslene i 4.2), for **perioden** og **uken før** (til sammenligning). To kall per abonnement per uke.
+- 429 (struping) prøves på nytt med ventetid. Abonnementer appen ikke har tilgang til, hoppes over og telles.
+
+### Rettighet
+
+- Rollen **Reader** som appen allerede har på abonnementene (`Grant-AzureReader.ps1`), gir trolig lesetilgang til kostnadsdata. **Cost Management Reader** er den smaleste rollen som bare gir kostnader.
+- Jeg prøver først med Reader i dev. Gir Cost Management 403, legger jeg Cost Management Reader til i `Grant-AzureReader.ps1` (eget valg `-IncludeCostReader`) og kjører det i dev etter tenant-sjekk og `-WhatIf`, som før.
+
+### Nøkkeltall (`OpsCostMetrics`)
+
+| Felt | Innhold |
+|---|---|
+| `Currency` | Valuta fra Cost Management (forventet NOK) |
+| `Total`, `PreviousTotal`, `ChangePercent` | Sum for perioden, uken før og endring i prosent |
+| `TopServices` | De 5 dyreste tjenestetypene (f.eks. «Virtual Machines») med beløp |
+| `SubscriptionsCounted`, `SubscriptionsSkipped` | Hvor mange abonnementer som ble telt, og hvor mange som manglet tilgang |
+| `UnavailableReason` | Satt når ingen kostnader kunne hentes; resten av rapporten lages likevel |
+
+**Personvern og AI:** bare summer og tjenestetyper (kategorier). **Ingen abonnementsnavn, abonnements-ID-er eller ressurs-ID-er** i nøkkeltallene, så de kan sendes til AI etter regelen i CLAUDE.md. Beløpene beregnes av koden.
+
+### Visning
+
+- Driftsrapport-siden får kortene **Kostnad forrige uke**, **Endring fra uka før** (uthevet over +20 %) og en liten tabell over de dyreste tjenestetypene.
+- Teams-kortet får kostnaden og endringen.
+- Instruksjonen til AI (`ops-report.md`) får beskjed om at kostnadstall kan være forsinket med opptil 24–48 timer (Cost Management oppdateres ikke i sanntid), og at den ikke skal gjette årsaker til endringer.
+
+### Tester
+
+Tallene summeres riktig over flere abonnementer og tjenester (falsk Azure), endring i prosent (også når uka før er 0), abonnement uten tilgang telles som hoppet over, Cost Management nede gir `UnavailableReason` og rapporten lages likevel, nøkkeltallene inneholder ingen abonnementsnavn eller ID-er, og kortet og siden viser kostnaden. En test mot ekte Cost Management gjøres manuelt i dev.
+
+**Steg 5 (2026-11-27): ferdig, prøvd mot ekte Cost Management i dev (Reader-rollen var nok).** Ingen migrering.
+- `AzureService.GetCostsAsync` (Cost Management Query API, gruppert på `ServiceName`, nytt forsøk ved 429) og `OpsCostMetrics` i nøkkeltallene: sum, uka før, endring i prosent, de 5 dyreste tjenestetypene, abonnementer telt og uten tilgang. Ingen abonnementsnavn eller ID-er.
+- Siden Driftsrapport viser kostnadene (endring over +20 % uthevet), og Teams-kortet viser kostnad og endring. Instruksjonen til AI nevner forsinkelsen i Cost Management.
+- Testen fra steg 1 som skulle fange ressurs-ID-er, ser nå etter `/subscriptions/` i stedet for ordet `subscriptions` (som nå er del av et feltnavn).
+- Tester: `OpsReportCostTests` (6).

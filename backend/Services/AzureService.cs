@@ -11,6 +11,9 @@ namespace backend.Services;
 
 public record AzureSubscriptionInfo(string SubscriptionId, string DisplayName, string State);
 
+// Kostnad per tjenestetype summert over abonnementene (fase 5 steg 5)
+public record AzureCostResult(string? Currency, IReadOnlyDictionary<string, decimal> ByService, int Counted, int Skipped);
+
 public record AzureResource(
     string Id,
     string Name,
@@ -182,6 +185,109 @@ public class AzureService
     private sealed record ResourceDto(
         string? Id, string? Name, string? Type, string? Location,
         string? ResourceGroup, string? SubscriptionId, JsonElement? Tags);
+
+    // ---------- Kostnader (fase 5 steg 5) ----------
+
+    // Kostnad per tjenestetype i perioden, summert over abonnementene (Cost Management
+    // Query API). Abonnementer appen ikke har tilgang til, telles som hoppet over;
+    // feiler alle, kastes feilen. Struping (429) prøves på nytt med ventetid.
+    public virtual async Task<AzureCostResult> GetCostsAsync(
+        string tenantId, IReadOnlyCollection<string> subscriptionIds, DateTime fromUtc, DateTime toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var byService = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        string? currency = null;
+        var counted = 0;
+        var skipped = 0;
+        AzureUnavailableException? lastError = null;
+
+        var body = new
+        {
+            type = "ActualCost",
+            timeframe = "Custom",
+            timePeriod = new { from = fromUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"), to = toUtc.AddSeconds(-1).ToString("yyyy-MM-ddTHH:mm:ssZ") },
+            dataset = new
+            {
+                granularity = "None",
+                aggregation = new { totalCost = new { name = "Cost", function = "Sum" } },
+                grouping = new[] { new { type = "Dimension", name = "ServiceName" } },
+            },
+        };
+
+        foreach (var subscriptionId in subscriptionIds)
+        {
+            var url = $"{ArmBase}/subscriptions/{Uri.EscapeDataString(subscriptionId)}" +
+                      "/providers/Microsoft.CostManagement/query?api-version=2023-11-01";
+
+            try
+            {
+                var page = await SendWithRetryAsync(tenantId, url, body, cancellationToken);
+                foreach (var (service, cost, rowCurrency) in ParseCostRows(page))
+                {
+                    byService[service] = byService.GetValueOrDefault(service) + cost;
+                    currency ??= rowCurrency;
+                }
+                counted++;
+            }
+            catch (AzureUnavailableException e)
+            {
+                lastError = e;
+                skipped++;
+            }
+        }
+
+        if (counted == 0 && lastError != null)
+            throw lastError;
+
+        return new AzureCostResult(currency, byService, counted, skipped);
+    }
+
+    private async Task<JsonElement> SendWithRetryAsync(string tenantId, string url, object body, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await SendAsync<JsonElement>(tenantId, HttpMethod.Post, url, body, ct);
+            }
+            catch (AzureUnavailableException e) when (e.StatusCode == 429 && attempt < 3)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(10 * attempt), ct);
+            }
+        }
+    }
+
+    // Radene i svaret: kolonnene finnes ved navn (Cost/PreTaxCost, ServiceName, Currency)
+    public static List<(string Service, decimal Cost, string? Currency)> ParseCostRows(JsonElement page)
+    {
+        var result = new List<(string, decimal, string?)>();
+        if (!page.TryGetProperty("properties", out var properties) ||
+            !properties.TryGetProperty("columns", out var columns) ||
+            !properties.TryGetProperty("rows", out var rows))
+        {
+            return result;
+        }
+
+        var names = columns.EnumerateArray().Select(c => c.GetProperty("name").GetString() ?? "").ToList();
+        var costIndex = names.FindIndex(n => n is "Cost" or "PreTaxCost" or "CostUSD");
+        var serviceIndex = names.FindIndex(n => n == "ServiceName");
+        var currencyIndex = names.FindIndex(n => n == "Currency");
+        if (costIndex < 0)
+            return result;
+
+        foreach (var row in rows.EnumerateArray())
+        {
+            var cells = row.EnumerateArray().ToList();
+            var cost = cells[costIndex].ValueKind == JsonValueKind.Number ? cells[costIndex].GetDecimal() : 0m;
+            var service = serviceIndex >= 0 && cells[serviceIndex].ValueKind == JsonValueKind.String
+                ? cells[serviceIndex].GetString() ?? "Ukjent" : "Ukjent";
+            var currency = currencyIndex >= 0 && cells[currencyIndex].ValueKind == JsonValueKind.String
+                ? cells[currencyIndex].GetString() : null;
+            result.Add((string.IsNullOrWhiteSpace(service) ? "Ukjent" : service, cost, currency));
+        }
+
+        return result;
+    }
 
     // ---------- Azure Monitor-varsler (fase 4.2) ----------
 

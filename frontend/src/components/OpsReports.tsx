@@ -13,7 +13,7 @@ import {
   type OpsReportSummary,
 } from '../opsReports'
 import { errorText, useList, useResource, useSend } from './settings/settingsApi'
-import { t } from '../i18n'
+import { locale, t } from '../i18n'
 
 // Ukentlig driftsrapport (Helpdesk.Agent og Helpdesk.Admin). Tallene er beregnet
 // av appen; AI-delen vises bare når den er laget.
@@ -264,6 +264,8 @@ function MetricsView({ m }: { m: OpsReportMetrics }) {
           {t('«Nå»-tall gjelder {time}, da rapporten ble laget.', { time: formatDateTime(m.generatedAt) })}
         </p>
       </div>
+
+      {m.costs && <CostSection costs={m.costs} />}
     </>
   )
 }
@@ -292,6 +294,50 @@ function AlertCountTable({ title, counts }: { title: string; counts: OpsAlertCou
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// Kostnader i Azure (steg 5). Beløpene er beregnet av appen fra Cost Management.
+function CostSection({ costs }: { costs: NonNullable<OpsReportMetrics['costs']> }) {
+  const money = (value: number | null) =>
+    value == null ? '–' : `${value.toLocaleString(locale(), { maximumFractionDigits: 0 })} ${costs.currency ?? ''}`.trim()
+  const change = costs.changePercent
+
+  return (
+    <div className="helpdesk-card">
+      <h3>{t('Kostnader i Azure')}</h3>
+      {costs.unavailableReason ? (
+        <p className="settings-muted">{t('Kostnader: {reason}', { reason: costs.unavailableReason })}</p>
+      ) : (
+        <>
+          <div className="dashboard-grid">
+            <Stat label={t('Kostnad forrige uke')} value={money(costs.total)} />
+            <Stat label={t('Uka før')} value={money(costs.previousTotal)} />
+            <Stat
+              label={t('Endring fra uka før')}
+              value={change == null ? '–' : `${change > 0 ? '+' : ''}${change.toLocaleString(locale())} %`}
+              tone={change != null && change > 20 ? 'warning' : undefined}
+            />
+          </div>
+          {costs.topServices.length > 0 && (
+            <table className="audit-table">
+              <caption className="ops-report-caption">{t('Dyreste tjenestetyper')}</caption>
+              <thead><tr><th>{t('Tjenestetype')}</th><th>{t('Beløp')}</th></tr></thead>
+              <tbody>
+                {costs.topServices.map((s) => (
+                  <tr key={s.service}><td>{s.service}</td><td>{money(s.amount)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="settings-muted">
+            {t('{n} abonnementer telt', { n: costs.subscriptionsCounted })}
+            {costs.subscriptionsSkipped > 0 && ` · ${t('{n} uten tilgang', { n: costs.subscriptionsSkipped })}`}
+            {' · '}{t('Cost Management kan være forsinket med 24–48 timer.')}
+          </p>
+        </>
+      )}
     </div>
   )
 }

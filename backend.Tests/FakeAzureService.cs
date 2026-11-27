@@ -35,6 +35,44 @@ public class FakeAzureService(IHttpClientFactory httpClients, IConfiguration con
         return Task.FromResult(MonitorAlerts.GetValueOrDefault(tenantId)?.ToList() ?? []);
     }
 
+    // Kostnader per (abonnement, periodestart): tjenestetype → beløp (steg 5)
+    public ConcurrentDictionary<(string SubscriptionId, DateTime From), Dictionary<string, decimal>> Costs { get; } = new();
+
+    // Abonnementer appen ikke har tilgang til i Cost Management
+    public HashSet<string> CostDenied { get; } = [];
+
+    // Settes for å la hele kostnadshentingen feile
+    public Exception? CostFailure { get; set; }
+
+    public override Task<AzureCostResult> GetCostsAsync(
+        string tenantId, IReadOnlyCollection<string> subscriptionIds, DateTime fromUtc, DateTime toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        if (CostFailure is { } failure)
+            throw failure;
+
+        var byService = new Dictionary<string, decimal>();
+        int counted = 0, skipped = 0;
+
+        foreach (var id in subscriptionIds)
+        {
+            if (CostDenied.Contains(id))
+            {
+                skipped++;
+                continue;
+            }
+
+            counted++;
+            foreach (var (service, amount) in Costs.GetValueOrDefault((id, fromUtc)) ?? [])
+                byService[service] = byService.GetValueOrDefault(service) + amount;
+        }
+
+        if (counted == 0 && skipped > 0)
+            throw new AzureUnavailableException("Appen har ikke tilgang i Azure.", 403);
+
+        return Task.FromResult(new AzureCostResult("NOK", byService, counted, skipped));
+    }
+
     public override Task<List<AzureSubscriptionInfo>> ListSubscriptionsAsync(
         string tenantId, CancellationToken cancellationToken = default)
     {

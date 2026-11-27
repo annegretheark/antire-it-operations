@@ -29,6 +29,17 @@ export type OpsReportMetrics = {
   access: { pendingApproval: number; oldestPendingDays: number | null }
   lifecycle: { onboardingNext14Days: number; offboardingNext14Days: number }
   m365: { inactiveGuests: number | null; unavailableReason: string | null }
+  // Kostnader i Azure (steg 5); mangler i rapporter fra før steg 5
+  costs?: {
+    currency: string | null
+    total: number | null
+    previousTotal: number | null
+    changePercent: number | null
+    topServices: { service: string; amount: number }[]
+    subscriptionsCounted: number
+    subscriptionsSkipped: number
+    unavailableReason: string | null
+  } | null
 }
 
 export type OpsReport = OpsReportSummary & {

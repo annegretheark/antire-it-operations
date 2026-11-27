@@ -30,6 +30,7 @@ public class OpsReportService
     private readonly ILogger<OpsReportService> _logger;
     private readonly AiService _ai;
     private readonly TeamsNotificationService _teams;
+    private readonly AzureService _azure;
 
     public OpsReportService(
         AppDbContext db,
@@ -39,8 +40,10 @@ public class OpsReportService
         AlertSourceStatusRegistry alertStatus,
         ILogger<OpsReportService> logger,
         AiService ai,
-        TeamsNotificationService teams)
+        TeamsNotificationService teams,
+        AzureService azure)
     {
+        _azure = azure;
         _ai = ai;
         _teams = teams;
         _db = db;
@@ -174,7 +177,8 @@ public class OpsReportService
             await AlertMetricsAsync(periodStart, periodEnd, cancellationToken),
             await AccessMetricsAsync(nowUtc, cancellationToken),
             await LifecycleMetricsAsync(nowUtc, cancellationToken),
-            await M365MetricsAsync(nowUtc, cancellationToken));
+            await M365MetricsAsync(nowUtc, cancellationToken),
+            await CostMetricsAsync(periodStart, periodEnd, cancellationToken));
     }
 
     private async Task<OpsTicketMetrics> TicketMetricsAsync(
@@ -288,6 +292,48 @@ public class OpsReportService
         return new OpsLifecycleMetrics(
             upcoming.FirstOrDefault(u => u.Type == LifecycleTypes.Onboarding)?.Count ?? 0,
             upcoming.FirstOrDefault(u => u.Type == LifecycleTypes.Offboarding)?.Count ?? 0);
+    }
+
+    public const int TopServiceCount = 5;
+
+    // Kostnader i perioden og uka før (steg 5), summert over synkede abonnementer.
+    // Bare summer og tjenestetyper lagres. Feil i Azure stopper ikke rapporten.
+    private async Task<OpsCostMetrics> CostMetricsAsync(DateTime start, DateTime end, CancellationToken ct)
+    {
+        static OpsCostMetrics Unavailable(string reason) => new(null, null, null, null, [], 0, 0, reason);
+
+        if (_tenant.TenantId is not { } tenantId)
+            return Unavailable("Ingen tenant.");
+
+        var subscriptions = await _db.AzureSubscriptions.AsNoTracking()
+            .Where(s => s.IsVisible).Select(s => s.SubscriptionId).ToListAsync(ct);
+        if (subscriptions.Count == 0)
+            return Unavailable("Ingen Azure-abonnementer er synket.");
+
+        try
+        {
+            var current = await _azure.GetCostsAsync(tenantId, subscriptions, start, end, ct);
+            var previous = await _azure.GetCostsAsync(tenantId, subscriptions, start.AddDays(-7), start, ct);
+
+            var total = Math.Round(current.ByService.Values.Sum(), 2);
+            var previousTotal = Math.Round(previous.ByService.Values.Sum(), 2);
+            decimal? change = previousTotal == 0 ? null : Math.Round((total - previousTotal) / previousTotal * 100, 1);
+
+            var top = current.ByService
+                .Where(s => s.Value > 0)
+                .OrderByDescending(s => s.Value)
+                .Take(TopServiceCount)
+                .Select(s => new OpsServiceCost(s.Key, Math.Round(s.Value, 2)))
+                .ToList();
+
+            return new OpsCostMetrics(current.Currency ?? previous.Currency, total, previousTotal, change, top,
+                current.Counted, current.Skipped, null);
+        }
+        catch (AzureUnavailableException e)
+        {
+            _logger.LogWarning(e, "Kostnader for driftsrapporten feilet i tenant {TenantId}", tenantId);
+            return Unavailable(e.Message);
+        }
     }
 
     // Samme regel som M365-siden (M365InactiveUsers). Feil i Graph stopper ikke rapporten.

@@ -179,6 +179,17 @@ export const operations: Record<string, string> = {
   'Inaktive gjester (90 dager)': 'Inactive guests (90 days)',
   'Inaktive gjester: {reason}': 'Inactive guests: {reason}',
   '«Nå»-tall gjelder {time}, da rapporten ble laget.': '«Now» figures are as of {time}, when the report was created.',
+  'Kostnader i Azure': 'Costs in Azure',
+  'Kostnader: {reason}': 'Costs: {reason}',
+  'Kostnad forrige uke': 'Cost last week',
+  'Uka før': 'The week before',
+  'Endring fra uka før': 'Change from the week before',
+  'Dyreste tjenestetyper': 'Most expensive service types',
+  'Tjenestetype': 'Service type',
+  'Beløp': 'Amount',
+  '{n} abonnementer telt': '{n} subscriptions counted',
+  '{n} uten tilgang': '{n} without access',
+  'Cost Management kan være forsinket med 24–48 timer.': 'Cost Management can be delayed by 24–48 hours.',
 
   // Offboarding: deaktiver konto i Entra (Lifecycle.tsx og Onboarding-maler)
   'Knapp på oppgaven': 'Button on the task',

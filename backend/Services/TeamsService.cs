@@ -324,6 +324,13 @@ public static class TeamsCards
             ("Inaktive gjester", m.M365.InactiveGuests?.ToString() ?? "–"),
         };
 
+        // Kostnad i Azure (steg 5), med endring fra uka før
+        if (m.Costs?.Total is { } total)
+        {
+            var change = m.Costs.ChangePercent is { } pct ? $" ({pct.ToString("+0.0;-0.0;0.0", System.Globalization.CultureInfo.InvariantCulture)} %)" : "";
+            facts.Add(("Kostnad Azure", $"{total.ToString("N0", new System.Globalization.CultureInfo("nb-NO"))} {m.Costs.Currency}{change}"));
+        }
+
         var text = "Nøkkeltallene er beregnet av appen.";
         if (report.AiStatus == OpsReportAiStatuses.Ok && report.AiSummary != null)
         {

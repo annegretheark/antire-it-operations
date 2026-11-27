@@ -50,7 +50,9 @@ public record OpsReportMetrics(
     OpsAlertMetrics Alerts,
     OpsAccessMetrics Access,
     OpsLifecycleMetrics Lifecycle,
-    OpsM365Metrics M365
+    OpsM365Metrics M365,
+    // Kostnader fra Cost Management (steg 5); null i rapporter fra før steg 5
+    OpsCostMetrics? Costs = null
 );
 
 public record OpsTicketMetrics(
@@ -95,5 +97,22 @@ public record OpsLifecycleMetrics(
 public record OpsM365Metrics(
     // Gjester uten vellykket pålogging på 90 dager; null når dataene ikke er tilgjengelige
     int? InactiveGuests,
+    string? UnavailableReason
+);
+
+// Kostnad for én tjenestetype (kategori fra Cost Management, f.eks. «Virtual Machines»)
+public record OpsServiceCost(string Service, decimal Amount);
+
+// Kostnader i Azure (steg 5). Bare summer og tjenestetyper: ingen abonnementsnavn,
+// abonnements-ID-er eller ressurs-ID-er, slik at tallene kan sendes til AI.
+public record OpsCostMetrics(
+    string? Currency,
+    decimal? Total,
+    decimal? PreviousTotal,
+    // Endring fra uka før i prosent; null når uka før var 0 eller mangler
+    decimal? ChangePercent,
+    IReadOnlyList<OpsServiceCost> TopServices,
+    int SubscriptionsCounted,
+    int SubscriptionsSkipped,
     string? UnavailableReason
 );

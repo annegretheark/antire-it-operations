@@ -193,7 +193,7 @@ public class OpsReportTests(SqliteWebApplicationFactory factory)
         Assert.Null(m.M365.UnavailableReason);
 
         // Nøkkeltallene inneholder bare tall og kategorinavn
-        foreach (var secret in new[] { "Hemmelig", "@", "vm-hemmelig", "gjest.", "Visma", "subscriptions" })
+        foreach (var secret in new[] { "Hemmelig", "@", "vm-hemmelig", "gjest.", "Visma", "/subscriptions/" })
             Assert.DoesNotContain(secret, report.Metrics, StringComparison.OrdinalIgnoreCase);
 
         await using var check = factory.CreateDbContext(tenant);
