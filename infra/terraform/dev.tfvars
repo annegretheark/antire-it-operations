@@ -17,3 +17,7 @@ monthly_budget = 50
 
 # Offentlig IP-adresse migreringer kjøres fra settes ved kjøring:
 #   terraform apply -var-file=dev.tfvars -var='deployer_ip_addresses=["<din IP>"]'
+
+# AI og ukentlig driftsrapport i dev (FASE5_DRIFTSRAPPORT.md, ENDRING_OG_RISIKO.md C8)
+ai_enabled         = true
+ops_report_enabled = true
